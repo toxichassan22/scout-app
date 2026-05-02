@@ -1,0 +1,166 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    @apply font-sans text-slate-100 antialiased;
+    background:
+      linear-gradient(rgba(56, 189, 248, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56, 189, 248, 0.035) 1px, transparent 1px),
+      radial-gradient(circle at 18% 14%, rgba(242, 193, 78, 0.15), transparent 22rem),
+      radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), transparent 24rem),
+      linear-gradient(145deg, #08111f 0%, #0d1b2d 44%, #10261f 100%);
+    background-size: 32px 32px, 32px 32px, auto, auto, auto;
+    direction: rtl;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
+
+  *,
+  *::before,
+  *::after {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    -webkit-touch-callout: none !important;
+  }
+
+  ::selection {
+    background: transparent;
+    color: inherit;
+  }
+
+  input,
+  textarea {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    caret-color: #38BDF8;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply min-h-screen text-slate-100;
+    background:
+      linear-gradient(rgba(56, 189, 248, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56, 189, 248, 0.035) 1px, transparent 1px),
+      radial-gradient(circle at 12% 9%, rgba(242, 193, 78, 0.13), transparent 22rem),
+      radial-gradient(circle at 90% 14%, rgba(56, 189, 248, 0.13), transparent 25rem),
+      linear-gradient(145deg, #08111f 0%, #0d1b2d 48%, #10261f 100%);
+    background-size: 34px 34px, 34px 34px, auto, auto, auto;
+  }
+
+  .page-shell {
+    @apply mx-auto max-w-6xl px-4 pb-28 pt-5 sm:px-6 lg:pt-8;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-accent/20 bg-primary px-5 py-3 font-bold text-white shadow-lg shadow-primary/30 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-signal/25 bg-slate-900/70 px-5 py-3 font-bold text-signal shadow-sm transition-all active:scale-95;
+  }
+
+  .card {
+    @apply rounded-lg border border-slate-700/70 bg-slate-950/70 p-5 shadow-xl shadow-black/20 backdrop-blur;
+  }
+
+  .section-title {
+    @apply text-right text-xl font-black text-slate-50;
+  }
+
+  .section-kicker {
+    @apply text-right text-sm font-bold text-accent;
+  }
+
+  .input-field {
+    @apply w-full rounded-lg border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none transition-all placeholder:text-slate-500 focus:border-signal focus:ring-2 focus:ring-signal/20;
+  }
+
+  .tech-panel {
+    @apply relative overflow-hidden rounded-lg border border-signal/20 bg-slate-950/80 shadow-2xl shadow-black/25 backdrop-blur;
+  }
+
+  .tech-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+      linear-gradient(rgba(56, 189, 248, 0.06) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: linear-gradient(90deg, transparent, black 16%, black 84%, transparent);
+  }
+
+  .tech-panel > * {
+    position: relative;
+  }
+
+  .metric-tile {
+    @apply rounded-lg border border-slate-700/80 bg-slate-900/70 p-3;
+  }
+
+  .field-band {
+    @apply rounded-lg border border-primary/35 bg-primary/10;
+  }
+}
+
+#screen-blur {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  color: transparent;
+  text-align: center;
+  padding: 2rem;
+  font-weight: 800;
+  cursor: default;
+}
+
+.privacy-locked body > *:not(#screen-blur) {
+  visibility: hidden !important;
+}
+
+@media print {
+  html,
+  body,
+  #root {
+    background: #000 !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  #screen-blur {
+    display: flex !important;
+    visibility: visible !important;
+    background: #000 !important;
+    color: transparent !important;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-slate-950;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-signal/30 rounded-full hover:bg-signal/50;
+}

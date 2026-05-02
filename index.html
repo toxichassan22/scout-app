@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>المخيم الرقمي - مهرجان الكشافة السنوي</title>
+    <meta name="description" content="تطبيق مهرجان الكشافة السنوي - المخيم الرقمي" />
+    <meta name="theme-color" content="#2D6A4F" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/festival-logo.png" />
+    <script>
+      (function () {
+        const blocked = new Set(['a', 'c', 's', 'p', 'u', 'x']);
+        const editable = function (target) {
+          return target && target.closest && target.closest('input, textarea, [contenteditable="true"], [data-allow-copy="true"]');
+        };
+        const stop = function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          try {
+            window.getSelection && window.getSelection().removeAllRanges();
+          } catch (error) {}
+          return false;
+        };
+        const stopUnlessEditable = function (event) {
+          if (editable(event.target)) return true;
+          return stop(event);
+        };
+        document.addEventListener('contextmenu', stopUnlessEditable, true);
+        document.addEventListener('selectstart', stopUnlessEditable, true);
+        document.addEventListener('dragstart', stopUnlessEditable, true);
+        document.addEventListener('copy', stopUnlessEditable, true);
+        document.addEventListener('cut', stopUnlessEditable, true);
+        document.addEventListener('keydown', function (event) {
+          const key = String(event.key || '').toLowerCase();
+          const code = String(event.code || '').toLowerCase();
+          const screenshot =
+            key === 'printscreen' ||
+            code === 'printscreen' ||
+            (event.metaKey && event.shiftKey && key === 's') ||
+            (event.metaKey && event.shiftKey && code === 'keys') ||
+            ((event.metaKey || event.ctrlKey) && (key === 'printscreen' || code === 'printscreen'));
+          if (screenshot) stop(event);
+          if (editable(event.target)) return;
+          if ((event.ctrlKey || event.metaKey) && blocked.has(key)) stop(event);
+          if (event.key === 'F12') stop(event);
+        }, true);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="screen-blur" aria-label="محتوى محمي"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

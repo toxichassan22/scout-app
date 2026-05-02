@@ -1,0 +1,25 @@
+{
+  "name": "المخيم الرقمي",
+  "short_name": "المخيم الرقمي",
+  "description": "تطبيق مهرجان الكشافة السنوي",
+  "start_url": "/login",
+  "display": "standalone",
+  "dir": "rtl",
+  "lang": "ar",
+  "background_color": "#F8F9FA",
+  "theme_color": "#2D6A4F",
+  "icons": [
+    {
+      "src": "/festival-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/festival-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
