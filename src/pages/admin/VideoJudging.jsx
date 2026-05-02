@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ChevronLeft, Star } from 'lucide-react';
+import { ChevronLeft, Star, Video } from 'lucide-react';
 import { useCompetitions } from '../../context/CompetitionContext';
 
 const AdminVideoJudging = () => {
@@ -32,6 +32,20 @@ const AdminVideoJudging = () => {
                   </div>
                 </div>
                 <p className="mb-4 rounded-2xl bg-gray-50 p-4 leading-7 text-gray-700">{submission.data.prompt}</p>
+                {submission.data?.videoUrl ? (
+                  <video
+                    src={submission.data.videoUrl}
+                    controls
+                    playsInline
+                    className="mb-4 w-full rounded-2xl border border-slate-200 bg-black"
+                  />
+                ) : submission.data?.status && submission.data.status !== 'done' ? (
+                  <p className="mb-4 inline-flex items-center gap-2 rounded-2xl bg-amber-50 px-3 py-2 text-sm font-bold text-amber-700">
+                    <Video size={16} />
+                    حالة التوليد: {submission.data.status}
+                    {submission.data.error ? ` — ${submission.data.error}` : ''}
+                  </p>
+                ) : null}
                 <label className="mb-2 block text-sm font-bold text-gray-600">التقييم من 0 إلى 100</label>
                 <input
                   type="number"

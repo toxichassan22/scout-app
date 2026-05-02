@@ -3,6 +3,7 @@ import {
   GEOGRAPHY_COUNTRIES,
   INITIAL_NEWS,
   INITIAL_QUESTIONS,
+  INITIAL_SETTINGS,
   MOCK_COMPETITIONS,
   STORAGE_KEYS,
 } from '../data/mockData';
@@ -33,6 +34,10 @@ export const CompetitionProvider = ({ children }) => {
   const [news, setNews] = useState(() => readJson(STORAGE_KEYS.news, INITIAL_NEWS));
   const [geographyCountries, setGeographyCountries] = useState(() => readJson(STORAGE_KEYS.geography, GEOGRAPHY_COUNTRIES));
   const [questions, setQuestions] = useState(() => readJson(STORAGE_KEYS.questions, INITIAL_QUESTIONS));
+  const [settings, setSettings] = useState(() => ({
+    ...INITIAL_SETTINGS,
+    ...readJson(STORAGE_KEYS.settings, {}),
+  }));
 
   useEffect(() => persist(STORAGE_KEYS.competitions, competitions), [competitions]);
   useEffect(() => persist(STORAGE_KEYS.submissions, submissions), [submissions]);
@@ -40,6 +45,7 @@ export const CompetitionProvider = ({ children }) => {
   useEffect(() => persist(STORAGE_KEYS.news, news), [news]);
   useEffect(() => persist(STORAGE_KEYS.geography, geographyCountries), [geographyCountries]);
   useEffect(() => persist(STORAGE_KEYS.questions, questions), [questions]);
+  useEffect(() => persist(STORAGE_KEYS.settings, settings), [settings]);
 
   const closeExpiredCompetitions = useCallback(() => {
     setCompetitions((prev) =>
@@ -167,6 +173,20 @@ export const CompetitionProvider = ({ children }) => {
     );
   };
 
+  const updateSubmissionData = (submissionId, patch) => {
+    setSubmissions((prev) =>
+      prev.map((submission) =>
+        submission.id === submissionId
+          ? { ...submission, data: { ...submission.data, ...patch } }
+          : submission,
+      ),
+    );
+  };
+
+  const updateSettings = (patch) => {
+    setSettings((prev) => ({ ...prev, ...patch }));
+  };
+
   const addNews = ({ title, text, photo, teamName }) => {
     const entry = {
       id: crypto.randomUUID(),
@@ -221,6 +241,7 @@ export const CompetitionProvider = ({ children }) => {
       news,
       geographyCountries,
       questions,
+      settings,
       getCompetition,
       getRemainingSeconds,
       openCompetition,
@@ -230,6 +251,8 @@ export const CompetitionProvider = ({ children }) => {
       registerCompetitionEntry,
       submitEntry,
       updateSubmissionScore,
+      updateSubmissionData,
+      updateSettings,
       isCompleted,
       getTeamSubmission,
       getVideoAttempts,
@@ -245,7 +268,7 @@ export const CompetitionProvider = ({ children }) => {
       deleteQuestion,
       getLeaderboard,
     }),
-    [competitions, submissions, deviceLocks, news, geographyCountries, questions],
+    [competitions, submissions, deviceLocks, news, geographyCountries, questions, settings],
   );
 
   return <CompetitionContext.Provider value={value}>{children}</CompetitionContext.Provider>;

@@ -23,6 +23,7 @@ import AdminTeams from './pages/admin/Teams';
 import AdminGeography from './pages/admin/Geography';
 import AdminVideoJudging from './pages/admin/VideoJudging';
 import AdminQuestions from './pages/admin/Questions';
+import AdminSettings from './pages/admin/Settings';
 
 function App() {
   const { user } = useAuth();
@@ -55,6 +56,7 @@ function App() {
         <Route path="/admin/geography" element={<ProtectedRoute role="admin"><AdminGeography /></ProtectedRoute>} />
         <Route path="/admin/video-judging" element={<ProtectedRoute role="admin"><AdminVideoJudging /></ProtectedRoute>} />
         <Route path="/admin/questions" element={<ProtectedRoute role="admin"><AdminQuestions /></ProtectedRoute>} />
+        <Route path="/admin/settings" element={<ProtectedRoute role="admin"><AdminSettings /></ProtectedRoute>} />
 
         {/* Default Redirect */}
         <Route path="*" element={<Navigate to={defaultRoute} replace />} />

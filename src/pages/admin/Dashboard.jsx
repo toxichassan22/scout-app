@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FileQuestion, Globe, LogOut, MessageSquare, Newspaper, Trophy, Users, Video } from 'lucide-react';
+import { Cog, FileQuestion, Globe, LogOut, MessageSquare, Newspaper, Trophy, Users, Video } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCompetitions } from '../../context/CompetitionContext';
 
@@ -21,6 +21,7 @@ const Dashboard = () => {
     { path: '/admin/video-judging', label: 'تقييم الفيديو', icon: Video },
     { path: '/admin/news', label: 'مراجعة الأخبار', icon: Newspaper },
     { path: '/admin/questions', label: 'إدارة الأسئلة', icon: FileQuestion },
+    { path: '/admin/settings', label: 'الإعدادات', icon: Cog },
   ];
 
   return (
