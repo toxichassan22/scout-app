@@ -5,7 +5,7 @@ const NewsCard = ({ item, showStatus = false }) => (
     {item.photo ? (
       <img src={item.photo} alt={item.title} className="aspect-video w-full object-cover" />
     ) : (
-    <div className="flex aspect-video items-center justify-center border-b border-slate-800 bg-slate-900 text-slate-600">
+      <div className="flex aspect-video items-center justify-center border-b border-slate-800 bg-gradient-to-br from-primary/20 via-slate-900 to-signal/10 text-slate-500">
         <Camera size={44} />
       </div>
     )}

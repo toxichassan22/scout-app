@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Sparkles, Video } from 'lucide-react';
+import { BrainCircuit, Send, Sparkles, Video } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCompetitions } from '../../context/CompetitionContext';
 
@@ -37,8 +37,16 @@ const VideoDesign = () => {
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
       <header className="tech-panel mb-6 flex items-center justify-between p-5">
-        <Video className="text-signal" />
-        <h1 className="text-xl font-black text-slate-50">تصميم الفيديو</h1>
+        <div className="ai-orb w-16">
+          <Video className="text-signal" />
+        </div>
+        <div className="text-right">
+          <p className="scout-ai-badge mb-2 mr-auto">
+            <BrainCircuit size={14} />
+            تحدي البرومبت
+          </p>
+          <h1 className="text-xl font-black text-slate-50">تصميم الفيديو</h1>
+        </div>
       </header>
 
       <section className="card mb-6 text-right">

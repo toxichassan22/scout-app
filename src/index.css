@@ -7,12 +7,9 @@
   body {
     @apply font-sans text-slate-100 antialiased;
     background:
-      linear-gradient(rgba(56, 189, 248, 0.035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(56, 189, 248, 0.035) 1px, transparent 1px),
-      radial-gradient(circle at 18% 14%, rgba(242, 193, 78, 0.15), transparent 22rem),
-      radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), transparent 24rem),
-      linear-gradient(145deg, #08111f 0%, #0d1b2d 44%, #10261f 100%);
-    background-size: 32px 32px, 32px 32px, auto, auto, auto;
+      radial-gradient(circle at 18% 14%, rgba(245, 158, 11, 0.2), transparent 24rem),
+      radial-gradient(circle at 82% 8%, rgba(34, 211, 238, 0.15), transparent 26rem),
+      linear-gradient(145deg, #08110b 0%, #10251a 40%, #071522 100%);
     direction: rtl;
     user-select: none;
     -webkit-user-select: none;
@@ -49,14 +46,42 @@
 
 @layer components {
   .app-shell {
-    @apply min-h-screen text-slate-100;
+    @apply relative min-h-screen overflow-hidden text-slate-100;
     background:
-      linear-gradient(rgba(56, 189, 248, 0.035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(56, 189, 248, 0.035) 1px, transparent 1px),
-      radial-gradient(circle at 12% 9%, rgba(242, 193, 78, 0.13), transparent 22rem),
-      radial-gradient(circle at 90% 14%, rgba(56, 189, 248, 0.13), transparent 25rem),
-      linear-gradient(145deg, #08111f 0%, #0d1b2d 48%, #10261f 100%);
-    background-size: 34px 34px, 34px 34px, auto, auto, auto;
+      radial-gradient(circle at 10% 12%, rgba(245, 158, 11, 0.2), transparent 22rem),
+      radial-gradient(circle at 88% 8%, rgba(34, 211, 238, 0.16), transparent 28rem),
+      radial-gradient(circle at 50% 100%, rgba(31, 122, 77, 0.26), transparent 24rem),
+      linear-gradient(145deg, #08110b 0%, #10251a 44%, #071522 100%);
+  }
+
+  .app-shell::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(rgba(34, 211, 238, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34, 211, 238, 0.045) 1px, transparent 1px),
+      radial-gradient(circle at 18% 82%, rgba(245, 158, 11, 0.13), transparent 18rem);
+    background-size: 34px 34px, 34px 34px, auto;
+    mask-image: linear-gradient(to bottom, black, rgba(0, 0, 0, 0.25));
+  }
+
+  .app-shell::after {
+    content: "";
+    position: fixed;
+    inset: auto -10% 0 -10%;
+    height: 34vh;
+    pointer-events: none;
+    background:
+      linear-gradient(135deg, transparent 48%, rgba(245, 158, 11, 0.18) 49%, transparent 52%) 0 0 / 110px 110px,
+      linear-gradient(225deg, transparent 48%, rgba(34, 211, 238, 0.12) 49%, transparent 52%) 0 0 / 130px 130px,
+      linear-gradient(to top, rgba(2, 6, 23, 0.78), transparent);
+  }
+
+  .app-shell > * {
+    position: relative;
+    z-index: 1;
   }
 
   .page-shell {
@@ -64,15 +89,17 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-accent/20 bg-primary px-5 py-3 font-bold text-white shadow-lg shadow-primary/30 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-accent/30 bg-primary px-5 py-3 font-bold text-white shadow-lg shadow-primary/30 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50;
+    background: linear-gradient(135deg, #1f7a4d, #22c55e 55%, #38bdf8);
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-signal/25 bg-slate-900/70 px-5 py-3 font-bold text-signal shadow-sm transition-all active:scale-95;
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-signal/25 bg-slate-900/70 px-5 py-3 font-bold text-signal shadow-sm transition-all active:scale-95;
   }
 
   .card {
-    @apply rounded-lg border border-slate-700/70 bg-slate-950/70 p-5 shadow-xl shadow-black/20 backdrop-blur;
+    @apply rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-black/25 backdrop-blur-xl;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 24px 80px rgba(0, 0, 0, 0.24);
   }
 
   .section-title {
@@ -84,11 +111,12 @@
   }
 
   .input-field {
-    @apply w-full rounded-lg border border-slate-700 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none transition-all placeholder:text-slate-500 focus:border-signal focus:ring-2 focus:ring-signal/20;
+    @apply w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none transition-all placeholder:text-slate-500 focus:border-signal focus:ring-2 focus:ring-signal/20;
   }
 
   .tech-panel {
-    @apply relative overflow-hidden rounded-lg border border-signal/20 bg-slate-950/80 shadow-2xl shadow-black/25 backdrop-blur;
+    @apply relative overflow-hidden rounded-[2rem] border border-signal/20 bg-slate-950/80 shadow-2xl shadow-black/25 backdrop-blur-xl;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 28px 90px rgba(0, 0, 0, 0.3);
   }
 
   .tech-panel::before {
@@ -97,22 +125,78 @@
     inset: 0;
     pointer-events: none;
     background:
-      linear-gradient(90deg, rgba(56, 189, 248, 0.08) 1px, transparent 1px),
-      linear-gradient(rgba(56, 189, 248, 0.06) 1px, transparent 1px);
-    background-size: 28px 28px;
+      radial-gradient(circle at 18% 24%, rgba(245, 158, 11, 0.18), transparent 18rem),
+      radial-gradient(circle at 82% 20%, rgba(34, 211, 238, 0.16), transparent 18rem),
+      linear-gradient(90deg, rgba(34, 211, 238, 0.09) 1px, transparent 1px),
+      linear-gradient(rgba(34, 211, 238, 0.07) 1px, transparent 1px);
+    background-size: auto, auto, 28px 28px, 28px 28px;
     mask-image: linear-gradient(90deg, transparent, black 16%, black 84%, transparent);
+  }
+
+  .tech-panel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(135deg, transparent 49%, rgba(245, 158, 11, 0.15) 50%, transparent 52%) 0 0 / 90px 90px,
+      linear-gradient(225deg, transparent 49%, rgba(34, 211, 238, 0.12) 50%, transparent 52%) 0 0 / 110px 110px;
+    opacity: 0.45;
   }
 
   .tech-panel > * {
     position: relative;
+    z-index: 1;
   }
 
   .metric-tile {
-    @apply rounded-lg border border-slate-700/80 bg-slate-900/70 p-3;
+    @apply rounded-2xl border border-white/10 bg-white/[0.04] p-3;
   }
 
   .field-band {
-    @apply rounded-lg border border-primary/35 bg-primary/10;
+    @apply rounded-[1.75rem] border border-primary/35 bg-primary/10;
+    background:
+      radial-gradient(circle at 18% 18%, rgba(245, 158, 11, 0.2), transparent 16rem),
+      linear-gradient(145deg, rgba(31, 122, 77, 0.28), rgba(15, 47, 36, 0.72));
+  }
+
+  .scout-ai-badge {
+    @apply inline-flex items-center gap-2 rounded-full border border-signal/25 bg-signal/10 px-3 py-1 text-xs font-black text-signal;
+  }
+
+  .trail-node {
+    @apply rounded-full border border-accent/30 bg-accent/10 p-2 text-accent shadow-lg shadow-accent/10;
+  }
+
+  .ai-orb {
+    @apply relative flex aspect-square items-center justify-center rounded-full border border-signal/30 bg-slate-950/70 text-signal shadow-2xl shadow-signal/20;
+  }
+
+  .ai-orb::before {
+    content: "";
+    position: absolute;
+    inset: -0.75rem;
+    border-radius: 9999px;
+    border: 1px dashed rgba(242, 193, 78, 0.42);
+    animation: spin 18s linear infinite;
+  }
+
+  .ai-orb::after {
+    content: "";
+    position: absolute;
+    inset: 18%;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.32), transparent 62%);
+    filter: blur(18px);
+  }
+
+  .ai-orb > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .path-card {
+    @apply rounded-3xl border border-accent/20 bg-accent/10 p-4;
   }
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { QrCode, X } from 'lucide-react';
+import { BrainCircuit, Compass, QrCode, Sparkles, X } from 'lucide-react';
 import CompetitionCard from '../components/CompetitionCard';
 import QRScanner from '../components/QRScanner';
 import { useAuth } from '../context/AuthContext';
@@ -44,13 +44,26 @@ const Competitions = () => {
     <main className="page-shell">
       <div className="tech-panel mb-6 p-5">
         <div className="flex items-center justify-between gap-4">
-          <div className="rounded-lg border border-signal/25 bg-signal/10 p-3 text-signal">
-            <QrCode size={26} />
+          <div className="ai-orb w-20">
+            <QrCode size={28} />
           </div>
           <div className="text-right">
-            <p className="section-kicker">بوابة الدخول</p>
+            <p className="scout-ai-badge mb-2 mr-auto">
+              <Sparkles size={14} />
+              بوابة الدخول الذكية
+            </p>
             <h1 className="section-title">المسابقات</h1>
-            <p className="mt-1 text-sm text-slate-400">امسح QR من داخل التطبيق للدخول إلى المسابقة المفتوحة.</p>
+            <p className="mt-1 text-sm text-slate-400">امسح QR من داخل التطبيق واتبع مسار التحدي بين مهارات الكشافة وتقييم AI.</p>
+            <div className="mt-3 flex flex-wrap justify-end gap-2 text-xs font-bold text-slate-300">
+              <span className="inline-flex items-center gap-1 rounded-full border border-accent/25 bg-accent/10 px-3 py-1">
+                بوصلة
+                <Compass size={13} />
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-signal/25 bg-signal/10 px-3 py-1">
+                AI
+                <BrainCircuit size={13} />
+              </span>
+            </div>
           </div>
         </div>
       </div>
