@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ImagePlus, Send, X } from 'lucide-react';
+import { ImagePlus, Newspaper, Send, Sparkles, X } from 'lucide-react';
 import NewsCard from '../components/NewsCard';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
@@ -51,9 +51,12 @@ const News = () => {
           {showForm ? 'إغلاق' : 'إرسال خبر'}
         </button>
         <div className="text-right">
-          <p className="section-kicker">لوحة الفرق</p>
+          <p className="scout-ai-badge mb-2 mr-auto">
+            <Sparkles size={14} />
+            لوحة الفرق
+          </p>
           <h1 className="section-title">الأخبار</h1>
-          <p className="text-sm text-slate-400">الأخبار تظهر بعد موافقة الأدمن.</p>
+          <p className="text-sm text-slate-400">انقل لحظة من المخيم؛ الأخبار تظهر بعد موافقة الأدمن.</p>
         </div>
       </div>
 
@@ -96,7 +99,10 @@ const News = () => {
       )}
 
       <section>
-        <h2 className="mb-3 text-right text-lg font-black text-slate-50">الأخبار المنشورة</h2>
+        <h2 className="mb-3 flex items-center justify-end gap-2 text-right text-lg font-black text-slate-50">
+          الأخبار المنشورة
+          <Newspaper className="text-accent" size={20} />
+        </h2>
         {approved.length === 0 ? (
           <div className="card py-16 text-center text-slate-400">لا توجد أخبار منشورة حالياً</div>
         ) : (

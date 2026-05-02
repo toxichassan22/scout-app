@@ -1,4 +1,4 @@
-import { Award, CheckCircle, Circle, LogOut, PlayCircle, User } from 'lucide-react';
+import { Award, BrainCircuit, CheckCircle, Circle, LogOut, PlayCircle, Sparkles, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
 
@@ -22,11 +22,17 @@ const Profile = () => {
       </div>
 
       <section className="tech-panel mb-6 p-6 text-center text-white">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-lg border border-signal/25 bg-signal/10 text-signal">
+        <div className="ai-orb mx-auto mb-6 w-24">
           <User size={38} />
         </div>
         <h2 className="text-2xl font-black">{user?.name}</h2>
         <p className="text-sm text-slate-400">فريق مشارك في المخيم الرقمي</p>
+        <div className="mt-3 flex justify-center">
+          <span className="scout-ai-badge">
+            <Sparkles size={14} />
+            ملف كشفي مدعوم بالذكاء الاصطناعي
+          </span>
+        </div>
         <div className="mt-6 grid grid-cols-2 gap-3 border-t border-slate-800 pt-5">
           <div className="metric-tile">
             <p className="text-xs text-slate-400">إجمالي النقاط</p>
@@ -50,7 +56,7 @@ const Profile = () => {
               <article key={competition.id} className="card flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2 text-accent">
                   {submission && <span className="font-black">{submission.score}</span>}
-                  <Award size={18} />
+                  {competition.type === 'video' ? <BrainCircuit size={18} /> : <Award size={18} />}
                 </div>
                 <div className="flex flex-1 items-center justify-end gap-3 text-right">
                   <div>

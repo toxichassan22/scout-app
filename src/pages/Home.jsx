@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Calendar, Compass, Info, MapPin, Newspaper, RadioTower, Sparkles, Trophy } from 'lucide-react';
+import { BrainCircuit, Calendar, Compass, Flame, Info, MapPin, Newspaper, RadioTower, Route, Sparkles, Trophy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
 import { FESTIVAL_DETAILS } from '../data/mockData';
@@ -10,18 +10,28 @@ const Home = () => {
   const { news, competitions } = useCompetitions();
   const approvedNews = news.filter((item) => item.status === 'approved').slice(0, 2);
   const openCount = competitions.filter((competition) => competition.isOpen).length;
+  const trailSteps = [
+    { icon: Compass, title: 'توجيه كشفي', text: 'بوصلة واضحة لكل فريق من الدخول حتى التسليم.' },
+    { icon: BrainCircuit, title: 'حكم AI', text: 'تقييم أذكى للبرومبت والفيديو مع متابعة من الأدمن.' },
+    { icon: Flame, title: 'روح المخيم', text: 'تحديات جماعية وأخبار مباشرة في تجربة واحدة.' },
+  ];
 
   return (
     <main className="page-shell">
       <header className="tech-panel mb-6 text-white">
-        <div className="grid gap-5 p-5 md:grid-cols-[1fr_auto] md:items-center md:p-7">
+        <div className="grid gap-8 p-5 md:grid-cols-[1fr_18rem] md:items-center md:p-8">
           <div className="order-2 text-right md:order-1">
-            <p className="mb-2 inline-flex items-center gap-2 rounded-lg border border-accent/25 bg-accent/10 px-3 py-1 text-sm font-bold text-accent">
+            <p className="scout-ai-badge mb-3">
               <Sparkles size={16} />
-              مرحباً، {user?.name}
+              مرحباً، {user?.name} · مخيم كشفي مدعوم بالذكاء الاصطناعي
             </p>
-            <h1 className="text-3xl font-black leading-tight sm:text-4xl">{FESTIVAL_DETAILS.name}</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300">{FESTIVAL_DETAILS.subtitle} يجمع الفرق في مسابقات مباشرة وأخبار معتمدة وجدول واضح.</p>
+            <h1 className="text-4xl font-black leading-tight sm:text-6xl">
+              {FESTIVAL_DETAILS.name}
+              <span className="block bg-gradient-to-l from-accent via-primary-light to-signal bg-clip-text text-transparent">كشافة + AI</span>
+            </h1>
+            <p className="mt-4 max-w-2xl text-base leading-8 text-slate-300">
+              {FESTIVAL_DETAILS.subtitle} بروح نار المخيم والبوصلة والعُقد الكشفية، مع طبقة ذكاء اصطناعي تنظّم المنافسة وتفتح مساحة للإبداع.
+            </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               <div className="metric-tile">
                 <p className="text-xs text-slate-400">المسابقات المفتوحة</p>
@@ -37,13 +47,30 @@ const Home = () => {
               </div>
             </div>
           </div>
-          <div className="order-1 flex justify-end md:order-2">
-            <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-accent/30 bg-primary/15 p-3 shadow-inner">
-              <img src={FESTIVAL_DETAILS.logo} alt="شعار المخيم" className="h-full w-full object-contain" />
+          <div className="order-1 flex justify-center md:order-2">
+            <div className="ai-orb w-52">
+              <div className="h-24 w-24 shrink-0 overflow-hidden rounded-3xl border border-accent/30 bg-primary/15 p-3 shadow-inner">
+                <img src={FESTIVAL_DETAILS.logo} alt="شعار المخيم" className="h-full w-full object-contain" />
+              </div>
             </div>
           </div>
         </div>
       </header>
+
+      <section className="mb-6 grid gap-4 md:grid-cols-3">
+        {trailSteps.map((step) => (
+          <article key={step.title} className="path-card text-right">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-xs font-black text-slate-400">مسار المخيم</span>
+              <div className="trail-node">
+                <step.icon size={20} />
+              </div>
+            </div>
+            <h2 className="text-lg font-black text-slate-50">{step.title}</h2>
+            <p className="mt-2 text-sm leading-7 text-slate-300">{step.text}</p>
+          </article>
+        ))}
+      </section>
 
       <section className="mb-6 grid gap-4 md:grid-cols-3">
         <div className="card text-right md:col-span-2">
@@ -68,9 +95,15 @@ const Home = () => {
       <section className="card mb-6 text-right">
         <div className="mb-3 flex items-center justify-end gap-2 text-signal">
           <h2 className="text-lg font-black">الجدول العام</h2>
-          <Calendar size={20} />
+          <Route size={20} />
         </div>
         <p className="leading-8 text-slate-300">{FESTIVAL_DETAILS.schedule}</p>
+        <div className="mt-4 flex flex-wrap justify-end gap-2 text-xs font-bold text-slate-300">
+          <span className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1">افتتاح</span>
+          <span className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1">مسابقات رقمية</span>
+          <span className="rounded-full border border-signal/25 bg-signal/10 px-3 py-1">تقييم AI</span>
+          <span className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1">تكريم</span>
+        </div>
       </section>
 
       <section className="mb-6 grid gap-4 md:grid-cols-2">
@@ -85,7 +118,7 @@ const Home = () => {
         </div>
         <div className="card flex items-center justify-between gap-4">
           <div className="rounded-lg border border-accent/25 bg-accent/10 p-3 text-accent">
-            <Compass />
+            <Calendar />
           </div>
           <div className="text-right">
             <h2 className="font-black text-slate-50">روح الكشافة</h2>
