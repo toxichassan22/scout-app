@@ -9,6 +9,13 @@ export const STORAGE_KEYS = {
   geography: 'dsc_geography',
   questions: 'dsc_questions',
   deviceId: 'dsc_device_id',
+  settings: 'dsc_settings',
+};
+
+export const INITIAL_SETTINGS = {
+  videoApiBaseUrl: '',
+  videoApiToken: '',
+  videoNumFrames: 56,
 };
 
 export const ADMIN_CREDENTIALS = {
