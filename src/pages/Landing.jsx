@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { BrainCircuit, Calendar, Compass, LogIn, MapPin, ShieldCheck, Trophy, Users, Flame, TreePine, Zap, ShieldAlert } from 'lucide-react';
+import { BrainCircuit, Calendar, ChevronDown, Compass, LogIn, MapPin, ShieldCheck, Trophy, Users, Flame, TreePine, Zap, ShieldAlert } from 'lucide-react';
 import { FESTIVAL_DETAILS, MOCK_COMPETITIONS, MOCK_TEAMS } from '../data/mockData';
 import Countdown from '../components/Countdown';
+import DecryptText from '../components/DecryptText';
 
 const Landing = () => {
   // Generate random floating campfire sparks
@@ -72,25 +73,39 @@ const Landing = () => {
         <div className="relative z-20 w-full">
           <div className="mx-auto max-w-7xl px-5 sm:px-8 pb-10 sm:pb-16">
             <div className="max-w-2xl mr-auto text-right">
+              {/* Hook badge */}
+              <div className="mb-4 flex justify-end animate-fade-in">
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-xs font-bold text-emerald-300 backdrop-blur-md shadow-glow-green">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                  </span>
+                  التسجيل مفتوح الآن — {MOCK_TEAMS.length} فرق بدأت المنافسة بالفعل
+                </span>
+              </div>
               <h1 className="text-5xl sm:text-7xl font-bold text-gradient leading-[1.2] mb-4 pb-1 animate-fade-in">
                 {FESTIVAL_DETAILS.name}
               </h1>
-              <p className="text-xl sm:text-2xl font-semibold text-amber-400 mb-4 drop-shadow animate-fade-in" style={{ animationDelay: '0.1s' }}>
-                ساحة كشفية ذكية للمنافسة والإبداع
-              </p>
+              <DecryptText
+                as="p"
+                text="هل فريقك مستعد للتحدي؟"
+                speed={55}
+                startDelay={400}
+                className="text-xl sm:text-2xl font-semibold text-amber-400 mb-4 drop-shadow animate-fade-in"
+              />
               <p className="text-slate-300/90 text-base sm:text-lg leading-8 mb-8 max-w-lg drop-shadow animate-fade-in" style={{ animationDelay: '0.2s' }}>
-                تجربة تجمع روح الكشافة مع تحديات مباشرة، بث أخبار، ولوحة قيادة مصممة للمنافسة الحقيقية.
+                ٤ تحديات رقمية، لوحة شرف لحظية، ومختبر ذكاء اصطناعي… واللقب في النهاية لفريق واحد فقط. اجمع فريقك وأثبتوا أنكم الأجدر.
               </p>
 
               {/* CTA buttons */}
               <div className="flex flex-wrap gap-3 justify-end mb-10 animate-fade-in" style={{ animationDelay: '0.3s' }}>
                 <Link
                   to="/home"
-                  className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 text-base font-bold text-white transition hover:brightness-110 active:scale-[0.97] hover:shadow-lg hover:shadow-primary/30"
+                  className="animate-pulse-glow inline-flex items-center gap-2 rounded-xl px-8 py-4 text-lg font-black text-white transition hover:brightness-110 active:scale-[0.97] hover:shadow-lg hover:shadow-primary/30"
                   style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
                 >
-                  <LogIn size={19} />
-                  دخول الفرق
+                  <LogIn size={20} />
+                  ادخل المنافسة الآن
                 </Link>
                 <Link
                   to="/contact"
@@ -121,6 +136,12 @@ const Landing = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Scroll hook indicator */}
+        <div className="absolute bottom-4 left-1/2 z-20 hidden -translate-x-1/2 flex-col items-center gap-1 text-emerald-400/70 sm:flex">
+          <span className="text-[10px] font-bold tracking-widest">اكتشف المزيد</span>
+          <ChevronDown size={18} className="animate-bounce" />
         </div>
       </section>
 
