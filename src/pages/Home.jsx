@@ -98,7 +98,7 @@ const Home = memo(function Home() {
         <div className="flex items-center justify-between gap-4 py-4">
           {/* Right logo (fest) */}
           <div className="shrink-0">
-            <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl border border-white/10 bg-white/5 p-1.5 overflow-hidden">
+            <div className="animate-soft-float h-16 w-16 sm:h-20 sm:w-20 rounded-2xl border border-emerald-500/15 bg-white/5 p-1.5 overflow-hidden transition duration-300 hover:scale-105 hover:shadow-glow-green">
               <img src={FESTIVAL_DETAILS.logo} alt="شعار المهرجان" className="h-full w-full object-contain" />
             </div>
           </div>
@@ -106,7 +106,7 @@ const Home = memo(function Home() {
           {/* Center: شعار كشفيتي بفكر ديجيتال */}
           <div className="flex-1 text-center">
             <div className="inline-flex flex-col items-center gap-1">
-              <h1 className="text-xl sm:text-2xl font-bold text-white leading-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-gradient leading-snug pb-0.5">
                 {FESTIVAL_DETAILS.name}
               </h1>
               <span className="text-xs sm:text-sm font-medium text-primary/80 tracking-wide">
@@ -128,7 +128,7 @@ const Home = memo(function Home() {
 
       {/* Welcome badge */}
       <section className="relative z-10 mb-6 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-4 py-2 text-sm font-bold text-amber-400">
+        <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-4 py-2 text-sm font-bold text-amber-400 shadow-glow-amber">
           <Flame size={16} />
           مرحباً، {user?.name}
         </div>
@@ -140,7 +140,7 @@ const Home = memo(function Home() {
       </section>
 
       {/* Leaderboard Section */}
-      <section className="relative z-10 mb-8 card border-slate-800 bg-slate-950/40 p-6 text-right">
+      <section className="card-sheen relative z-10 mb-8 card border-slate-800 bg-slate-950/40 p-6 text-right">
         <div className="flex items-center justify-between mb-6 pb-3 border-b border-slate-800">
           <span className="text-xs text-primary font-bold bg-primary/10 border border-primary/20 rounded-full px-3 py-1">ترتيب النقاط الكلي</span>
           <h2 className="text-lg font-black text-white flex items-center gap-2">

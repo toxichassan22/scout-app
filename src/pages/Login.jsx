@@ -78,15 +78,15 @@ const Login = () => {
       <div className="w-full max-w-md relative z-20 animate-fade-in">
         {/* Logo & branding */}
         <div className="text-center mb-8">
-          <div className="mx-auto mb-5 h-24 w-24 rounded-2xl border border-white/10 bg-white/5 p-3 overflow-hidden shadow-lg shadow-emerald-950/20 hover:scale-105 transition duration-300">
+          <div className="animate-soft-float mx-auto mb-5 h-24 w-24 rounded-2xl border border-emerald-500/15 bg-white/5 p-3 overflow-hidden shadow-lg shadow-emerald-950/20 hover:scale-105 hover:shadow-glow-green transition duration-300">
             <img src={FESTIVAL_DETAILS.logo} alt="شعار المخيم" className="h-full w-full object-contain" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">{FESTIVAL_DETAILS.name}</h1>
+          <h1 className="text-3xl font-bold text-gradient pb-0.5 mb-2">{FESTIVAL_DETAILS.name}</h1>
           <p className="text-slate-500 text-sm">{FESTIVAL_DETAILS.subtitle}</p>
         </div>
 
         {/* Login card */}
-        <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent p-6 sm:p-8 backdrop-blur-md shadow-2xl transition duration-300 hover:border-white/10">
+        <div className="card-sheen rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent p-6 sm:p-8 backdrop-blur-md shadow-2xl transition duration-300 hover:border-emerald-500/20 hover:shadow-glow-green">
           <div className="text-center mb-6">
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/15 px-3 py-1.5 text-xs font-bold text-primary mb-4 animate-pulse">
               <ShieldCheck size={14} />

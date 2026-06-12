@@ -34,7 +34,7 @@ const Countdown = ({ targetDate }) => {
 
   if (time.done) {
     return (
-      <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-5 py-2.5 text-sm font-bold text-amber-400">
+      <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-5 py-2.5 text-sm font-bold text-amber-400 shadow-glow-amber">
         🎉 انطلق المهرجان الآن
       </div>
     );
@@ -45,9 +45,9 @@ const Countdown = ({ targetDate }) => {
       {units.map((unit) => (
         <div
           key={unit.label}
-          className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 sm:p-4 text-center transition hover:border-primary/15"
+          className="card-sheen rounded-xl border border-emerald-500/15 bg-white/[0.03] p-3 sm:p-4 text-center transition duration-300 hover:border-primary/40 hover:-translate-y-0.5"
         >
-          <p className="text-2xl sm:text-3xl font-bold tabular-nums text-white">
+          <p className="text-2xl sm:text-3xl font-bold tabular-nums text-white drop-shadow-[0_0_14px_rgba(16,185,129,0.35)]">
             {unit.value}
           </p>
           <p className="mt-1 text-[10px] sm:text-xs text-slate-500">{unit.label}</p>
