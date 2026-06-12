@@ -8,20 +8,31 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#1F7A4D',
-          light: '#33A474',
-          dark: '#0F2F24',
+          DEFAULT: 'var(--green)',
+          light: 'var(--green)',
+          dark: 'var(--green)',
         },
         accent: {
-          DEFAULT: '#F2C14E',
-          light: '#FFE08A',
-          dark: '#B7791F',
+          DEFAULT: 'var(--amber)',
+          light: 'var(--amber)',
+          dark: 'var(--amber)',
         },
-        background: '#08111F',
-        signal: '#38BDF8',
+        signal: 'var(--green)',
+        magenta: 'var(--amber)',
+        danger: 'var(--danger)',
+        background: 'var(--ink)',
+        surface: {
+          DEFAULT: 'var(--ink-2)',
+          light: 'var(--ink-2)',
+        },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Cairo', 'Inter', 'system-ui', 'sans-serif'],
+      },
+      boxShadow: {
+        glow: '0 0 0 1px var(--green-soft), 0 12px 32px -12px var(--green-soft)',
+        'glow-green': '0 0 0 1px var(--green-soft), 0 10px 28px -12px var(--green-soft)',
+        'glow-amber': '0 0 0 1px var(--amber-soft), 0 10px 28px -12px var(--amber-soft)',
       },
     },
   },

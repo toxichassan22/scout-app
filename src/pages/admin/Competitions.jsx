@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ChevronLeft, Clock, QrCode, ToggleLeft, ToggleRight, Trophy } from 'lucide-react';
+import { ChevronLeft, Clock, QrCode, ToggleLeft, ToggleRight, Trophy, Video, Save, CheckCircle } from 'lucide-react';
 import { useCompetitions } from '../../context/CompetitionContext';
 
 const AdminCompetitions = () => {
-  const { competitions, openCompetition, closeCompetition, updateCompetition, getLeaderboard } = useCompetitions();
+  const { competitions, openCompetition, closeCompetition, updateCompetition, getLeaderboard, colabUrl, setColabApiUrl } = useCompetitions();
   const [selectedQr, setSelectedQr] = useState(null);
   const [selectedBoard, setSelectedBoard] = useState(null);
+  const [newColabUrl, setNewColabUrl] = useState(colabUrl || '');
+  const [saved, setSaved] = useState(false);
 
   const toggle = (competition) => {
     if (competition.isOpen) closeCompetition(competition.id);
@@ -27,6 +29,51 @@ const AdminCompetitions = () => {
           </Link>
           <h1 className="text-2xl font-black">إدارة المسابقات</h1>
         </header>
+
+        {/* إعدادات Google Colab للفيديو AI */}
+        <section className="mb-6 rounded-xl border-2 border-yellow-500/50 bg-yellow-500/10 p-6">
+          <div className="mb-4 flex items-center justify-end gap-2 text-yellow-400">
+            <Video size={24} />
+            <h2 className="text-xl font-black">⚠️ إعدادات توليد الفيديو بالذكاء الاصطناعي</h2>
+          </div>
+          <p className="mb-4 text-right text-sm text-white">
+            <strong>ضع رابط Google Colab ngrok هنا</strong> ليتم استخدامه من جميع الفرق في مسابقة تصميم الفيديو.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setColabApiUrl(newColabUrl);
+                setSaved(true);
+                setTimeout(() => setSaved(false), 2000);
+              }}
+              className="rounded-lg bg-yellow-500 px-4 py-2 font-bold text-black hover:bg-yellow-400 flex items-center gap-2 whitespace-nowrap"
+            >
+              {saved ? (
+                <>
+                  <CheckCircle size={18} />
+                  تم الحفظ
+                </>
+              ) : (
+                <>
+                  <Save size={18} />
+                  حفظ
+                </>
+              )}
+            </button>
+            <input
+              type="url"
+              value={newColabUrl}
+              onChange={(e) => setNewColabUrl(e.target.value)}
+              placeholder="https://xxxx.ngrok.io"
+              className="flex-1 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-left text-white placeholder-slate-400"
+            />
+          </div>
+          {colabUrl && (
+            <p className="mt-3 text-right text-sm text-yellow-300">
+              ✅ الرابط الحالي: <span className="font-mono">{colabUrl}</span>
+            </p>
+          )}
+        </section>
 
         <div className="grid gap-4 lg:grid-cols-2">
           {competitions.map((competition) => (

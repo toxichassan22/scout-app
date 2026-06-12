@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ChevronLeft, Star } from 'lucide-react';
+import { ChevronLeft, Star, Video, ExternalLink } from 'lucide-react';
 import { useCompetitions } from '../../context/CompetitionContext';
 
 const AdminVideoJudging = () => {
@@ -32,6 +32,47 @@ const AdminVideoJudging = () => {
                   </div>
                 </div>
                 <p className="mb-4 rounded-2xl bg-gray-50 p-4 leading-7 text-gray-700">{submission.data.prompt}</p>
+
+                {submission.data.videoUrl && (
+                  <div className="mb-4">
+                    <div className="mb-2 flex items-center justify-end gap-2 text-accent">
+                      <Video size={18} />
+                      <span className="text-sm font-bold">الفيديو المُولد</span>
+                    </div>
+                    <div className="rounded-lg overflow-hidden border border-gray-300 bg-gray-900">
+                      <video
+                        src={submission.data.videoUrl}
+                        controls
+                        className="w-full max-h-48"
+                        poster="/festival-logo.png"
+                      >
+                        متصفحك لا يدعم تشغيل الفيديو
+                      </video>
+                    </div>
+                    <a
+                      href={submission.data.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-sm text-accent hover:underline"
+                    >
+                      <ExternalLink size={14} />
+                      فتح الفيديو في نافذة جديدة
+                    </a>
+                  </div>
+                )}
+
+                {submission.data.videoStatus === 'generating' && (
+                  <div className="mb-4 rounded-lg border border-accent/30 bg-accent/10 p-3 text-center text-sm text-accent">
+                    جاري توليد الفيديو...
+                  </div>
+                )}
+
+                {submission.data.videoStatus === 'failed' && (
+                  <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-600">
+                    فشل توليد الفيديو: {submission.data.videoError}
+                  </div>
+                )}
+
                 <label className="mb-2 block text-sm font-bold text-gray-600">التقييم من 0 إلى 100</label>
                 <input
                   type="number"

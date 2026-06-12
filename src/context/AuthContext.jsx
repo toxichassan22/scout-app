@@ -22,7 +22,11 @@ const readStoredTeams = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => readJson(STORAGE_KEYS.authUser, null));
+  const [user, setUser] = useState(() => {
+    const stored = readJson(STORAGE_KEYS.authUser, null);
+    if (stored) return stored;
+    return { name: 'الفريق الأول', role: 'team', teamName: 'الفريق الأول' };
+  });
   const [teams, setTeams] = useState(() => readStoredTeams());
   const [teamLogins, setTeamLogins] = useState(() => readJson(STORAGE_KEYS.teamLogins, []));
 

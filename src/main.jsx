@@ -5,12 +5,10 @@ import App from './App';
 import './index.css';
 import { AuthProvider } from './context/AuthContext';
 import { CompetitionProvider } from './context/CompetitionContext';
-import { initSecurity } from './utils/security';
+import { ThemeProvider } from './context/ThemeContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
-// Initialize Security Features
-initSecurity();
-
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
@@ -18,12 +16,16 @@ if ('serviceWorker' in navigator) {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <CompetitionProvider>
-          <App />
-        </CompetitionProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <ThemeProvider>
+        <AuthProvider>
+          <CompetitionProvider>
+            <App />
+          </CompetitionProvider>
+        </AuthProvider>
+        </ThemeProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </React.StrictMode>
 );

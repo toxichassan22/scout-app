@@ -1,25 +1,38 @@
 {
   "name": "المخيم الرقمي",
   "short_name": "المخيم الرقمي",
-  "description": "تطبيق مهرجان الكشافة السنوي",
+  "description": "تطبيق كشفية بفكر ديجيتال",
   "start_url": "/login",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "dir": "rtl",
   "lang": "ar",
-  "background_color": "#F8F9FA",
-  "theme_color": "#2D6A4F",
+  "background_color": "#070A12",
+  "theme_color": "#28D8FF",
+  "categories": [
+    "education",
+    "events",
+    "productivity"
+  ],
   "icons": [
     {
-      "src": "/festival-logo.png",
+      "src": "/brand/app-icon.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/festival-logo.png",
+      "src": "/brand/app-icon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

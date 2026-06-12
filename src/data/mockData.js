@@ -25,23 +25,23 @@ export const MOCK_TEAMS = [
 ];
 
 export const MOCK_COMPETITIONS = [
-  { id: 1, name: 'حقيقتان وكذبة', type: 'two_truths', duration: 300, qrCode: 'comp_1', isOpen: false, startTime: null },
-  { id: 2, name: 'عبقرينو', type: 'genius', duration: 300, qrCode: 'comp_2', isOpen: false, startTime: null },
-  { id: 3, name: 'الجغرافيا', type: 'geography', duration: 300, qrCode: 'comp_3', isOpen: false, startTime: null },
-  { id: 4, name: 'تصميم الفيديو', type: 'video', duration: null, qrCode: 'comp_4', isOpen: false, startTime: null },
+  { id: 1, name: 'حقيقتين وكذبة', type: 'two_truths', duration: 300, qrCode: 'comp_1', isOpen: false, startTime: null, password: '123' },
+  { id: 2, name: 'عبقرينو', type: 'genius', duration: 300, qrCode: 'comp_2', isOpen: false, startTime: null, password: '123' },
+  { id: 3, name: 'الجغرافيا', type: 'geography', duration: 1800, qrCode: 'comp_3', isOpen: false, startTime: null, password: '123' },
+  { id: 4, name: 'تصميم الفيديو', type: 'video', duration: null, qrCode: 'comp_4', isOpen: false, startTime: null, password: '123' },
 ];
 
 export const GEOGRAPHY_COUNTRIES = [
-  { id: 1, name: 'مصر', capital: 'القاهرة', currency: 'الجنيه المصري', flag: '🇪🇬', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Egypt+Map' },
-  { id: 2, name: 'السعودية', capital: 'الرياض', currency: 'الريال السعودي', flag: '🇸🇦', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=KSA+Map' },
-  { id: 3, name: 'الإمارات', capital: 'أبو ظبي', currency: 'الدرهم الإماراتي', flag: '🇦🇪', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=UAE+Map' },
-  { id: 4, name: 'الأردن', capital: 'عمان', currency: 'الدينار الأردني', flag: '🇯🇴', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Jordan+Map' },
-  { id: 5, name: 'المغرب', capital: 'الرباط', currency: 'الدرهم المغربي', flag: '🇲🇦', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Morocco+Map' },
-  { id: 6, name: 'الكويت', capital: 'الكويت', currency: 'الدينار الكويتي', flag: '🇰🇼', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Kuwait+Map' },
-  { id: 7, name: 'قطر', capital: 'الدوحة', currency: 'الريال القطري', flag: '🇶🇦', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Qatar+Map' },
-  { id: 8, name: 'عمان', capital: 'مسقط', currency: 'الريال العماني', flag: '🇴🇲', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Oman+Map' },
-  { id: 9, name: 'البحرين', capital: 'المنامة', currency: 'الدينار البحريني', flag: '🇧🇭', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Bahrain+Map' },
-  { id: 10, name: 'الجزائر', capital: 'الجزائر', currency: 'الدينار الجزائري', flag: '🇩🇿', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Algeria+Map' },
+  { id: 1, name: 'مصر', capital: 'القاهرة', currency: 'الجنيه المصري', systemOfGovernment: 'جمهوري', flag: '🇪🇬', continent: 'أفريقيا', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Egypt+Map' },
+  { id: 2, name: 'السعودية', capital: 'الرياض', currency: 'الريال السعودي', systemOfGovernment: 'ملكي', flag: '🇸🇦', continent: 'آسيا', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=KSA+Map' },
+  { id: 3, name: 'الإمارات', capital: 'أبو ظبي', currency: 'الدرهم الإماراتي', systemOfGovernment: 'اتحادي', flag: '🇦🇪', continent: 'آسيا', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=UAE+Map' },
+  { id: 4, name: 'الأردن', capital: 'عمان', currency: 'الدينار الأردني', systemOfGovernment: 'ملكي', flag: '🇯🇴', continent: 'آسيا', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Jordan+Map' },
+  { id: 5, name: 'المغرب', capital: 'الرباط', currency: 'الدرهم المغربي', systemOfGovernment: 'ملكي', flag: '🇲🇦', continent: 'أفريقيا', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Morocco+Map' },
+  { id: 6, name: 'الكويت', capital: 'الكويت', currency: 'الدينار الكويتي', systemOfGovernment: 'أميري', flag: '🇰🇼', continent: 'آسيا', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Kuwait+Map' },
+  { id: 7, name: 'قطر', capital: 'الدوحة', currency: 'الريال القطري', systemOfGovernment: 'أميري', flag: '🇶🇦', continent: 'آسيا', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Qatar+Map' },
+  { id: 8, name: 'عمان', capital: 'مسقط', currency: 'الريال العماني', systemOfGovernment: 'سلطاني', flag: '🇴🇲', continent: 'آسيا', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Oman+Map' },
+  { id: 9, name: 'البحرين', capital: 'المنامة', currency: 'الدينار البحريني', systemOfGovernment: 'ملكي', flag: '🇧🇭', continent: 'آسيا', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Bahrain+Map' },
+  { id: 10, name: 'الجزائر', capital: 'الجزائر', currency: 'الدينار الجزائري', systemOfGovernment: 'جمهوري', flag: '🇩🇿', continent: 'أفريقيا', map: 'https://placehold.co/600x400/eaf4ef/2D6A4F?text=Algeria+Map' },
 ];
 
 export const TWO_TRUTHS_QUESTIONS = [
@@ -94,9 +94,12 @@ export const INITIAL_NEWS = [];
 
 export const FESTIVAL_DETAILS = {
   name: 'المخيم الرقمي',
-  subtitle: 'مهرجان الكشافة السنوي',
+  subtitle: 'كشفية بفكر ديجيتال',
   location: 'مركز شباب منشية التحرير - القاهرة',
   schedule: 'اليوم الأول: تسجيل وافتتاح، اليوم الثاني: مسابقات رقمية، اليوم الثالث: تكريم الفرق',
   info: 'تجربة كشفية رقمية تجمع بين روح الفريق، المعرفة، والإبداع التقني داخل بيئة آمنة ومحلية.',
+  slogan: 'كشفية بفكر رقمي',
+  startDate: '2026-08-21T09:00:00',
+  startDateLabel: '21 أغسطس 2026',
   logo: '/festival-logo.png',
 };

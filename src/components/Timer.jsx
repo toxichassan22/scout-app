@@ -25,8 +25,8 @@ const Timer = ({ initialSeconds, onEnd }) => {
   }, [seconds, onEnd]);
 
   return (
-    <div className="inline-flex items-center gap-2 rounded-lg border border-signal/25 bg-signal/10 px-4 py-2 font-bold text-signal">
-      <span>{formatTime(seconds)}</span>
+    <div className="status-badge status-badge-open animate-pulse-glow px-4 py-2 text-sm">
+      <span className="tabular-nums">{formatTime(seconds)}</span>
       <Clock size={18} />
     </div>
   );
