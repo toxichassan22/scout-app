@@ -72,7 +72,7 @@ const Landing = () => {
         <div className="relative z-20 w-full">
           <div className="mx-auto max-w-7xl px-5 sm:px-8 pb-10 sm:pb-16">
             <div className="max-w-2xl mr-auto text-right">
-              <h1 className="text-5xl sm:text-7xl font-bold text-white leading-[1.1] mb-4 drop-shadow-lg animate-fade-in">
+              <h1 className="text-5xl sm:text-7xl font-bold text-gradient leading-[1.2] mb-4 pb-1 animate-fade-in">
                 {FESTIVAL_DETAILS.name}
               </h1>
               <p className="text-xl sm:text-2xl font-semibold text-amber-400 mb-4 drop-shadow animate-fade-in" style={{ animationDelay: '0.1s' }}>
@@ -127,7 +127,7 @@ const Landing = () => {
       {/* ══════════ COUNTDOWN ══════════ */}
       <section className="relative -mt-2 z-20">
         <div className="mx-auto max-w-3xl px-5 sm:px-8">
-          <div className="rounded-2xl border border-white/[0.08] bg-[#111a11]/90 backdrop-blur-xl p-6 sm:p-8 text-center shadow-2xl">
+          <div className="card-sheen animate-pulse-glow rounded-2xl border border-emerald-500/20 bg-[#111a11]/90 backdrop-blur-xl p-6 sm:p-8 text-center shadow-2xl">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">
               انطلاق المخيم خلال
             </p>
@@ -145,7 +145,7 @@ const Landing = () => {
               { icon: Users, value: MOCK_TEAMS.length, label: 'فرق مشاركة', color: 'text-emerald-400', bg: 'bg-emerald-400/8 hover:border-primary/20' },
               { icon: BrainCircuit, value: 'AI', label: 'مختبر ذكي', color: 'text-emerald-300', bg: 'bg-emerald-300/8 hover:border-primary/20' },
             ].map((stat) => (
-              <div key={stat.label} className={`rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 sm:p-6 text-center transition duration-300 ${stat.bg} hover:shadow-lg`}>
+              <div key={stat.label} className={`card-sheen rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 sm:p-6 text-center transition duration-300 ${stat.bg} hover:shadow-lg hover:-translate-y-1`}>
                 <div className="inline-flex rounded-xl p-3 mb-3 bg-white/5">
                   <stat.icon size={22} className={stat.color} />
                 </div>
@@ -189,7 +189,7 @@ const Landing = () => {
                 bg: 'bg-emerald-300/8 hover:border-primary/20',
               },
             ].map((feature) => (
-              <div key={feature.title} className={`group rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 text-right transition duration-300 ${feature.bg} hover:bg-white/[0.04]`}>
+              <div key={feature.title} className={`group card-sheen rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 text-right transition duration-300 ${feature.bg} hover:bg-white/[0.04] hover:-translate-y-1`}>
                 <div className="inline-flex rounded-xl p-3 mb-4 bg-white/5 group-hover:scale-110 transition-transform">
                   <feature.icon size={24} className={feature.color} />
                 </div>

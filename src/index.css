@@ -75,6 +75,21 @@
     transition: background 0.3s ease, color 0.3s ease;
   }
 
+  /* Animated aurora glow drifting behind all content (same palette) */
+  .app-shell::before {
+    content: '';
+    position: fixed;
+    inset: -20%;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(40% 35% at 20% 10%, var(--green-soft), transparent 70%),
+      radial-gradient(35% 30% at 85% 25%, var(--amber-soft), transparent 70%),
+      radial-gradient(45% 40% at 60% 90%, var(--green-soft), transparent 70%);
+    filter: blur(48px);
+    animation: auroraDrift 18s ease-in-out infinite alternate;
+  }
+
   .page-shell {
     @apply mx-auto max-w-6xl px-4 pb-28 pt-5 sm:px-6 lg:pt-8;
   }
@@ -141,17 +156,33 @@
   /* ─── Buttons ─── */
   .btn-primary,
   .command-button {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-bold transition duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40;
+    @apply relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 font-bold transition duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40;
     color: #fff;
-    background: var(--green);
+    background: linear-gradient(135deg, #34d399 0%, var(--green) 45%, #059669 100%);
     box-shadow: 0 2px 12px -2px var(--green-soft);
+  }
+
+  .btn-primary::after,
+  .command-button::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.3) 50%, transparent 70%);
+    transform: translateX(-150%) skewX(-15deg);
+    transition: transform 0.6s ease;
+    pointer-events: none;
+  }
+
+  .btn-primary:hover::after,
+  .command-button:hover::after {
+    transform: translateX(150%) skewX(-15deg);
   }
 
   .btn-primary:hover,
   .command-button:hover {
-    box-shadow: 0 4px 20px -4px var(--green-soft);
+    box-shadow: 0 4px 24px -4px var(--green), 0 0 0 1px var(--green-soft);
     transform: translateY(-1px);
-    filter: brightness(1.15);
+    filter: brightness(1.1);
   }
 
   .btn-secondary {
@@ -289,6 +320,35 @@
   .arena-stage::before {
     content: none;
   }
+
+  /* ─── Wow effects (same palette) ─── */
+
+  /* Light sweep that glides across a card on hover */
+  .card-sheen {
+    @apply relative overflow-hidden;
+  }
+
+  .card-sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.07) 50%, transparent 70%);
+    transform: translateX(-130%);
+    transition: transform 0.9s ease;
+    pointer-events: none;
+  }
+
+  .card-sheen:hover::after {
+    transform: translateX(130%);
+  }
+
+  /* Gradient headline: white -> green -> amber */
+  .text-gradient {
+    background: linear-gradient(135deg, #ffffff 0%, #a7f3d0 35%, var(--green) 65%, var(--amber) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 }
 
 /* ─── Animations ─── */
@@ -310,6 +370,11 @@
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+
+@keyframes auroraDrift {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to { transform: translate3d(2%, 2%, 0) scale(1.08); }
 }
 
 @keyframes floatUp {
