@@ -97,7 +97,7 @@ const Landing = () => {
                   className="inline-flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 backdrop-blur-md px-7 py-3.5 text-base font-bold text-amber-400 transition active:scale-[0.97]"
                 >
                   <ShieldAlert size={19} />
-                  الدعم والإعطال
+                  الدعم والأعطال
                 </Link>
                 <Link
                   to="/admin/login"

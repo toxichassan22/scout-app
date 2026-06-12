@@ -49,6 +49,17 @@
   textarea {
     caret-color: var(--green);
   }
+
+  /* Visible focus ring for keyboard navigation (accessibility) */
+  :focus-visible {
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 @layer components {
