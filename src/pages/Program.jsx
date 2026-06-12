@@ -127,14 +127,14 @@ const Program = () => {
                 <circle cx={240} cy={367} r={14} fill="none" stroke={ZONES[6].color + '30'} strokeWidth="1" />
               </ZoneRect>
 
-              {/* ZONE 5: المخيم الكشفي - Sandy */}
-              <ZoneRect zone={ZONES[4]} x={305} y={130} w={160} h={160} active={activeZone === 'zone-5'} hovered={hoveredZone === 'zone-5'} onSelect={setActiveZone} onHover={setHoveredZone}>
+              {/* ZONE 5: المخيم الكشفي - بين المبنى الجديد والملعب الكبير */}
+              <ZoneRect zone={ZONES[4]} x={300} y={40} w={175} h={120} active={activeZone === 'zone-5'} hovered={hoveredZone === 'zone-5'} onSelect={setActiveZone} onHover={setHoveredZone}>
                 {/* Sand texture dots */}
-                {[315,335,355,375,395,415,435,450].map((cx,i) => [145,165,185,205,225,245,265].map((cy,j) => (i+j)%3===0 ? <circle key={`s${i}${j}`} cx={cx} cy={cy} r="1" fill="#ca8a04" opacity="0.25" /> : null))}
+                {[310,330,350,370,390,410,430,450].map((cx,i) => [55,70,85,100,115,130,145].map((cy,j) => (i+j)%3===0 ? <circle key={`s${i}${j}`} cx={cx} cy={cy} r="1" fill="#ca8a04" opacity="0.25" /> : null))}
                 {/* Tent */}
-                <polygon points="385,235 409,235 397,218" fill="#d97706" stroke="#92400e" strokeWidth="1" opacity="0.6" />
+                <polygon points="385,115 409,115 397,98" fill="#d97706" stroke="#92400e" strokeWidth="1" opacity="0.6" />
                 {/* Fire */}
-                <circle cx={397} cy={250} r="4" fill="#ef4444" opacity="0.5">
+                <circle cx={397} cy={130} r="4" fill="#ef4444" opacity="0.5">
                   <animate attributeName="r" values="3;6;3" dur="2s" repeatCount="indefinite" />
                 </circle>
               </ZoneRect>
@@ -151,18 +151,10 @@ const Program = () => {
                 <circle cx={630} cy={235} r="8" fill={ZONES[2].color + '15'} stroke={ZONES[2].color + '40'} strokeWidth="1" />
               </ZoneRect>
 
-              {/* حديقة ألعاب أطفال */}
+              {/* حديقة ألعاب أطفال - ورا المسجد */}
               <g className="pointer-events-none">
-                <rect x={498} y={190} width={65} height={50} rx="6" fill="#065f46" opacity="0.15" stroke="#059669" strokeWidth="1" strokeDasharray="3 3" />
-                <text x={530} y={220} fill="#34d399" fontSize="9" fontWeight="700" textAnchor="middle">🎠 حديقة أطفال</text>
-              </g>
-
-              {/* Trees behind mosque */}
-              <g opacity="0.4" className="pointer-events-none">
-                <circle cx={700} cy={195} r="7" fill="#047857" />
-                <circle cx={718} cy={210} r="9" fill="#065f46" />
-                <circle cx={705} cy={228} r="6" fill="#047857" />
-                <text x={710} y={250} fill="#34d399" fontSize="8" fontWeight="600" textAnchor="middle">🌳 أشجار</text>
+                <rect x={693} y={190} width={60} height={55} rx="6" fill="#065f46" opacity="0.15" stroke="#059669" strokeWidth="1" strokeDasharray="3 3" />
+                <text x={723} y={222} fill="#34d399" fontSize="9" fontWeight="700" textAnchor="middle">🎠 حديقة أطفال</text>
               </g>
 
               {/* النافورة */}
@@ -180,17 +172,17 @@ const Program = () => {
                 <rect x={685} y={330} width={25} height={25} fill="none" stroke={ZONES[0].color + '25'} strokeWidth="1" />
               </ZoneRect>
 
-              {/* ZONE 2: مبنى الأنشطة */}
-              <ZoneRect zone={ZONES[1]} x={420} y={330} w={200} h={115} active={activeZone === 'zone-2'} hovered={hoveredZone === 'zone-2'} onSelect={setActiveZone} onHover={setHoveredZone}>
-                <line x1={490} y1={330} x2={490} y2={445} stroke={ZONES[1].color + '25'} strokeWidth="1" />
-                <line x1={560} y1={330} x2={560} y2={445} stroke={ZONES[1].color + '25'} strokeWidth="1" />
-              </ZoneRect>
-
-              {/* استراحات */}
+              {/* مظلات استراحة - تحت المخيم الكشفي */}
               <g className="pointer-events-none">
-                {[310,335,360,385].map((rx, i) => <rect key={`r${i}`} x={rx} y={308} width={14} height={14} rx="3" fill="#000" stroke="#6b7280" strokeWidth="1" />)}
-                <text x={348} y={335} fill="#9ca3af" fontSize="8" fontWeight="600" textAnchor="middle">مظلات استراحة</text>
+                {[310,335,360,385].map((rx, i) => <rect key={`r${i}`} x={rx} y={172} width={14} height={14} rx="3" fill="#000" stroke="#6b7280" strokeWidth="1" />)}
+                <text x={348} y={199} fill="#9ca3af" fontSize="8" fontWeight="600" textAnchor="middle">مظلات استراحة</text>
               </g>
+
+              {/* ZONE 2: مبنى الأنشطة */}
+              <ZoneRect zone={ZONES[1]} x={300} y={290} w={200} h={115} active={activeZone === 'zone-2'} hovered={hoveredZone === 'zone-2'} onSelect={setActiveZone} onHover={setHoveredZone}>
+                <line x1={370} y1={290} x2={370} y2={405} stroke={ZONES[1].color + '25'} strokeWidth="1" />
+                <line x1={440} y1={290} x2={440} y2={405} stroke={ZONES[1].color + '25'} strokeWidth="1" />
+              </ZoneRect>
 
               {/* البوابة */}
               <g className="pointer-events-none">
@@ -208,7 +200,7 @@ const Program = () => {
 
               {/* Active radar */}
               {activeZone && (() => {
-                const pts = { 'zone-1':[685,372], 'zone-2':[520,387], 'zone-3':[630,235], 'zone-4':[610,100], 'zone-5':[385,210], 'zone-6':[180,155], 'zone-7':[240,367], 'zone-8':[130,367] };
+                const pts = { 'zone-1':[685,372], 'zone-2':[400,347], 'zone-3':[630,235], 'zone-4':[610,100], 'zone-5':[388,100], 'zone-6':[180,155], 'zone-7':[240,367], 'zone-8':[130,367] };
                 const p = pts[activeZone];
                 const z = ZONES.find(z => z.id === activeZone);
                 if (!p || !z) return null;
