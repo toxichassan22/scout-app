@@ -1,12 +1,14 @@
 import { Camera, Clock, RadioTower } from 'lucide-react';
 
 const NewsCard = ({ item, showStatus = false }) => (
-  <article className="hud-card overflow-hidden !p-0">
+  <article className="hud-card card-sheen group overflow-hidden !p-0">
     {item.photo ? (
-      <img src={item.photo} alt={item.title} className="aspect-video w-full object-cover" />
+      <div className="overflow-hidden">
+        <img src={item.photo} alt={item.title} className="aspect-video w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+      </div>
     ) : (
-      <div className="relative flex aspect-video items-center justify-center border-b border-primary/15 bg-slate-950/70 text-primary/55">
-        <img src="/brand/empty-news.png" alt="" className="absolute inset-0 h-full w-full object-cover opacity-45" />
+      <div className="relative flex aspect-video items-center justify-center overflow-hidden border-b border-primary/15 bg-slate-950/70 text-primary/55">
+        <img src="/brand/empty-news.png" alt="" className="absolute inset-0 h-full w-full object-cover opacity-45 transition-transform duration-500 group-hover:scale-105" />
         <Camera size={44} className="relative" />
       </div>
     )}

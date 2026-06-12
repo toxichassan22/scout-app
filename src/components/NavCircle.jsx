@@ -1,43 +1,51 @@
 import { memo } from 'react';
 import { Link } from 'react-router-dom';
-import { Trophy, Sparkles, Map } from 'lucide-react';
+import { Trophy, Sparkles, Map, ChevronLeft } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { to: '/activities', icon: Trophy, label: 'المسابقات', color: 'primary' },
-  { to: '/activities', icon: Sparkles, label: 'الأنشطة', color: 'accent' },
-  { to: '/program', icon: Map, label: 'المناطق والبرنامج', color: 'primary' },
+  { to: '/activities', icon: Trophy, label: 'المسابقات', desc: 'تحديات التقييم الرسمية', accent: false },
+  { to: '/activities', icon: Sparkles, label: 'الأنشطة', desc: 'ألعاب ترفيهية تفاعلية', accent: true },
+  { to: '/program', icon: Map, label: 'المناطق والبرنامج', desc: 'خريطة المعسكر والجدول', accent: false },
 ];
 
 export const NavCircle = memo(function NavCircle() {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-4 py-6">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon;
-        const isAccent = item.color === 'accent';
         return (
           <Link
-            key={item.to}
+            key={item.label}
             to={item.to}
-            className={`group flex flex-col items-center gap-2.5 transition duration-300 active:scale-95`}
+            className={`card-sheen group relative overflow-hidden rounded-2xl border p-5 text-right transition-all duration-300 active:scale-[0.98] hover:-translate-y-1 ${
+              item.accent
+                ? 'border-amber-500/15 bg-gradient-to-br from-amber-500/10 via-transparent to-transparent hover:border-amber-500/40 hover:shadow-glow-amber'
+                : 'border-emerald-500/15 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent hover:border-emerald-500/40 hover:shadow-glow-green'
+            }`}
           >
-            <div
-              className={`flex h-20 w-20 items-center justify-center rounded-full border-2 transition-all duration-300 ${
-                isAccent
-                  ? 'border-accent/30 bg-accent/10 text-accent group-hover:border-accent/60 group-hover:bg-accent/20 group-hover:shadow-glow-amber'
-                  : 'border-primary/30 bg-primary/10 text-primary group-hover:border-primary/60 group-hover:bg-primary/20 group-hover:shadow-glow-green'
-              }`}
-            >
-              <Icon size={30} strokeWidth={1.8} />
+            <div className="flex items-center justify-between gap-3">
+              <ChevronLeft
+                size={18}
+                className={`shrink-0 transition-all duration-300 group-hover:-translate-x-1 ${
+                  item.accent ? 'text-amber-500/40 group-hover:text-amber-400' : 'text-emerald-500/40 group-hover:text-emerald-400'
+                }`}
+              />
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-sm font-black text-white">{item.label}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">{item.desc}</p>
+                </div>
+                <div
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border transition-transform duration-300 group-hover:scale-110 ${
+                    item.accent
+                      ? 'border-amber-500/25 bg-amber-500/10 text-amber-400'
+                      : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400'
+                  }`}
+                >
+                  <Icon size={22} strokeWidth={1.8} />
+                </div>
+              </div>
             </div>
-            <span
-              className={`text-sm font-bold transition-colors duration-200 ${
-                isAccent
-                  ? 'text-accent/80 group-hover:text-accent'
-                  : 'text-primary/80 group-hover:text-primary'
-              }`}
-            >
-              {item.label}
-            </span>
           </Link>
         );
       })}

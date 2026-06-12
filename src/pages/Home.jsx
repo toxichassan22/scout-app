@@ -94,7 +94,7 @@ const Home = memo(function Home() {
       <FloatSettings />
 
       {/* Header: 3 Logos */}
-      <header className="relative z-10 mb-6">
+      <header className="card-sheen relative z-10 mb-6 rounded-2xl border border-emerald-500/10 bg-white/[0.02] px-4 backdrop-blur-sm sm:px-6">
         <div className="flex items-center justify-between gap-4 py-4">
           {/* Right logo (fest) */}
           <div className="shrink-0">
@@ -117,8 +117,8 @@ const Home = memo(function Home() {
 
           {/* Left logo (منشية) */}
           <div className="shrink-0">
-            <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl border border-white/10 bg-white/5 p-1.5 overflow-hidden flex items-center justify-center">
-              <span className="text-[10px] font-bold text-slate-500 text-center leading-tight">
+            <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl border border-amber-500/15 bg-gradient-to-br from-amber-500/10 to-transparent p-1.5 overflow-hidden flex items-center justify-center transition duration-300 hover:scale-105 hover:shadow-glow-amber">
+              <span className="text-[10px] font-bold text-amber-400/80 text-center leading-tight">
                 منشية<br />التحرير
               </span>
             </div>

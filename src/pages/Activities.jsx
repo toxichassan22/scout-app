@@ -197,7 +197,7 @@ const Activities = () => {
   return (
     <main className="page-shell">
       {/* Page Header */}
-      <div className="tech-panel mb-6 p-5">
+      <div className="tech-panel card-sheen mb-6 p-5">
         <div className="flex items-center justify-between gap-4">
           <div className="rounded-lg border border-primary/25 bg-primary/10 p-3 text-primary">
             <Sparkles size={26} />
@@ -211,19 +211,19 @@ const Activities = () => {
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex rounded-xl bg-slate-950 p-1 mb-6 border border-slate-800">
+      <div className="flex rounded-xl bg-slate-950/80 p-1 mb-6 border border-emerald-500/15 backdrop-blur-sm">
         <button
           onClick={() => setActiveTab('activities')}
-          className={`flex-1 rounded-lg py-3 text-sm font-black transition-all ${
-            activeTab === 'activities' ? 'bg-primary text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+          className={`flex-1 rounded-lg py-3 text-sm font-black transition-all duration-300 ${
+            activeTab === 'activities' ? 'bg-gradient-to-l from-emerald-400 to-emerald-600 text-slate-950 shadow-glow-green' : 'text-slate-400 hover:text-white hover:bg-white/5'
           }`}
         >
           ألعاب الأنشطة الترفيهية
         </button>
         <button
           onClick={() => setActiveTab('competitions')}
-          className={`flex-1 rounded-lg py-3 text-sm font-black transition-all ${
-            activeTab === 'competitions' ? 'bg-primary text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+          className={`flex-1 rounded-lg py-3 text-sm font-black transition-all duration-300 ${
+            activeTab === 'competitions' ? 'bg-gradient-to-l from-emerald-400 to-emerald-600 text-slate-950 shadow-glow-green' : 'text-slate-400 hover:text-white hover:bg-white/5'
           }`}
         >
           مسابقات التقييم الرسمية
