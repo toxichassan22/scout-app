@@ -318,6 +318,69 @@
   animation: fadeInUp 0.5s ease-out both;
 }
 
+/* ─── Landing hero: slow cinematic zoom ─── */
+@keyframes kenburns {
+  0% { transform: scale(1) translateY(0); }
+  100% { transform: scale(1.08) translateY(-1.5%); }
+}
+
+.hero-kenburns {
+  animation: kenburns 24s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* ─── Live status dot ─── */
+@keyframes livePing {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+  70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.live-dot {
+  animation: livePing 2s ease-out infinite;
+}
+
+/* ─── Fire glow behind hero content ─── */
+@keyframes fireBreath {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.12); }
+}
+
+.fire-glow {
+  animation: fireBreath 4.5s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+/* ─── CTA pulse glow ─── */
+@keyframes ctaGlow {
+  0%, 100% { box-shadow: 0 4px 24px -6px rgba(16, 185, 129, 0.5); }
+  50% { box-shadow: 0 4px 36px -4px rgba(16, 185, 129, 0.85); }
+}
+
+.cta-glow {
+  animation: ctaGlow 2.6s ease-in-out infinite;
+}
+
+/* ─── Scroll hint ─── */
+@keyframes scrollHint {
+  0%, 100% { transform: translateY(0); opacity: 0.7; }
+  50% { transform: translateY(8px); opacity: 1; }
+}
+
+.scroll-hint {
+  animation: scrollHint 1.8s ease-in-out infinite;
+}
+
+/* ─── Amber accent shimmer on gradient text ─── */
+@keyframes emberText {
+  0%, 100% { text-shadow: 0 0 18px rgba(245, 158, 11, 0.35); }
+  50% { text-shadow: 0 0 34px rgba(245, 158, 11, 0.65); }
+}
+
+.ember-text {
+  animation: emberText 3.5s ease-in-out infinite;
+}
+
 .animate-pulse-glow {
   animation: pulseGlow 3s ease-in-out infinite;
 }
