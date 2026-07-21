@@ -42,17 +42,24 @@ const Countdown = ({ targetDate }) => {
 
   return (
     <div className="grid grid-cols-4 gap-2 sm:gap-3" dir="rtl">
-      {units.map((unit) => (
-        <div
-          key={unit.label}
-          className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 sm:p-4 text-center transition hover:border-primary/15"
-        >
-          <p className="text-2xl sm:text-3xl font-bold tabular-nums text-white">
-            {unit.value}
-          </p>
-          <p className="mt-1 text-[10px] sm:text-xs text-slate-500">{unit.label}</p>
-        </div>
-      ))}
+      {units.map((unit, i) => {
+        const isSeconds = i === units.length - 1;
+        return (
+          <div
+            key={unit.label}
+            className={`rounded-xl border p-3 sm:p-4 text-center transition ${
+              isSeconds
+                ? 'border-amber-500/20 bg-amber-500/[0.04]'
+                : 'border-white/[0.06] bg-white/[0.03] hover:border-primary/15'
+            }`}
+          >
+            <p className={`text-2xl sm:text-3xl font-bold tabular-nums ${isSeconds ? 'text-amber-400 sec-tick' : 'text-white'}`}>
+              {unit.value}
+            </p>
+            <p className="mt-1 text-[10px] sm:text-xs text-slate-500">{unit.label}</p>
+          </div>
+        );
+      })}
     </div>
   );
 };

@@ -381,6 +381,87 @@
   animation: emberText 3.5s ease-in-out infinite;
 }
 
+/* ─── Live news ticker (marquee) ─── */
+@keyframes tickerScroll {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: tickerScroll 28s linear infinite;
+}
+
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+/* ─── Flame flicker ─── */
+@keyframes flameFlicker {
+  0%, 100% { transform: scale(1) rotate(-2deg); opacity: 0.9; }
+  25% { transform: scale(1.12) rotate(2deg); opacity: 1; }
+  50% { transform: scale(0.95) rotate(-1deg); opacity: 0.85; }
+  75% { transform: scale(1.08) rotate(1.5deg); opacity: 1; }
+}
+
+.flame-flicker {
+  animation: flameFlicker 1.6s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+/* ─── Live feed item entrance ─── */
+@keyframes feedIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.feed-in {
+  animation: feedIn 0.45s ease-out both;
+}
+
+/* ─── Leaderboard bar fill ─── */
+@keyframes barGrow {
+  from { width: 0; }
+}
+
+.bar-grow {
+  animation: barGrow 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ─── Signal wave (radar) ─── */
+@keyframes radarSweep {
+  0% { transform: scale(0.5); opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+.radar-ring {
+  animation: radarSweep 2.4s ease-out infinite;
+}
+
+/* ─── Seconds tick pulse ─── */
+@keyframes secTick {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+.sec-tick {
+  animation: secTick 1s ease-in-out infinite;
+}
+
+/* ─── Scroll reveal ─── */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .animate-pulse-glow {
   animation: pulseGlow 3s ease-in-out infinite;
 }
