@@ -19,6 +19,7 @@
     "react-qr-scanner": "^1.0.0-alpha.11",
     "react-router-dom": "^6.23.1",
     "recharts": "^2.12.7",
+    "socket.io-client": "^4.7.5",
     "tailwind-merge": "^2.3.0"
   },
   "devDependencies": {

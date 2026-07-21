@@ -1,18 +1,18 @@
 import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, BrainCircuit, KeyRound, TreePine, ShieldCheck, Flame } from 'lucide-react';
+import { ArrowRight, BrainCircuit, KeyRound, TreePine, ShieldCheck, UserCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { FESTIVAL_DETAILS } from '../data/mockData';
 
 const Login = () => {
-  const [teamName, setTeamName] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [googleChooserOpen, setGoogleChooserOpen] = useState(false);
-  const { loginTeam, user, teams } = useAuth();
+  const { loginTeam, user } = useAuth();
   const navigate = useNavigate();
 
-  // Floating fireflies/campfire sparks animation
+  // Floating fireflies animation
   const sparks = useMemo(() => {
     return Array.from({ length: 15 }).map((_, i) => ({
       id: i,
@@ -25,30 +25,26 @@ const Login = () => {
 
   React.useEffect(() => {
     if (user) {
-      navigate(user.role === 'admin' ? '/admin/dashboard' : '/home', { replace: true });
+      if (user.role === 'admin') navigate('/admin/dashboard', { replace: true });
+      else if (user.role === 'judge') navigate('/judge', { replace: true });
+      else navigate('/home', { replace: true });
     }
   }, [user, navigate]);
 
-  React.useEffect(() => {
-    const handleOpenGoogle = () => {
-      setGoogleChooserOpen(true);
-    };
-    window.addEventListener('open-google-chooser', handleOpenGoogle);
-    return () => window.removeEventListener('open-google-chooser', handleOpenGoogle);
-  }, []);
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    const result = loginTeam(teamName);
+    const result = await loginTeam(username, password);
+    setLoading(false);
+
     if (!result.ok) {
       setError(result.message);
       return;
     }
 
-    setLoading(true);
-    setTimeout(() => navigate('/home'), 800);
+    navigate('/home');
   };
 
   return (
@@ -75,7 +71,7 @@ const Login = () => {
         ))}
       </div>
 
-      <div className="w-full max-w-md relative z-20 animate-fade-in">
+      <div className="w-full max-w-md relative z-20 animate-fade-in dir-rtl">
         {/* Logo & branding */}
         <div className="text-center mb-8">
           <div className="animate-soft-float mx-auto mb-5 h-24 w-24 rounded-2xl border border-emerald-500/15 bg-white/5 p-3 overflow-hidden shadow-lg shadow-emerald-950/20 hover:scale-105 hover:shadow-glow-green transition duration-300">
@@ -92,74 +88,60 @@ const Login = () => {
               <ShieldCheck size={14} />
               بوابة الفرق الكشفية
             </div>
-            <p className="text-slate-400 text-sm">اختر طريقة تسجيل الدخول لبدء المهرجان</p>
+            <p className="text-slate-400 text-sm">أدخل اسم المستخدم وكلمة السر المسجلة لمتابعة المهرجان</p>
           </div>
 
-          {loading ? (
-            <div className="py-10 text-center animate-pulse">
-              <div className="mx-auto h-12 w-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin mb-4" />
-              <p className="text-sm text-slate-400 font-medium">جاري التحقق والدخول الكشفي الرقمي...</p>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="text-right">
+              <label className="block text-xs font-bold text-slate-400 mb-1.5">اسم المستخدم</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="ai-input text-right text-base font-bold transition-all duration-300 focus:border-primary/50"
+                placeholder="مثال: team1"
+                required
+              />
             </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Google Sign-In Trigger Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent('open-google-chooser'));
-                }}
-                className="w-full rounded-xl border border-slate-700 bg-white text-slate-900 font-extrabold text-sm py-3 flex items-center justify-center gap-3 hover:bg-slate-100 transition duration-200 active:scale-98"
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.08H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.92l2.85-2.22.81-.6z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.08l3.66 2.84c.87-2.6 3.3-4.54 6.16-4.54z"/>
-                </svg>
-                <span>تسجيل الدخول بواسطة Google</span>
-              </button>
 
-              <div className="flex items-center my-4">
-                <hr className="flex-1 border-white/[0.08]" />
-                <span className="px-3 text-xs text-slate-500 font-bold">أو</span>
-                <hr className="flex-1 border-white/[0.08]" />
-              </div>
+            <div className="text-right">
+              <label className="block text-xs font-bold text-slate-400 mb-1.5">كلمة السر</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="ai-input text-right text-base font-bold transition-all duration-300 focus:border-primary/50"
+                placeholder="••••••••"
+                required
+              />
+            </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div className="text-right">
-                  <label className="block text-xs font-bold text-slate-400 mb-2">اسم الفريق</label>
-                  <input
-                    type="text"
-                    value={teamName}
-                    onChange={(e) => setTeamName(e.target.value)}
-                    className="ai-input text-center text-lg font-bold transition-all duration-300 focus:border-primary/50"
-                    placeholder="أدخل اسم فريقك المسجل"
-                    required
-                  />
-                </div>
+            {error && (
+              <p className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-sm font-medium text-red-400 text-right">
+                {error}
+              </p>
+            )}
 
-                {error && (
-                  <p className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-sm font-medium text-red-400 text-right">
-                    {error}
-                  </p>
-                )}
-
-                <button type="submit" className="command-button w-full text-base py-3 flex items-center justify-center gap-2 hover:shadow-lg">
+            <button
+              type="submit"
+              disabled={loading}
+              className="command-button w-full text-base py-3 flex items-center justify-center gap-2 hover:shadow-lg disabled:opacity-50"
+            >
+              {loading ? (
+                <div className="h-5 w-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
                   <KeyRound size={18} />
-                  تسجيل الدخول المباشر
-                </button>
-              </form>
-            </div>
-          )}
+                  تسجيل الدخول
+                </>
+              )}
+            </button>
+          </form>
 
-          <div className="mt-6 pt-5 border-t border-white/[0.06] flex flex-col items-center gap-3">
-            <Link to="/" className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-primary transition-colors">
-              <ArrowRight size={14} />
-              العودة للرئيسية
-            </Link>
-            <Link to="/admin/login" className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-amber-400 transition-colors">
-              <BrainCircuit size={13} />
-              دخول المشرفين
+          <div className="mt-6 pt-5 border-t border-white/[0.06] flex items-center justify-center">
+            <Link to="/judge/login" className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+              <UserCheck size={13} />
+              بوابة المحكّمين
             </Link>
           </div>
         </div>
@@ -171,70 +153,6 @@ const Login = () => {
           <span>{FESTIVAL_DETAILS.location}</span>
         </div>
       </div>
-
-      {/* Google Account Chooser Modal */}
-      {googleChooserOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-slate-800 text-right shadow-2xl relative">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-              <button
-                type="button"
-                onClick={() => setGoogleChooserOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
-              >
-                إلغاء
-              </button>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-sm text-slate-700">اختر حساباً</span>
-                {/* SVG Google */}
-                <svg className="h-5 w-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.08H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.92l2.85-2.22.81-.6z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.08l3.66 2.84c.87-2.6 3.3-4.54 6.16-4.54z"/>
-                </svg>
-              </div>
-            </div>
-            <p className="text-[11px] text-slate-500 mb-4 leading-5">
-              للمتابعة إلى تطبيق المخيم الرقمي، اختر حساب بريد إلكتروني مرتبط بفريقك الكشفي:
-            </p>
-            <div className="space-y-2.5 max-h-60 overflow-y-auto">
-              {teams.map((tName) => {
-                const email = `${tName.toLowerCase().replace(/\s+/g, '')}.scout@gmail.com`;
-                return (
-                  <button
-                    key={tName}
-                    type="button"
-                    onClick={() => {
-                      setGoogleChooserOpen(false);
-                      setTeamName(tName);
-                      // Login immediately
-                      setError('');
-                      const result = loginTeam(tName);
-                      if (result.ok) {
-                        setLoading(true);
-                        setTimeout(() => navigate('/home'), 800);
-                      } else {
-                        setError(result.message);
-                      }
-                    }}
-                    className="w-full text-right p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition flex items-center justify-between group"
-                  >
-                    <span className="text-[10px] text-slate-400 group-hover:text-primary font-bold">تسجيل سريع</span>
-                    <div>
-                      <p className="text-xs font-black text-slate-700">{tName}</p>
-                      <p className="text-[10px] text-slate-400 font-mono">{email}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-[9px] text-slate-400 mt-4 text-center leading-4">
-              سيقوم خادم المحاكاة بتمرير التوكن وتأمين الجلسة وفقاً للحد الأقصى {12} عضو لكل فريق.
-            </p>
-          </div>
-        </div>
-      )}
     </main>
   );
 };

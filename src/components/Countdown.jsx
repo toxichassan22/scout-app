@@ -26,31 +26,32 @@ const Countdown = ({ targetDate }) => {
   }, [target]);
 
   const units = [
-    { label: 'يوم', value: time.days },
-    { label: 'ساعة', value: pad(time.hours) },
-    { label: 'دقيقة', value: pad(time.minutes) },
-    { label: 'ثانية', value: pad(time.seconds) },
+    { label: 'أيام', value: time.days },
+    { label: 'ساعات', value: pad(time.hours) },
+    { label: 'دقائق', value: pad(time.minutes) },
+    { label: 'ثوانٍ', value: pad(time.seconds) },
   ];
 
   if (time.done) {
     return (
-      <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-5 py-2.5 text-sm font-bold text-amber-400 shadow-glow-amber">
-        🎉 انطلق المهرجان الآن
+      <div className="inline-flex items-center gap-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 px-6 py-3 text-base font-black text-amber-400 shadow-glow-amber animate-pulse">
+        ⚡ انطلقت المسابقات الكشفية رسميًا بالأرض!
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-4 gap-2 sm:gap-3" dir="rtl">
+    <div className="grid grid-cols-4 gap-3 sm:gap-4" dir="rtl">
       {units.map((unit) => (
         <div
           key={unit.label}
-          className="card-sheen rounded-xl border border-emerald-500/15 bg-white/[0.03] p-3 sm:p-4 text-center transition duration-300 hover:border-primary/40 hover:-translate-y-0.5"
+          className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-slate-950/70 p-3 sm:p-5 text-center transition duration-300 hover:border-emerald-400/50 hover:shadow-glow-green group"
         >
-          <p className="text-2xl sm:text-3xl font-bold tabular-nums text-white drop-shadow-[0_0_14px_rgba(16,185,129,0.35)]">
+          <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <p className="text-3xl sm:text-5xl font-black tabular-nums text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-100 to-emerald-300 drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]">
             {unit.value}
           </p>
-          <p className="mt-1 text-[10px] sm:text-xs text-slate-500">{unit.label}</p>
+          <p className="mt-1.5 text-xs sm:text-sm font-bold text-emerald-400/80 uppercase tracking-widest">{unit.label}</p>
         </div>
       ))}
     </div>
@@ -58,3 +59,4 @@ const Countdown = ({ targetDate }) => {
 };
 
 export default Countdown;
+

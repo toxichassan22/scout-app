@@ -1,13 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { BrainCircuit, KeyRound, ShieldCheck, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { FESTIVAL_DETAILS } from '../../data/mockData';
-import { Link } from 'react-router-dom';
 
 const AdminLogin = () => {
   const [form, setForm] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { loginAdmin } = useAuth();
   const navigate = useNavigate();
 
@@ -22,12 +21,18 @@ const AdminLogin = () => {
     }));
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (loginAdmin(form.username, form.password)) {
+    setError('');
+    setLoading(true);
+
+    const result = await loginAdmin(form.username, form.password);
+    setLoading(false);
+
+    if (result.ok) {
       navigate('/admin/dashboard');
     } else {
-      setError('بيانات الدخول غير صحيحة');
+      setError(result.message || 'بيانات الدخول غير صحيحة');
     }
   };
 
@@ -55,7 +60,7 @@ const AdminLogin = () => {
         ))}
       </div>
 
-      <div className="w-full max-w-4xl relative z-20 animate-fade-in">
+      <div className="w-full max-w-4xl relative z-20 animate-fade-in dir-rtl">
         <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent overflow-hidden backdrop-blur-md shadow-2xl transition duration-300 hover:border-white/10">
           <div className="grid md:grid-cols-2">
             
@@ -64,12 +69,12 @@ const AdminLogin = () => {
               <div className="flex justify-center md:justify-start mb-6">
                 <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/15 px-3 py-1.5 text-xs font-bold text-amber-400">
                   <ShieldCheck size={14} />
-                  بوابة المشرفين
+                  بوابة الأدمن والمشرفين
                 </div>
               </div>
 
               <h1 className="text-2xl font-bold text-white mb-2">لوحة التحكم والقيادة</h1>
-              <p className="text-slate-400 text-sm mb-6">سجل الدخول لإدارة الفعاليات والنتائج</p>
+              <p className="text-slate-400 text-sm mb-6">سجل الدخول لإدارة الفرق والمحكمين والدرجات</p>
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
@@ -78,7 +83,8 @@ const AdminLogin = () => {
                     type="text"
                     value={form.username}
                     onChange={(e) => setForm({ ...form, username: e.target.value })}
-                    className="ai-input text-right transition-all duration-300 focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+                    className="ai-input text-right transition-all duration-300 focus:border-primary/50"
+                    placeholder="admin"
                     required
                   />
                 </div>
@@ -89,7 +95,8 @@ const AdminLogin = () => {
                     type="password"
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    className="ai-input text-right transition-all duration-300 focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+                    className="ai-input text-right transition-all duration-300 focus:border-primary/50"
+                    placeholder="••••••••"
                     required
                   />
                 </div>
@@ -100,9 +107,19 @@ const AdminLogin = () => {
                   </p>
                 )}
 
-                <button type="submit" className="command-button w-full py-3 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-primary/30 transition-all duration-300 text-base">
-                  <KeyRound size={18} />
-                  تسجيل دخول الأدمن
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="command-button w-full py-3 flex items-center justify-center gap-2 text-base disabled:opacity-50"
+                >
+                  {loading ? (
+                    <div className="h-5 w-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <KeyRound size={18} />
+                      تسجيل دخول الأدمن
+                    </>
+                  )}
                 </button>
               </form>
 
@@ -116,16 +133,15 @@ const AdminLogin = () => {
 
             {/* Visual side */}
             <section className="relative hidden md:block overflow-hidden min-h-[400px] order-1 md:order-2">
-              <img src="/brand/hero-arena.png" alt="" className="absolute inset-0 h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#0a0f0a] via-[#0a0f0a]/50 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 via-slate-900 to-slate-950" />
               <div className="relative flex h-full flex-col justify-end p-8 text-right z-10">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/20 border border-primary/30 px-3 py-1 text-xs font-bold text-white mb-3 self-end backdrop-blur-sm">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/20 border border-primary/30 px-3 py-1 text-xs font-bold text-white mb-3 self-start">
                   <BrainCircuit size={14} className="text-primary-light" />
-                  منصة المشرفين
+                  منصة القيادة
                 </span>
-                <h2 className="text-3xl font-bold text-white mb-2">تحكم كامل في الساحة</h2>
+                <h2 className="text-3xl font-bold text-white mb-2">تحكم كامل وسجل شفاف</h2>
                 <p className="text-slate-300 text-sm leading-6">
-                  تابع الفرق، وافق على الأخبار، افتح التحديات للمتسابقين، وقم بتقييم أعمال الذكاء الاصطناعي لحظة بلحظة.
+                  إدارة شاملة لنتائج المسابقات الرقمية واليدوية، توليد أكواد المحكمين، وتحديث لوحة الشرف في الوقت الفعلي.
                 </p>
               </div>
             </section>

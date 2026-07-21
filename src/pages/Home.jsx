@@ -1,262 +1,345 @@
-import { memo } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Newspaper, Flame, Mountain, Trophy } from 'lucide-react';
+import { Newspaper, Flame, Trophy, Crown, Compass, Sparkles, FileText, ChevronLeft, Zap, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useCompetitions } from '../context/CompetitionContext';
+import { useSocket } from '../context/SocketContext';
+import { getLeaderboard, getNews } from '../services/api';
 import { FESTIVAL_DETAILS } from '../data/mockData';
 import NewsCard from '../components/NewsCard';
-import { NavCircle } from '../components/NavCircle';
 import { FloatSettings } from '../components/FloatSettings';
 
-/* ─── AI Neural Network Background ─── */
-const AIBackground = memo(function AIBackground() {
+/* ─── Neural Grid Background Effect ─── */
+const DigitalGridBackground = memo(function DigitalGridBackground() {
   return (
-    <div className="ai-grid-bg" aria-hidden="true">
-      {/* Grid dots */}
+    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.05)_0,transparent_100%)]" />
       <div className="ai-node" style={{ left: '15%', top: '20%' }} />
-      <div className="ai-node" />
-      <div className="ai-node" />
-      <div className="ai-node" />
-      <div className="ai-node" />
-
-      {/* Neural Network SVG */}
-      <svg
-        className="absolute inset-0 w-full h-full"
-        viewBox="0 0 800 600"
-        preserveAspectRatio="xMidYMid slice"
-        style={{ opacity: 0.35 }}
-      >
-        {/* Connection lines */}
-        <g stroke="var(--green)" strokeWidth="1" fill="none" opacity="0.4">
-          {/* Layer 1 → Layer 2 */}
-          <line x1="120" y1="150" x2="320" y2="120"><animate attributeName="opacity" values="0.2;0.6;0.2" dur="4s" repeatCount="indefinite" /></line>
-          <line x1="120" y1="150" x2="320" y2="250"><animate attributeName="opacity" values="0.3;0.7;0.3" dur="5s" repeatCount="indefinite" /></line>
-          <line x1="120" y1="150" x2="320" y2="380"><animate attributeName="opacity" values="0.2;0.5;0.2" dur="3.5s" repeatCount="indefinite" /></line>
-          <line x1="120" y1="300" x2="320" y2="120"><animate attributeName="opacity" values="0.3;0.6;0.3" dur="4.5s" repeatCount="indefinite" /></line>
-          <line x1="120" y1="300" x2="320" y2="250"><animate attributeName="opacity" values="0.2;0.7;0.2" dur="3s" repeatCount="indefinite" /></line>
-          <line x1="120" y1="300" x2="320" y2="380"><animate attributeName="opacity" values="0.3;0.5;0.3" dur="5.5s" repeatCount="indefinite" /></line>
-          <line x1="120" y1="450" x2="320" y2="250"><animate attributeName="opacity" values="0.2;0.6;0.2" dur="4s" repeatCount="indefinite" /></line>
-          <line x1="120" y1="450" x2="320" y2="380"><animate attributeName="opacity" values="0.3;0.5;0.3" dur="3.8s" repeatCount="indefinite" /></line>
-
-          {/* Layer 2 → Layer 3 */}
-          <line x1="320" y1="120" x2="540" y2="200"><animate attributeName="opacity" values="0.2;0.6;0.2" dur="4.2s" repeatCount="indefinite" /></line>
-          <line x1="320" y1="120" x2="540" y2="350"><animate attributeName="opacity" values="0.3;0.5;0.3" dur="3.6s" repeatCount="indefinite" /></line>
-          <line x1="320" y1="250" x2="540" y2="200"><animate attributeName="opacity" values="0.2;0.7;0.2" dur="5s" repeatCount="indefinite" /></line>
-          <line x1="320" y1="250" x2="540" y2="350"><animate attributeName="opacity" values="0.3;0.6;0.3" dur="4s" repeatCount="indefinite" /></line>
-          <line x1="320" y1="380" x2="540" y2="200"><animate attributeName="opacity" values="0.2;0.5;0.2" dur="3.5s" repeatCount="indefinite" /></line>
-          <line x1="320" y1="380" x2="540" y2="350"><animate attributeName="opacity" values="0.3;0.7;0.3" dur="4.8s" repeatCount="indefinite" /></line>
-
-          {/* Layer 3 → Output */}
-          <line x1="540" y1="200" x2="700" y2="275"><animate attributeName="opacity" values="0.3;0.8;0.3" dur="3s" repeatCount="indefinite" /></line>
-          <line x1="540" y1="350" x2="700" y2="275"><animate attributeName="opacity" values="0.2;0.7;0.2" dur="4s" repeatCount="indefinite" /></line>
-        </g>
-
-        {/* Neural nodes */}
-        <g fill="var(--green)" opacity="0.6">
-          {/* Input layer */}
-          <circle cx="120" cy="150" r="5"><animate attributeName="r" values="4;7;4" dur="3s" repeatCount="indefinite" /></circle>
-          <circle cx="120" cy="300" r="5"><animate attributeName="r" values="5;8;5" dur="4s" repeatCount="indefinite" /></circle>
-          <circle cx="120" cy="450" r="5"><animate attributeName="r" values="4;6;4" dur="3.5s" repeatCount="indefinite" /></circle>
-
-          {/* Hidden layer 1 */}
-          <circle cx="320" cy="120" r="6"><animate attributeName="r" values="5;8;5" dur="3.8s" repeatCount="indefinite" /></circle>
-          <circle cx="320" cy="250" r="6"><animate attributeName="r" values="4;7;4" dur="4.2s" repeatCount="indefinite" /></circle>
-          <circle cx="320" cy="380" r="6"><animate attributeName="r" values="5;8;5" dur="3.2s" repeatCount="indefinite" /></circle>
-
-          {/* Hidden layer 2 */}
-          <circle cx="540" cy="200" r="6"><animate attributeName="r" values="5;9;5" dur="4s" repeatCount="indefinite" /></circle>
-          <circle cx="540" cy="350" r="6"><animate attributeName="r" values="4;8;4" dur="3.5s" repeatCount="indefinite" /></circle>
-
-          {/* Output */}
-          <circle cx="700" cy="275" r="8" fill="var(--amber)" opacity="0.7"><animate attributeName="r" values="6;12;6" dur="2.5s" repeatCount="indefinite" /></circle>
-        </g>
-
-        {/* Layer labels */}
-        <g fill="var(--green)" fontSize="10" fontFamily="monospace" opacity="0.3">
-          <text x="120" y="520" textAnchor="middle">INPUT</text>
-          <text x="320" y="520" textAnchor="middle">HIDDEN</text>
-          <text x="540" y="520" textAnchor="middle">HIDDEN</text>
-          <text x="700" y="520" textAnchor="middle">OUTPUT</text>
-        </g>
-      </svg>
+      <div className="ai-node" style={{ left: '85%', top: '35%' }} />
+      <div className="ai-node" style={{ left: '45%', top: '75%' }} />
     </div>
   );
 });
 
 const Home = memo(function Home() {
   const { user } = useAuth();
-  const { news, getOverallLeaderboard } = useCompetitions();
-  const approvedNews = news.filter((item) => item.status === 'approved').slice(0, 2);
+  const { socket } = useSocket();
+  const [board, setBoard] = useState([]);
+  const [news, setNews] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchInitialData = async () => {
+    try {
+      const [leaderboardData, newsData] = await Promise.all([
+        getLeaderboard().catch(() => []),
+        getNews().catch(() => [])
+      ]);
+      setBoard(leaderboardData);
+      setNews(newsData.slice(0, 2));
+    } catch (e) {
+      console.error('Failed to load home data:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInitialData();
+
+    if (socket) {
+      socket.on('leaderboard:update', (updatedBoard) => {
+        setBoard(updatedBoard);
+      });
+
+      socket.on('news:published', (newStory) => {
+        setNews((prev) => [newStory, ...prev.slice(0, 1)]);
+      });
+
+      socket.on('news:deleted', ({ id }) => {
+        setNews((prev) => prev.filter((item) => item.id !== id));
+      });
+
+      return () => {
+        socket.off('leaderboard:update');
+        socket.off('news:published');
+        socket.off('news:deleted');
+      };
+    }
+  }, [socket]);
+
+  const first = board[0];
+  const second = board[1];
+  const third = board[2];
+  const rest = board.slice(3);
+
+  const firstPoints = first ? first.points : 0;
+  const secondPoints = second ? second.points : 0;
+  const thirdPoints = third ? third.points : 0;
+
+  const diffFirstSecond = first && second ? Math.round((firstPoints - secondPoints) * 10) / 10 : 0;
 
   return (
-    <main className="page-shell relative">
-      <AIBackground />
+    <main className="page-shell relative text-right dir-rtl">
+      <DigitalGridBackground />
       <FloatSettings />
 
-      {/* Header: 3 Logos */}
-      <header className="card-sheen relative z-10 mb-6 rounded-2xl border border-emerald-500/10 bg-white/[0.02] px-4 backdrop-blur-sm sm:px-6">
-        <div className="flex items-center justify-between gap-4 py-4">
-          {/* Right logo (fest) */}
+      {/* Modern Top Header Banner */}
+      <header className="glass-card mb-6 p-4 sm:p-6 border border-emerald-500/20 bg-slate-950/70 shadow-2xl rounded-3xl">
+        <div className="flex items-center justify-between gap-4">
+          {/* Logo 1 */}
           <div className="shrink-0">
-            <div className="animate-soft-float h-16 w-16 sm:h-20 sm:w-20 rounded-2xl border border-emerald-500/15 bg-white/5 p-1.5 overflow-hidden transition duration-300 hover:scale-105 hover:shadow-glow-green">
+            <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-2 flex items-center justify-center shadow-glow-green hover:scale-105 transition">
               <img src={FESTIVAL_DETAILS.logo} alt="شعار المهرجان" className="h-full w-full object-contain" />
             </div>
           </div>
 
-          {/* Center: شعار كشفيتي بفكر ديجيتال */}
+          {/* Title Branding */}
           <div className="flex-1 text-center">
-            <div className="inline-flex flex-col items-center gap-1">
-              <h1 className="text-xl sm:text-2xl font-bold text-gradient leading-snug pb-0.5">
-                {FESTIVAL_DETAILS.name}
-              </h1>
-              <span className="text-xs sm:text-sm font-medium text-primary/80 tracking-wide">
-                {FESTIVAL_DETAILS.subtitle}
-              </span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold mb-1">
+              <Zap size={13} className="animate-pulse" />
+              <span>المهرجان الكشفي الرقمي 2026</span>
             </div>
+            <h1 className="text-xl sm:text-2xl font-black text-gradient">
+              كشفيتي بفكر ديجيتال
+            </h1>
           </div>
 
-          {/* Left logo (منشية) */}
+          {/* Logo 2 */}
           <div className="shrink-0">
-            <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl border border-amber-500/15 bg-gradient-to-br from-amber-500/10 to-transparent p-1.5 overflow-hidden flex items-center justify-center transition duration-300 hover:scale-105 hover:shadow-glow-amber">
-              <span className="text-[10px] font-bold text-amber-400/80 text-center leading-tight">
-                منشية<br />التحرير
-              </span>
+            <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-2 flex items-center justify-center text-amber-400 font-black text-xs text-center hover:scale-105 transition">
+              منشية<br />التحرير
             </div>
           </div>
         </div>
       </header>
 
-      {/* Welcome badge */}
-      <section className="relative z-10 mb-6 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-4 py-2 text-sm font-bold text-amber-400 shadow-glow-amber">
-          <Flame size={16} />
-          مرحباً، {user?.name}
+      {/* Scout Welcome Banner */}
+      <section className="glass-card mb-8 p-5 sm:p-6 rounded-3xl border border-white/10 bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-slate-950/80">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-glow-amber shrink-0">
+              <Flame size={24} className="animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-extrabold text-amber-400">لوحة الفرق الكشفية</span>
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+              </div>
+              <h2 className="text-lg font-black text-white mt-0.5">
+                مرحباً بك في ساحة التنافس الكشفي الحي
+              </h2>
+            </div>
+          </div>
+
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs font-bold text-slate-300">
+            <ShieldCheck size={16} className="text-emerald-400" />
+            <span>الحساب مؤمن والبيانات لحظية</span>
+          </div>
         </div>
       </section>
 
-      {/* Nav Circle */}
-      <section className="relative z-10 mb-6">
-        <NavCircle />
-      </section>
-
-      {/* Leaderboard Section */}
-      <section className="card-sheen relative z-10 mb-8 card border-slate-800 bg-slate-950/40 p-6 text-right">
-        <div className="flex items-center justify-between mb-6 pb-3 border-b border-slate-800">
-          <span className="text-xs text-primary font-bold bg-primary/10 border border-primary/20 rounded-full px-3 py-1">ترتيب النقاط الكلي</span>
-          <h2 className="text-lg font-black text-white flex items-center gap-2">
-            لوحة شرف المهرجان الكشفي
-            <Trophy size={20} className="text-amber-500 animate-pulse" />
+      {/* 🏆 Interactive 3D Podium (The Star Leaderboard) */}
+      <section className="glass-card mb-10 p-6 sm:p-8 rounded-3xl border border-amber-500/20 bg-slate-950/60 relative">
+        <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
+          <span className="text-xs font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
+            تحديث حي ومباشر (مجهول الفرق)
+          </span>
+          <h2 className="text-xl font-black text-white flex items-center gap-2">
+            لوحة التتويج وشرف المخيم
+            <Trophy size={24} className="text-amber-400 animate-bounce" />
           </h2>
         </div>
 
-        {/* Podium Layout */}
-        {(() => {
-          const board = getOverallLeaderboard();
-          const first = board[0];
-          const second = board[1];
-          const third = board[2];
-          const rest = board.slice(3);
-
-          const firstScore = first ? Number(first.score || 0) : 0;
-          const secondScore = second ? Number(second.score || 0) : 0;
-          const thirdScore = third ? Number(third.score || 0) : 0;
-
-          const diffFirstSecond = firstScore - secondScore;
-          const diffThirdSecond = secondScore - thirdScore;
-
-          return (
-            <div className="space-y-6">
-              {/* The 3 Podium Blocks */}
-              <div className="flex items-end justify-center gap-2 sm:gap-6 pt-8 pb-4">
-                {/* 2nd Place */}
-                {second && (
-                  <div className="flex flex-col items-center flex-1 max-w-[120px]">
-                    <div className="text-center mb-6">
-                      <p className="text-xs font-black text-slate-100 truncate w-24 sm:w-28">المركز الثاني</p>
-                      <span className="text-[10px] text-slate-500 block mt-0.5">ـ</span>
-                      <span className="text-[11px] font-mono text-slate-400 block mt-0.5">{secondScore} نقطة</span>
+        {loading ? (
+          <div className="py-16 text-center text-slate-500 text-sm">
+            <div className="mx-auto h-8 w-8 border-2 border-amber-500/20 border-t-amber-500 rounded-full animate-spin mb-3" />
+            جاري احتساب الترتيب الفوري...
+          </div>
+        ) : (
+          <div>
+            {/* The 3D Podium Blocks */}
+            <div className="grid grid-cols-3 gap-3 sm:gap-6 items-end pt-6 pb-6">
+              
+              {/* 🥈 2nd Place (Silver) */}
+              <div className="order-1 flex flex-col items-center">
+                {second ? (
+                  <div className="w-full glass-card-silver p-4 sm:p-5 text-center flex flex-col items-center">
+                    <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-slate-200/10 border border-slate-300/30 flex items-center justify-center text-slate-200 font-black text-lg mb-3 shadow-lg">
+                      2
                     </div>
-                    <div className="w-full bg-slate-800/80 border-t border-x border-slate-700 rounded-t-xl flex flex-col items-center justify-center p-3 h-24 relative shadow-lg">
-                      <div className="absolute -top-4 bg-slate-600 text-white rounded-full h-8 w-8 flex items-center justify-center border-2 border-slate-800 text-xs font-black">2</div>
-                      <Trophy size={28} className="text-slate-400 mt-2" />
-                    </div>
+                    <span className="text-xs font-black text-slate-200">المركز الثاني</span>
+                    <span className="text-base sm:text-xl font-mono font-black text-slate-100 mt-2">
+                      {secondPoints} <span className="text-xs text-slate-400">نقطة</span>
+                    </span>
                   </div>
-                )}
-
-                {/* 1st Place */}
-                {first && (
-                  <div className="flex flex-col items-center flex-1 max-w-[130px] -translate-y-3">
-                    <div className="text-center mb-7">
-                      <p className="text-sm font-black text-amber-400 truncate w-24 sm:w-32">المركز الأول</p>
-                      <span className="text-[10px] text-emerald-400 font-bold block mt-0.5">+{diffFirstSecond} نقطة عن الثاني</span>
-                      <span className="text-xs font-mono text-amber-500 font-bold block mt-0.5">{firstScore} نقطة</span>
-                    </div>
-                    <div className="w-full bg-amber-950/20 border-t border-x border-amber-500/40 rounded-t-2xl flex flex-col items-center justify-center p-3 h-32 relative shadow-glow-amber">
-                      <div className="absolute -top-5 bg-amber-500 text-slate-950 rounded-full h-10 w-10 flex items-center justify-center border-2 border-slate-800 text-sm font-black shadow-glow-amber">1</div>
-                      <Trophy size={36} className="text-amber-400 mt-2 animate-bounce" />
-                    </div>
-                  </div>
-                )}
-
-                {/* 3rd Place */}
-                {third && (
-                  <div className="flex flex-col items-center flex-1 max-w-[110px]">
-                    <div className="text-center mb-6">
-                      <p className="text-xs font-black text-amber-700 truncate w-24 sm:w-28">المركز الثالث</p>
-                      <span className="text-[10px] text-rose-400 font-bold block mt-0.5">-{diffThirdSecond} نقطة عن الثاني</span>
-                      <span className="text-[11px] font-mono text-amber-700 block mt-0.5">{thirdScore} نقطة</span>
-                    </div>
-                    <div className="w-full bg-amber-900/10 border-t border-x border-amber-800/30 rounded-t-xl flex flex-col items-center justify-center p-3 h-20 relative shadow-lg">
-                      <div className="absolute -top-4 bg-amber-700 text-white rounded-full h-8 w-8 flex items-center justify-center border-2 border-slate-800 text-xs font-black">3</div>
-                      <Trophy size={24} className="text-amber-700 mt-2" />
-                    </div>
+                ) : (
+                  <div className="w-full p-4 rounded-2xl border border-slate-800 bg-slate-900/30 text-center text-xs text-slate-600">
+                    المركز 2
                   </div>
                 )}
               </div>
 
-              {/* Remaining Leaders (باقي الأوائل) */}
-              {rest.length > 0 && (
-                <div className="border-t border-slate-800/80 pt-4">
-                  <h3 className="text-xs font-bold text-slate-400 mb-3 pr-1 text-right">باقي المراكز</h3>
-                  <div className="grid gap-2 max-h-48 overflow-y-auto scrollbar-thin">
-                    {rest.map((item, index) => (
-                      <div key={index} className="flex justify-between items-center rounded-xl bg-slate-900/40 border border-slate-800/60 p-3 text-right">
-                        <span className="font-mono text-xs text-slate-400 font-bold">{item.score} نقطة</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs text-white">المركز {index + 4}</span>
-                          <span className="text-[10px] bg-slate-800 text-slate-400 rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                            {index + 4}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+              {/* 👑 1st Place (Gold) - Elevated */}
+              <div className="order-2 flex flex-col items-center -translate-y-4">
+                {first ? (
+                  <div className="w-full glass-card-gold p-5 sm:p-6 text-center flex flex-col items-center relative">
+                    {/* Animated Gold Crown */}
+                    <div className="absolute -top-6 animate-crown text-amber-400">
+                      <Crown size={36} fill="#f59e0b" />
+                    </div>
+
+                    <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-black text-2xl mb-3 shadow-glow-amber mt-2">
+                      1
+                    </div>
+                    <span className="text-sm font-black text-gradient-gold">المركز الأول</span>
+
+                    {second && (
+                      <span className="text-[10px] sm:text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full mt-1">
+                        +{diffFirstSecond} ن عن الثاني
+                      </span>
+                    )}
+
+                    <span className="text-xl sm:text-2xl font-mono font-black text-amber-400 mt-2">
+                      {firstPoints} <span className="text-xs text-amber-300">نقطة</span>
+                    </span>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="w-full p-6 rounded-2xl border border-slate-800 bg-slate-900/30 text-center text-xs text-slate-600">
+                    المركز 1
+                  </div>
+                )}
+              </div>
+
+              {/* 🥉 3rd Place (Bronze) */}
+              <div className="order-3 flex flex-col items-center">
+                {third ? (
+                  <div className="w-full glass-card-bronze p-4 sm:p-5 text-center flex flex-col items-center">
+                    <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-amber-700/20 border border-amber-600/30 flex items-center justify-center text-amber-500 font-black text-lg mb-3 shadow-lg">
+                      3
+                    </div>
+                    <span className="text-xs font-black text-amber-300">المركز الثالث</span>
+                    <span className="text-base sm:text-xl font-mono font-black text-amber-400 mt-2">
+                      {thirdPoints} <span className="text-xs text-amber-500">نقطة</span>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="w-full p-4 rounded-2xl border border-slate-800 bg-slate-900/30 text-center text-xs text-slate-600">
+                    المركز 3
+                  </div>
+                )}
+              </div>
+
             </div>
-          );
-        })()}
+
+            {/* Rest of Competitors List */}
+            {rest.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-white/10 space-y-2.5">
+                <h3 className="text-xs font-bold text-slate-400 mb-3">باقي المراكز التنافسية</h3>
+                {rest.map((item) => (
+                  <div
+                    key={item.rank}
+                    className="glass-card p-3.5 rounded-2xl flex items-center justify-between border-white/5 bg-slate-900/40 hover:bg-slate-900/80 transition"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="h-7 w-7 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-xs font-black flex items-center justify-center">
+                        #{item.rank}
+                      </span>
+                      <span className="text-xs font-bold text-slate-300">المركز الرقمي {item.rank}</span>
+                      {item.gapToNext > 0 && (
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          (-{item.gapToNext} ن عن السابق)
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-sm font-mono font-black text-emerald-400">{item.points} نقطة</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
-      {/* News */}
-      <section className="relative z-10">
-        <div className="flex items-center justify-between mb-4">
-          <Link to="/news" className="text-xs font-bold text-primary hover:text-primary-light transition">
-            عرض الكل ←
+      {/* Shortcuts & Quick Actions Grid */}
+      <section className="mb-10">
+        <h2 className="text-lg font-black text-white mb-4 flex items-center gap-2">
+          الوصول السريع لخدمات المهرجان
+          <Sparkles size={18} className="text-emerald-400" />
+        </h2>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <Link
+            to="/activities"
+            className="glass-card p-5 rounded-3xl text-right group hover:border-emerald-500/40 flex flex-col justify-between"
+          >
+            <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-white group-hover:text-emerald-400 transition">الأنشطة والمسابقات</h3>
+              <p className="text-[11px] text-slate-400 mt-1">التحديات الرقمية والميدانية</p>
+            </div>
           </Link>
-          <h2 className="flex items-center gap-2 text-lg font-bold text-white">
-            آخر الأخبار
-            <Newspaper size={20} className="text-slate-500" />
+
+          <Link
+            to="/program"
+            className="glass-card p-5 rounded-3xl text-right group hover:border-blue-500/40 flex flex-col justify-between"
+          >
+            <div className="h-10 w-10 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+              <Compass size={20} />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-white group-hover:text-blue-400 transition">البرنامج والخريطة</h3>
+              <p className="text-[11px] text-slate-400 mt-1">جدول المواعيد والمناطق</p>
+            </div>
+          </Link>
+
+          <Link
+            to="/upload-report"
+            className="glass-card p-5 rounded-3xl text-right group hover:border-amber-500/40 flex flex-col justify-between"
+          >
+            <div className="h-10 w-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+              <FileText size={20} />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-white group-hover:text-amber-400 transition">رفع التقارير</h3>
+              <p className="text-[11px] text-slate-400 mt-1">تسليم ملفات الإنجاز</p>
+            </div>
+          </Link>
+
+          <Link
+            to="/news"
+            className="glass-card p-5 rounded-3xl text-right group hover:border-rose-500/40 flex flex-col justify-between"
+          >
+            <div className="h-10 w-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+              <Newspaper size={20} />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-white group-hover:text-rose-400 transition">الجريدة الرقمية</h3>
+              <p className="text-[11px] text-slate-400 mt-1">التوجيهات والقرارات الحية</p>
+            </div>
+          </Link>
+        </div>
+      </section>
+
+      {/* Latest Official News Preview */}
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <Link to="/news" className="text-xs font-extrabold text-emerald-400 hover:underline flex items-center gap-1">
+            مشاهدة كل الأخبار <ChevronLeft size={14} />
+          </Link>
+          <h2 className="text-lg font-black text-white flex items-center gap-2">
+            آخر الأخبار الرسمية
+            <Newspaper size={18} className="text-emerald-400" />
           </h2>
         </div>
-        {approvedNews.length === 0 ? (
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] py-12 text-center">
-            <Mountain size={40} className="mx-auto text-slate-700 mb-3" />
-            <p className="text-slate-500 text-sm font-medium">لا توجد أخبار منشورة حالياً</p>
+
+        {news.length === 0 ? (
+          <div className="glass-card p-6 text-center text-slate-500 text-xs rounded-2xl">
+            لا توجد أخبار جديدة حالياً
           </div>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {approvedNews.map((item) => (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {news.map((item) => (
               <NewsCard key={item.id} item={item} />
             ))}
           </div>

@@ -20,20 +20,20 @@ const THEMES = {
     '--bg-gradient-2': 'rgba(245, 158, 11, 0.05)',
   },
   light: {
-    '--ink': '#f8fafb',
-    '--ink-2': '#eef2f5',
-    '--panel': 'rgba(255, 255, 255, 0.95)',
-    '--panel-2': 'rgba(240, 244, 247, 0.95)',
-    '--line': 'rgba(5, 150, 105, 0.18)',
-    '--green': '#059669',
-    '--green-soft': 'rgba(5, 150, 105, 0.08)',
+    '--ink': '#f5f0e8',
+    '--ink-2': '#ebe5da',
+    '--panel': 'rgba(255, 255, 255, 0.85)',
+    '--panel-2': 'rgba(255, 252, 245, 0.80)',
+    '--line': 'rgba(5, 102, 68, 0.20)',
+    '--green': '#047857',
+    '--green-soft': 'rgba(5, 120, 87, 0.12)',
     '--amber': '#b45309',
-    '--amber-soft': 'rgba(180, 83, 9, 0.08)',
+    '--amber-soft': 'rgba(180, 83, 9, 0.10)',
     '--danger': '#dc2626',
-    '--text': '#1e293b',
-    '--text-dim': '#64748b',
-    '--bg-gradient-1': 'rgba(5, 150, 105, 0.04)',
-    '--bg-gradient-2': 'rgba(180, 83, 9, 0.03)',
+    '--text': '#1a2e1a',
+    '--text-dim': '#4a6741',
+    '--bg-gradient-1': 'rgba(5, 120, 87, 0.08)',
+    '--bg-gradient-2': 'rgba(180, 83, 9, 0.06)',
   },
   neon: {
     '--ink': '#06060f',
@@ -63,6 +63,7 @@ export function ThemeProvider({ children }) {
     const vars = THEMES[theme] || THEMES.dark;
     const root = document.documentElement;
     Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+    root.setAttribute('data-theme', theme);
     try { localStorage.setItem('dsc_theme', theme); } catch {}
   }, [theme]);
 

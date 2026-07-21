@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Team {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  label        String
+  createdAt    DateTime @default(now())
+
+  scores  Score[]
+  reports Report[]
+}
+
+model Admin {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model Judge {
+  id           String   @id @default(uuid())
+  name         String
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  scores Score[]
+}
+
+model Competition {
+  id        String   @id @default(uuid())
+  name      String
+  type      String   // "auto_digital" | "manual_judged"
+  isOpen    Boolean  @default(false)
+  passcode  String?
+  criteria  String   @default("[]") // JSON stringified array [{ key, label, maxScore }]
+  createdAt DateTime @default(now())
+
+  scores    Score[]
+  questions Question[]
+}
+
+model Question {
+  id            String      @id @default(uuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  text          String
+  options       String      // JSON stringified array of strings
+  correctOption Int
+  points        Float       @default(10)
+  createdAt     DateTime    @default(now())
+}
+
+model Score {
+  id              String      @id @default(uuid())
+  competitionId   String
+  competition     Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  teamId          String
+  team            Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  judgeId         String?
+  judge           Judge?      @relation(fields: [judgeId], references: [id], onDelete: SetNull)
+  values          String      @default("{}") // JSON stringified object
+  total           Float
+  submittedAt     DateTime    @default(now())
+  editedByAdminId String?
+  editedAt        DateTime?
+}
+
+model News {
+  id               String   @id @default(uuid())
+  title            String
+  body             String
+  photoUrl         String?
+  createdByAdminId String
+  createdAt        DateTime @default(now())
+}
+
+model Zone {
+  id          String   @id @default(uuid())
+  numberLabel String
+  name        String
+  description String
+  colorHex    String
+  order       Int      @default(0)
+
+  agendaItems AgendaItem[]
+}
+
+model AgendaItem {
+  id          String   @id @default(uuid())
+  title       String
+  type        String   // "competition" | "workshop" | "ceremony"
+  zoneId      String
+  zone        Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  startTime   String   // ISO String or time text
+  endTime     String
+  description String
+  isVisible   Boolean  @default(true)
+}
+
+model Report {
+  id            String   @id @default(uuid())
+  teamId        String
+  team          Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  competitionId String?
+  fileUrl       String
+  fileName      String
+  uploadedAt    DateTime @default(now())
+}

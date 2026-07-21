@@ -1,113 +1,83 @@
-import { useState } from 'react';
-import { ImagePlus, Send, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Newspaper, Bell, Sparkles, AlertCircle } from 'lucide-react';
+import { getNews } from '../services/api';
+import { useSocket } from '../context/SocketContext';
 import NewsCard from '../components/NewsCard';
-import { useAuth } from '../context/AuthContext';
-import { useCompetitions } from '../context/CompetitionContext';
 
 const News = () => {
-  const { user } = useAuth();
-  const { news, addNews } = useCompetitions();
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', text: '', photo: '' });
-  const [fileName, setFileName] = useState('');
+  const [news, setNews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { socket } = useSocket();
 
-  const handlePhotoUpload = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      alert('يرجى اختيار صورة فقط');
-      event.target.value = '';
-      return;
+  const fetchNews = async () => {
+    try {
+      const data = await getNews();
+      setNews(data);
+    } catch (err) {
+      console.error('Failed to load news:', err);
+    } finally {
+      setLoading(false);
     }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setForm((current) => ({ ...current, photo: String(reader.result || '') }));
-      setFileName(file.name);
-    };
-    reader.readAsDataURL(file);
   };
 
-  const clearPhoto = () => {
-    setForm((current) => ({ ...current, photo: '' }));
-    setFileName('');
-  };
+  useEffect(() => {
+    fetchNews();
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    addNews({ ...form, teamName: user.name });
-    setForm({ title: '', text: '', photo: '' });
-    setFileName('');
-    setShowForm(false);
-  };
+    if (socket) {
+      socket.on('news:published', (newStory) => {
+        setNews((prev) => [newStory, ...prev]);
+      });
 
-  const approved = news.filter((item) => item.status === 'approved');
-  const minePending = news.filter((item) => item.teamName === user.name && item.status === 'pending');
+      socket.on('news:deleted', ({ id }) => {
+        setNews((prev) => prev.filter((item) => item.id !== id));
+      });
+
+      return () => {
+        socket.off('news:published');
+        socket.off('news:deleted');
+      };
+    }
+  }, [socket]);
 
   return (
-    <main className="page-shell max-w-5xl">
-      <div className="tech-panel mb-6 flex items-center justify-between p-5">
-        <button type="button" onClick={() => setShowForm((value) => !value)} className="btn-primary px-4 py-2">
-          {showForm ? 'إغلاق' : 'إرسال خبر'}
-        </button>
-        <div className="text-right">
-          <p className="section-kicker">لوحة الفرق</p>
-          <h1 className="section-title">الأخبار</h1>
-          <p className="text-sm text-slate-400">الأخبار تظهر بعد موافقة الأدمن.</p>
+    <div className="page-shell text-right dir-rtl">
+      {/* Header */}
+      <div className="glass-card mb-8 p-6 sm:p-8 rounded-3xl border border-emerald-500/20 bg-slate-950/70 shadow-2xl">
+        <div className="flex items-center justify-between mb-3">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+            <Bell size={14} className="animate-pulse" />
+            النشرة الإخبارية الرسمية
+          </span>
+          <h1 className="text-2xl font-black text-white flex items-center gap-2">
+            الجريدة الكشفية الرقمية
+            <Newspaper size={26} className="text-emerald-400" />
+          </h1>
         </div>
+        <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
+          التوجيهات، القرارات، والتحديثات التنظيمية الصادرة مباشرة من الهيئة العليا المباشرة للمهرجان.
+        </p>
       </div>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} className="card mb-6 space-y-4">
-          <input className="input-field text-right" placeholder="عنوان الخبر" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required />
-          <textarea className="input-field h-32 resize-none text-right" placeholder="نص الخبر" value={form.text} onChange={(event) => setForm({ ...form, text: event.target.value })} required />
-          <div className="rounded-lg border border-dashed border-signal/30 bg-signal/10 p-4 text-right">
-            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-950/70 px-4 py-3 font-bold text-signal shadow-sm">
-              <span className="truncate">{fileName || 'إرفاق صورة من الجهاز'}</span>
-              <ImagePlus size={20} />
-              <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
-            </label>
-            {form.photo && (
-              <div className="mt-4">
-                <img src={form.photo} alt="معاينة الصورة" className="max-h-56 w-full rounded-lg object-cover" />
-                <button type="button" onClick={clearPhoto} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-red-400/25 bg-red-500/10 px-4 py-2 text-sm font-bold text-red-200">
-                  حذف الصورة
-                  <X size={16} />
-                </button>
-              </div>
-            )}
-          </div>
-          <button type="submit" className="btn-primary flex w-full items-center justify-center gap-2">
-            إرسال للمراجعة
-            <Send size={18} />
-          </button>
-        </form>
+      {/* News Feed */}
+      {loading ? (
+        <div className="py-20 text-center text-slate-500 text-xs">
+          <div className="mx-auto h-8 w-8 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mb-3" />
+          جاري تحميل الأخبار...
+        </div>
+      ) : news.length === 0 ? (
+        <div className="glass-card p-12 text-center text-slate-500 rounded-3xl border border-white/5">
+          <Sparkles size={36} className="mx-auto mb-3 text-slate-600" />
+          <p className="font-bold text-slate-300 text-sm">لا توجد إعلانات أو أخبار جديدة حالياً</p>
+          <p className="text-xs text-slate-500 mt-1">ستظهر الإعلانات هنا فور نشرها من قيادة المخيم</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {news.map((item) => (
+            <NewsCard key={item.id} item={item} />
+          ))}
+        </div>
       )}
-
-      {minePending.length > 0 && (
-        <section className="mb-8">
-          <h2 className="mb-3 text-right text-lg font-black text-accent">أخبارك قيد المراجعة</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            {minePending.map((item) => (
-              <NewsCard key={item.id} item={item} showStatus />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section>
-        <h2 className="mb-3 text-right text-lg font-black text-slate-50">الأخبار المنشورة</h2>
-        {approved.length === 0 ? (
-          <div className="card py-16 text-center text-slate-400">لا توجد أخبار منشورة حالياً</div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {approved.map((item) => (
-              <NewsCard key={item.id} item={item} />
-            ))}
-          </div>
-        )}
-      </section>
-    </main>
+    </div>
   );
 };
 
