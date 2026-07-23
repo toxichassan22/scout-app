@@ -101,5 +101,5 @@ export const FESTIVAL_DETAILS = {
   slogan: 'كشفية بفكر ديجيتال',
   startDate: '2026-08-21T09:00:00',
   startDateLabel: '21 أغسطس 2026',
-  logo: '/logo.png',
+  logo: '/festival-logo.png',
 };
