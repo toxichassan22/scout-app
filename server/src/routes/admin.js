@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { getAnonymousLeaderboard } from './leaderboard.js';
+import { generateFullBackup } from '../backup-exporter.js';
 
 const router = Router();
 
@@ -416,6 +417,16 @@ router.post('/clean-slate', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'فشل في تصفير البيانات التجريبية' });
+  }
+});
+
+// Admin Backup Trigger Endpoint
+router.post('/backup/trigger', async (req, res) => {
+  try {
+    const result = await generateFullBackup();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في تشغيل المزامنة والنسخ الاحتياطي' });
   }
 });
 

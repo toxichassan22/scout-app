@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FileQuestion, Globe, LogOut, MessageSquare, Newspaper, Trophy, Users, Video, QrCode, Plus, Trash, UserCheck, Shield, ShieldAlert, FileText, Award, Calendar } from 'lucide-react';
+import { FileQuestion, Globe, LogOut, MessageSquare, Newspaper, Trophy, Users, Video, QrCode, Plus, Trash, UserCheck, Shield, ShieldAlert, FileText, Award, Calendar, RefreshCw, Snowflake, Database } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getAdminLeaderboard, getAdminTeams, getAdminJudges, getAdminReports } from '../../services/api';
+import { getAdminLeaderboard, getAdminTeams, getAdminJudges, getAdminReports, triggerEmergencyFreeze, triggerCleanSlate, apiFetch } from '../../services/api';
 
 const Dashboard = () => {
   const { logout, user } = useAuth();
   const [teamsCount, setTeamsCount] = useState(0);
   const [judgesCount, setJudgesCount] = useState(0);
   const [reportsCount, setReportsCount] = useState(0);
+
+  const [isFrozen, setIsFrozen] = useState(false);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [cleanSlateLoading, setCleanSlateLoading] = useState(false);
 
   useEffect(() => {
     fetchQuickStats();
@@ -26,6 +30,45 @@ const Dashboard = () => {
       setReportsCount(r.length);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleFreezeToggle = async () => {
+    try {
+      const nextState = !isFrozen;
+      await triggerEmergencyFreeze(nextState);
+      setIsFrozen(nextState);
+      alert(nextState ? '🚨 تم تجميد كافة مسابقات وعدادات المهرجان بنجاح!' : '▶️ تم استئناف المهرجان والعدادات بنجاح!');
+    } catch (e) {
+      alert('فشل في تغيير حالة الطوارئ');
+    }
+  };
+
+  const handleManualBackup = async () => {
+    try {
+      setBackupLoading(true);
+      const res = await apiFetch('/admin/backup/trigger', { method: 'POST' });
+      alert(`✅ تم توليد النسخة الاحتياطية بنجاح!\nالمسار: scout-backups\nعدد الفرق: ${res.totalTeams}`);
+    } catch (e) {
+      alert('فشل في تشغيل المزامنة والنسخ الاحتياطي');
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleCleanSlate = async () => {
+    const pwd = prompt('🔒 أدخل كلمة سر الأدمن لتأكيد تصفير ومسح كافة تجارب الدرجات والتقارير:');
+    if (!pwd) return;
+
+    try {
+      setCleanSlateLoading(true);
+      await triggerCleanSlate(pwd);
+      alert('🧹 تم تصفير البيانات وتطهير تجارب الاختبار بنجاح! جاهزون للمهرجان.');
+      fetchQuickStats();
+    } catch (e) {
+      alert(e.message || 'كلمة السر غير صحيحة');
+    } finally {
+      setCleanSlateLoading(false);
     }
   };
 
@@ -65,6 +108,52 @@ const Dashboard = () => {
             </div>
           </div>
         </header>
+
+        {/* Control & Emergency Bar */}
+        <section className="mb-8 p-5 bg-slate-900/80 border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <ShieldAlert size={24} className="text-amber-400" />
+            <div>
+              <h2 className="text-base font-bold text-slate-100">أدوات السيطرة والمزامنة السريعة</h2>
+              <p className="text-xs text-slate-400">تجميد المهرجان في الطوارئ، المزامنة الفورية، وتصفير التجارب</p>
+            </div>
+          </div>
+
+          <div className="flex items-center flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={handleFreezeToggle}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black transition shadow-lg ${
+                isFrozen
+                  ? 'bg-amber-400 text-slate-950 shadow-amber-400/20 animate-pulse'
+                  : 'border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+              }`}
+            >
+              <Snowflake size={16} />
+              {isFrozen ? 'استئناف المهرجان ▶️' : 'تجميد الطوارئ 🚨'}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleManualBackup}
+              disabled={backupLoading}
+              className="flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2.5 text-xs font-black text-cyan-300 transition hover:bg-cyan-500/20 disabled:opacity-50"
+            >
+              <Database size={16} />
+              {backupLoading ? 'جارٍ النسخ...' : 'مزامنة احتياطية الآن 💾'}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCleanSlate}
+              disabled={cleanSlateLoading}
+              className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-xs font-black text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+            >
+              <RefreshCw size={16} />
+              {cleanSlateLoading ? 'جارٍ المسح...' : 'تصفير تجارب الاختبار 🧹'}
+            </button>
+          </div>
+        </section>
 
         {/* Stats Grid */}
         <section className="mb-8 grid gap-4 grid-cols-1 md:grid-cols-3">
