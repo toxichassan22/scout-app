@@ -7,32 +7,32 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: {
-          DEFAULT: 'var(--green)',
-          light: 'var(--green)',
-          dark: 'var(--green)',
+        night: {
+          DEFAULT: 'var(--night-0)',
+          1: 'var(--night-1)',
+          2: 'var(--night-2)',
+          3: 'var(--night-3)',
         },
-        accent: {
-          DEFAULT: 'var(--amber)',
-          light: 'var(--amber)',
-          dark: 'var(--amber)',
+        scout: {
+          DEFAULT: 'var(--violet)',
+          deep: 'var(--violet-deep)',
         },
-        signal: 'var(--green)',
-        magenta: 'var(--amber)',
+        ember: {
+          DEFAULT: 'var(--ember)',
+          deep: 'var(--ember-deep)',
+        },
+        fern: {
+          DEFAULT: 'var(--fern)',
+        },
         danger: 'var(--danger)',
-        background: 'var(--ink)',
-        surface: {
-          DEFAULT: 'var(--ink-2)',
-          light: 'var(--ink-2)',
-        },
       },
       fontFamily: {
-        sans: ['Cairo', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ['Cairo', 'system-ui', 'sans-serif'],
+        mono: ['IBM Plex Mono', 'Courier New', 'monospace'],
       },
-      boxShadow: {
-        glow: '0 0 0 1px var(--green-soft), 0 12px 32px -12px var(--green-soft)',
-        'glow-green': '0 0 0 1px var(--green-soft), 0 10px 28px -12px var(--green-soft)',
-        'glow-amber': '0 0 0 1px var(--amber-soft), 0 10px 28px -12px var(--amber-soft)',
+      transitionTimingFunction: {
+        spring: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+        smooth: 'cubic-bezier(0.22, 1, 0.36, 1)',
       },
     },
   },

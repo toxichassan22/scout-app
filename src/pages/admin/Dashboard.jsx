@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FileQuestion, Globe, LogOut, MessageSquare, Newspaper, Trophy, Users, Video, QrCode, Plus, Trash, UserCheck, Shield, ShieldAlert, FileText, Award } from 'lucide-react';
+import { FileQuestion, Globe, LogOut, MessageSquare, Newspaper, Trophy, Users, Video, QrCode, Plus, Trash, UserCheck, Shield, ShieldAlert, FileText, Award, Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAdminLeaderboard, getAdminTeams, getAdminJudges, getAdminReports } from '../../services/api';
 
@@ -39,6 +39,7 @@ const Dashboard = () => {
     { path: '/admin/teams', label: 'إدارة الفرق', icon: Users, desc: 'إضافة واستيراد جماعي' },
     { path: '/admin/judges', label: 'إدارة المحكمين', icon: UserCheck, desc: 'حسابات وتوليد أكواد' },
     { path: '/admin/competitions', label: 'إدارة المسابقات', icon: Trophy, desc: 'فتح وقفل وتحديد المعايير' },
+    { path: '/admin/agenda', label: 'برنامج المهرجان', icon: Calendar, desc: 'تعديل الفعاليات والجدول' },
     { path: '/admin/scoring', label: 'تعديل الدرجات', icon: Award, desc: 'رؤية كاملة وسجل تدقيق' },
     { path: '/admin/news', label: 'نشر الأخبار', icon: Newspaper, desc: 'نشر إعلانات وتحديث فوري' },
     { path: '/admin/reports', label: 'التقارير المرفوعة', icon: FileText, desc: 'استعراض وتحميل الملفات' },

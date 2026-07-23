@@ -1,8 +1,70 @@
 import React, { useState, useEffect } from 'react';
-import { Newspaper, Bell, Sparkles, AlertCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Newspaper, Bell, Sparkles, Clock, RadioTower } from 'lucide-react';
 import { getNews } from '../services/api';
 import { useSocket } from '../context/SocketContext';
 import NewsCard from '../components/NewsCard';
+import LoadingSpinner from '../components/LoadingSpinner';
+import EmptyState from '../components/EmptyState';
+import MediaSlot from '../components/MediaSlot';
+
+/* الخبر الرئيسي (المانشيت) */
+const FeaturedNews = ({ item }) => {
+  const photo = item.photoUrl || item.photo;
+  const date = item.createdAt || item.timestamp;
+
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 28 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className="group relative mb-8 overflow-hidden rounded-[2rem] border border-[rgba(245,158,11,0.3)]"
+    >
+      {/* خلفية الصورة أو placeholder */}
+      <div className="relative aspect-[16/8]">
+        {photo ? (
+          <img
+            src={photo}
+            alt={item.title}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+          />
+        ) : (
+          <div className="absolute inset-0">
+            <MediaSlot
+              name="news-featured-fallback"
+              kind="image"
+              ratio={null}
+              label="صورة المانشيت الرئيسي"
+              overlay={false}
+              className="!h-full !rounded-none !border-0"
+            />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-[rgba(7,6,12,0.97)] via-[rgba(7,6,12,0.55)] to-transparent" />
+      </div>
+
+      {/* المحتوى فوق الصورة */}
+      <div className="absolute inset-x-0 bottom-0 p-7 text-right sm:p-9">
+        <div className="mb-3 flex items-center gap-3">
+          <span className="badge-ember">
+            <Bell size={12} />
+            خبر رئيسي
+          </span>
+          <span className="flex items-center gap-1.5 text-xs font-bold text-[#d5d0e8]">
+            <Clock size={13} />
+            {date ? new Date(date).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
+          </span>
+        </div>
+        <h2 className="mb-2 max-w-2xl text-2xl font-black leading-[1.5] text-white sm:text-3xl">
+          {item.title}
+        </h2>
+        <p className="max-w-2xl text-sm leading-7 text-[#d5d0e8] sm:text-base">
+          {item.body || item.text}
+        </p>
+      </div>
+    </motion.article>
+  );
+};
 
 const News = () => {
   const [news, setNews] = useState([]);
@@ -22,16 +84,9 @@ const News = () => {
 
   useEffect(() => {
     fetchNews();
-
     if (socket) {
-      socket.on('news:published', (newStory) => {
-        setNews((prev) => [newStory, ...prev]);
-      });
-
-      socket.on('news:deleted', ({ id }) => {
-        setNews((prev) => prev.filter((item) => item.id !== id));
-      });
-
+      socket.on('news:published', (story) => setNews((prev) => [story, ...prev]));
+      socket.on('news:deleted', ({ id }) => setNews((prev) => prev.filter((n) => n.id !== id)));
       return () => {
         socket.off('news:published');
         socket.off('news:deleted');
@@ -39,45 +94,53 @@ const News = () => {
     }
   }, [socket]);
 
-  return (
-    <div className="page-shell text-right dir-rtl">
-      {/* Header */}
-      <div className="glass-card mb-8 p-6 sm:p-8 rounded-3xl border border-emerald-500/20 bg-slate-950/70 shadow-2xl">
-        <div className="flex items-center justify-between mb-3">
-          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-            <Bell size={14} className="animate-pulse" />
-            النشرة الإخبارية الرسمية
-          </span>
-          <h1 className="text-2xl font-black text-white flex items-center gap-2">
-            الجريدة الكشفية الرقمية
-            <Newspaper size={26} className="text-emerald-400" />
-          </h1>
-        </div>
-        <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
-          التوجيهات، القرارات، والتحديثات التنظيمية الصادرة مباشرة من الهيئة العليا المباشرة للمهرجان.
-        </p>
-      </div>
+  const [featured, ...rest] = news;
 
-      {/* News Feed */}
+  return (
+    <main className="page-shell dir-rtl !max-w-6xl">
+      {/* الترويسة */}
+      <motion.header
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        className="mb-10 text-center"
+      >
+        <span className="badge-violet mx-auto mb-4">
+          <RadioTower size={13} />
+          النشرة الرسمية للمخيم
+        </span>
+        <h1 className="text-3xl font-black text-white sm:text-4xl">
+          الجريدة <span className="text-fire">الكشفية</span>
+        </h1>
+        <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-[#a9a3c2]">
+          التوجيهات والقرارات والتحديثات الصادرة من القيادة — تصلك لحظة بلحظة.
+        </p>
+      </motion.header>
+
       {loading ? (
-        <div className="py-20 text-center text-slate-500 text-xs">
-          <div className="mx-auto h-8 w-8 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mb-3" />
-          جاري تحميل الأخبار...
-        </div>
+        <LoadingSpinner label="جاري تحميل الأخبار..." />
       ) : news.length === 0 ? (
-        <div className="glass-card p-12 text-center text-slate-500 rounded-3xl border border-white/5">
-          <Sparkles size={36} className="mx-auto mb-3 text-slate-600" />
-          <p className="font-bold text-slate-300 text-sm">لا توجد إعلانات أو أخبار جديدة حالياً</p>
-          <p className="text-xs text-slate-500 mt-1">ستظهر الإعلانات هنا فور نشرها من قيادة المخيم</p>
-        </div>
+        <EmptyState
+          icon={Sparkles}
+          title="لا توجد إعلانات حالياً"
+          hint="ستظهر القرارات والتوجيهات هنا فور صدورها من قيادة المخيم"
+        />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {news.map((item) => (
-            <NewsCard key={item.id} item={item} />
-          ))}
-        </div>
+        <>
+          {/* المانشيت */}
+          {featured && <FeaturedNews item={featured} />}
+
+          {/* باقي الأخبار */}
+          {rest.length > 0 && (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {rest.map((item) => (
+                <NewsCard key={item.id} item={item} />
+              ))}
+            </div>
+          )}
+        </>
       )}
-    </div>
+    </main>
   );
 };
 

@@ -102,7 +102,106 @@ async function seed() {
       create: z
     });
   }
-  console.log('[Seed] Official 8 Zones created.');
+  // Create official Agenda Items from the festival schedule (12.png)
+  const officialAgenda = [
+    {
+      id: 'agenda-1',
+      title: 'تجمع واستقبال الوفود',
+      type: 'ceremony',
+      zoneId: 'zone-1',
+      startTime: '08:00',
+      endTime: '09:00',
+      description: 'استقبال جميع الفرق والوفود الكشفية المشاركة وتوزيع التعليمات التنظيمية'
+    },
+    {
+      id: 'agenda-2',
+      title: 'تحية العلم وافتتاح المهرجان',
+      type: 'ceremony',
+      zoneId: 'zone-5',
+      startTime: '09:00',
+      endTime: '10:00',
+      description: 'مراسم رفع العلم الكشفي وافتتاح فعاليات المهرجان رسمياً'
+    },
+    {
+      id: 'agenda-3',
+      title: 'اجتماع القادة وتسليم الأعمال الجاهزة',
+      type: 'workshop',
+      zoneId: 'zone-1',
+      startTime: '10:00',
+      endTime: '10:30',
+      description: 'اجتماع قادة الفرق وتسليم الأبحاث والأعمال الكشفية المجهزة مسبقاً'
+    },
+    {
+      id: 'agenda-4',
+      title: 'تسميع القرآن والأحاديث والأنشطة الفنية والرياضية',
+      type: 'competition',
+      zoneId: 'zone-2',
+      startTime: '10:30',
+      endTime: '11:30',
+      description: 'تسميع القرآن - تسميع الأحاديث - المجال الرياضي - الملصق الفني - عقد وربطات - تصميم فيديو دقيقتين - عواصم وعملات الدول العربية'
+    },
+    {
+      id: 'agenda-5',
+      title: 'الورش الفنية والمبتكرات العلمية والنموذج الكشفي',
+      type: 'workshop',
+      zoneId: 'zone-2',
+      startTime: '11:30',
+      endTime: '01:00',
+      description: 'تكملة المجال الرياضي - الورشة الفنية - النموذج الكشفي - بحث ثلاث أفكار لمبتكرات علمية - ورقة عمل على خطي الأنبياء'
+    },
+    {
+      id: 'agenda-6',
+      title: 'صلاة الجمعة',
+      type: 'ceremony',
+      zoneId: 'zone-3',
+      startTime: '01:00',
+      endTime: '02:00',
+      description: 'أداء صلاة الجمعة بالمصلى الرئيسي للمخيم'
+    },
+    {
+      id: 'agenda-7',
+      title: 'العروض الميدانية والمعرض والمسابقات الكشفية',
+      type: 'competition',
+      zoneId: 'zone-6',
+      startTime: '02:00',
+      endTime: '04:00',
+      description: 'عرض تطير الطائرات - الكرنفال - كينج الشفرات - عرض تقديمي عن أحد الموديلات - حقيقتين وكذبة - نصب المجلة الأرضية والمعرض الساعة 3 العصر - الكاشف الذكي'
+    },
+    {
+      id: 'agenda-8',
+      title: 'الخدمة العامة والعروض التقديمية ومهرجان التلاوة',
+      type: 'workshop',
+      zoneId: 'zone-5',
+      startTime: '04:00',
+      endTime: '05:30',
+      description: 'الخدمة العامة - عرض تقديمي كوميدي عن مهارة - من سيربح الكود - الاستعداد للختام - مهرجان التلاوة'
+    },
+    {
+      id: 'agenda-9',
+      title: 'حفل الختام والسمر الكشفي',
+      type: 'ceremony',
+      zoneId: 'zone-6',
+      startTime: '05:30',
+      endTime: '08:30',
+      description: 'حفل الختام الرسمي، إعلان النتائج وتوزيع الجوائز وسهرة السمر الكشفي'
+    }
+  ];
+
+  for (const item of officialAgenda) {
+    await prisma.agendaItem.upsert({
+      where: { id: item.id },
+      update: {
+        title: item.title,
+        type: item.type,
+        zoneId: item.zoneId,
+        startTime: item.startTime,
+        endTime: item.endTime,
+        description: item.description
+      },
+      create: item
+    });
+  }
+  console.log('[Seed] Official 9 Agenda items created.');
 
   // Create sample News
   await prisma.news.create({

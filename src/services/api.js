@@ -125,5 +125,8 @@ export const addAgendaItem = (data) =>
 export const deleteAgendaItem = (id) => 
   apiFetch(`/admin/agenda/${id}`, { method: 'DELETE' });
 
+export const updateAgendaItem = (id, data) => 
+  apiFetch(`/admin/agenda/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+
 export const getAdminReports = () => 
   apiFetch('/admin/reports');

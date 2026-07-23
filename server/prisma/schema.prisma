@@ -36,16 +36,21 @@ model Judge {
 }
 
 model Competition {
-  id        String   @id @default(uuid())
-  name      String
-  type      String   // "auto_digital" | "manual_judged"
-  isOpen    Boolean  @default(false)
-  passcode  String?
-  criteria  String   @default("[]") // JSON stringified array [{ key, label, maxScore }]
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique // two_truths | genius | geography | video | custom
+  type        String // auto_digital | manual_judged
+  description String   @default("")
+  isOpen      Boolean  @default(false)
+  passcode    String? // judge passcode
+  entryCode   String? // team entry code
+  duration    Int? // seconds for timed auto competitions
+  criteria    String   @default("[]") // JSON [{ key, label, maxScore }]
+  createdAt   DateTime @default(now())
 
   scores    Score[]
   questions Question[]
+  reports   Report[]
 }
 
 model Question {
@@ -53,10 +58,21 @@ model Question {
   competitionId String
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   text          String
-  options       String      // JSON stringified array of strings
+  options       String // JSON array (strings or {text, isLie})
   correctOption Int
   points        Float       @default(10)
+  sortOrder     Int         @default(0)
   createdAt     DateTime    @default(now())
+}
+
+model GeographyCountry {
+  id       String @id @default(uuid())
+  name     String
+  capital  String
+  currency String
+  flag     String
+  mapUrl   String
+  sortOrder Int   @default(0)
 }
 
 model Score {
@@ -67,11 +83,13 @@ model Score {
   team            Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
   judgeId         String?
   judge           Judge?      @relation(fields: [judgeId], references: [id], onDelete: SetNull)
-  values          String      @default("{}") // JSON stringified object
+  values          String      @default("{}") // JSON
   total           Float
   submittedAt     DateTime    @default(now())
   editedByAdminId String?
   editedAt        DateTime?
+
+  @@unique([competitionId, teamId])
 }
 
 model News {
@@ -84,34 +102,37 @@ model News {
 }
 
 model Zone {
-  id          String   @id @default(uuid())
+  id          String @id @default(uuid())
   numberLabel String
   name        String
   description String
   colorHex    String
-  order       Int      @default(0)
+  order       Int    @default(0)
 
   agendaItems AgendaItem[]
 }
 
 model AgendaItem {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   title       String
-  type        String   // "competition" | "workshop" | "ceremony"
+  type        String // competition | workshop | ceremony
   zoneId      String
-  zone        Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
-  startTime   String   // ISO String or time text
+  zone        Zone    @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  startTime   String
   endTime     String
   description String
-  isVisible   Boolean  @default(true)
+  isVisible   Boolean @default(true)
 }
 
 model Report {
-  id            String   @id @default(uuid())
+  id            String       @id @default(uuid())
   teamId        String
-  team          Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team          Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
   competitionId String?
+  competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: SetNull)
+  title         String       @default("")
+  content       String       @default("")
   fileUrl       String
   fileName      String
-  uploadedAt    DateTime @default(now())
+  uploadedAt    DateTime     @default(now())
 }

@@ -1,155 +1,112 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trophy, Sparkles, ShieldCheck, KeyRound, Play, CheckCircle, Zap, Cpu, RefreshCw, Key, QrCode, HelpCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  Sparkles, KeyRound, Play, CheckCircle, Trophy, Gamepad2,
+  Flame, ChevronLeft,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
+import MediaSlot from '../components/MediaSlot';
+
+/* خريطة صور المسابقات (تُملأ لاحقاً من MEDIA_MANIFEST) */
+const COMP_MEDIA = {
+  1: { slot: 'comp-two-truths', label: 'غلاف مسابقة حقيقتان وكذبة', desc: 'ميّز العبارة الكاذبة وسط حقيقتين كشفيتين — سرعة وتركيز.', tone: 'violet' },
+  2: { slot: 'comp-genius', label: 'غلاف مسابقة عبقرينو', desc: 'أسئلة ذكاء ومعلومات عامة بسرعة البرق — للعقول المتوقدة.', tone: 'ember' },
+  3: { slot: 'comp-geography', label: 'غلاف مسابقة الجغرافيا', desc: 'عواصم وعملات وأعلام ١٠ دول — رحلة حول العالم من مكانك.', tone: 'fern' },
+  4: { slot: 'comp-video-ai', label: 'غلاف مسابقة تصميم الفيديو', desc: 'اصنع فيديو بالذكاء الاصطناعي من برومبت إبداعي — ٣ محاولات.', tone: 'violet' },
+};
+
+const toneCls = {
+  violet: { border: 'hover:border-[rgba(139,92,246,0.55)]', badge: 'badge-violet', btn: 'btn-violet' },
+  ember: { border: 'hover:border-[rgba(245,158,11,0.55)]', badge: 'badge-ember', btn: 'btn-ember' },
+  fern: { border: 'hover:border-[rgba(16,185,129,0.55)]', badge: 'badge-fern', btn: 'btn-ember' },
+};
+
+/* ═══ كرت مسابقة كبير (Showcase Card) ═══ */
+const CompetitionShowcase = ({ comp, completed, onEnter, index }) => {
+  const media = COMP_MEDIA[comp.id] || { slot: `comp-${comp.id}`, label: `غلاف ${comp.name}`, desc: '', tone: 'violet' };
+  const tone = toneCls[media.tone];
+
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 36 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={{ delay: index * 0.08, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className={`group relative overflow-hidden rounded-[2rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(12,10,22,0.65)] backdrop-blur-xl transition-all duration-500 ${tone.border} ${!comp.isOpen ? 'opacity-60' : ''}`}
+    >
+      {/* غلاف الصورة */}
+      <div className="relative">
+        <MediaSlot
+          name={media.slot}
+          kind="image"
+          ratio="16/8"
+          label={media.label}
+          overlay={false}
+          className="!rounded-none !border-0 !border-b border-[rgba(255,255,255,0.07)]"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[rgba(12,10,22,0.9)] via-transparent to-transparent" />
+
+        {/* شارة الحالة فوق الصورة */}
+        <div className="absolute right-4 top-4 z-10">
+          {completed ? (
+            <span className="badge-fern backdrop-blur-xl">
+              <CheckCircle size={12} />
+              تم التسجيل
+            </span>
+          ) : comp.isOpen ? (
+            <span className="badge-ember backdrop-blur-xl">
+              <span className="live-dot" />
+              مفتوحة الآن
+            </span>
+          ) : (
+            <span className="badge-mute backdrop-blur-xl">مغلقة</span>
+          )}
+        </div>
+
+        {/* المدة */}
+        {comp.duration && (
+          <div className="absolute left-4 top-4 z-10 rounded-full border border-[rgba(255,255,255,0.15)] bg-[rgba(7,6,12,0.6)] px-3 py-1.5 font-mono text-[11px] font-black text-white backdrop-blur-xl">
+            {comp.duration / 60} دقيقة
+          </div>
+        )}
+      </div>
+
+      {/* المحتوى */}
+      <div className="p-6 text-right sm:p-7">
+        <h3 className="mb-2 text-xl font-black text-white sm:text-2xl">{comp.name}</h3>
+        <p className="mb-6 text-sm leading-7 text-[#a9a3c2]">{media.desc}</p>
+
+        <div className="flex items-center justify-between">
+          {completed ? (
+            <span className="flex items-center gap-2 text-sm font-black text-[#6ee7b7]">
+              <CheckCircle size={18} />
+              إجابتك محفوظة
+            </span>
+          ) : comp.isOpen ? (
+            <button onClick={() => onEnter(comp)} className={`${tone.btn} btn-shine !px-7`}>
+              <Play size={17} />
+              دخول التحدي
+            </button>
+          ) : (
+            <span className="text-xs font-bold text-[#6e6889]">في انتظار تفعيل القيادة</span>
+          )}
+          <Trophy size={22} className="text-[rgba(255,255,255,0.12)] transition-colors duration-500 group-hover:text-[rgba(245,158,11,0.5)]" />
+        </div>
+      </div>
+    </motion.article>
+  );
+};
 
 const Activities = () => {
   const { user } = useAuth();
   const { competitions, isCompleted, validateCompetitionEntry, registerCompetitionEntry } = useCompetitions();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState('competitions');
   const [selectedComp, setSelectedComp] = useState(null);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
-
-  // Games & Activities States
-  const [targetColor, setTargetColor] = useState({ r: 0, g: 0, b: 0 });
-  const [userColor, setUserColor] = useState({ r: 120, g: 120, b: 120 });
-  const [colorMatched, setColorMatched] = useState(false);
-  const [colorMatchScore, setColorMatchScore] = useState(null);
-
-  const [hackingStage, setHackingStage] = useState(1);
-  const [hackInput, setHackInput] = useState('');
-  const [hackLogs, setHackLogs] = useState(['DSC Security Console initialized...', 'Target: Bank Vault Bypass']);
-  const [vaultPassword, setVaultPassword] = useState('');
-
-  const [secretCode, setSecretCode] = useState('');
-  const [guessInput, setGuessInput] = useState('');
-  const [guessHistory, setGuessHistory] = useState([]);
-  const [codeGuessed, setCodeGuessed] = useState(false);
-
-  const [qrStage, setQrStage] = useState(1);
-  const [qrRiddleAnswer, setQrRiddleAnswer] = useState('');
-  const [qrMessage, setQrMessage] = useState('');
-
-  useEffect(() => {
-    generateNewColorTarget();
-    setVaultPassword(Math.floor(1000 + Math.random() * 9000).toString());
-    generateSecretCode();
-  }, []);
-
-  const generateNewColorTarget = () => {
-    setTargetColor({
-      r: Math.floor(Math.random() * 256),
-      g: Math.floor(Math.random() * 256),
-      b: Math.floor(Math.random() * 256),
-    });
-    setColorMatched(false);
-    setColorMatchScore(null);
-  };
-
-  const handleColorMatchCheck = () => {
-    const diffR = Math.abs(targetColor.r - userColor.r);
-    const diffG = Math.abs(targetColor.g - userColor.g);
-    const diffB = Math.abs(targetColor.b - userColor.b);
-    const matchPercent = Math.max(0, 100 - (diffR + diffG + diffB) / 7.65);
-    setColorMatchScore(matchPercent.toFixed(1));
-    if (matchPercent >= 92) {
-      setColorMatched(true);
-    }
-  };
-
-  const generateSecretCode = () => {
-    let code = '';
-    while (code.length < 4) {
-      const digit = Math.floor(Math.random() * 10).toString();
-      if (!code.includes(digit)) code += digit;
-    }
-    setSecretCode(code);
-    setGuessHistory([]);
-    setGuessInput('');
-    setCodeGuessed(false);
-  };
-
-  const handleGuessSubmit = (e) => {
-    e.preventDefault();
-    if (guessInput.length !== 4) return;
-
-    let bulls = 0;
-    let cows = 0;
-    for (let i = 0; i < 4; i++) {
-      if (guessInput[i] === secretCode[i]) {
-        bulls++;
-      } else if (secretCode.includes(guessInput[i])) {
-        cows++;
-      }
-    }
-
-    setGuessHistory([{ guess: guessInput, bulls, cows }, ...guessHistory]);
-    setGuessInput('');
-    if (bulls === 4) setCodeGuessed(true);
-  };
-
-  const handleHackingAction = (e) => {
-    e.preventDefault();
-    const command = hackInput.trim();
-    setHackInput('');
-
-    if (hackingStage === 1) {
-      if (command === vaultPassword) {
-        setHackLogs(prev => [...prev, `> decrypting pin: ${command}`, 'Vault passcode accepted!', 'Entering Firewall bypass stage...']);
-        setHackingStage(2);
-      } else {
-        setHackLogs(prev => [...prev, `> auth attempt: ${command}`, 'Authentication Failed: invalid security pin.']);
-      }
-    } else if (hackingStage === 2) {
-      if (command.toUpperCase() === 'OR') {
-        setHackLogs(prev => [...prev, `> firewall_rule -g OR`, 'Rule accepted! Logic circuit unlocked.']);
-        setHackingStage(3);
-      } else {
-        setHackLogs(prev => [...prev, `> firewall_rule -g ${command}`, 'ERROR: select the OR gate.']);
-      }
-    } else if (hackingStage === 3) {
-      if (command.toLowerCase() === 'decode') {
-        setHackLogs(prev => [...prev, `> decode --run`, 'Decryption complete! Bank vault successfully bypassed.']);
-        setHackingStage(4);
-      }
-    }
-  };
-
-  const handleQrRiddleSubmit = (e) => {
-    e.preventDefault();
-    setQrMessage('');
-    const ans = qrRiddleAnswer.trim().replace(/\s+/g, '');
-
-    if (qrStage === 1) {
-      if (ans.includes('المرشدة') || ans.includes('الكشافة') || ans.includes('كشافة')) {
-        setQrStage(2);
-        setQrRiddleAnswer('');
-        setQrMessage('✅ رائع! لغز المرحلة الأولى صحيح.');
-      } else {
-        setQrMessage('❌ إجابة غير صحيحة، ركز في الرموز الكشفية.');
-      }
-    } else if (qrStage === 2) {
-      if (ans.includes('البوصلة') || ans.includes('بوصلة')) {
-        setQrStage(3);
-        setQrRiddleAnswer('');
-        setQrMessage('✅ ممتاز! حل لغز المرحلة الثانية صحيح.');
-      } else {
-        setQrMessage('❌ إجابة غير صحيحة، فكر في أداة تحديد الاتجاه الكشفية.');
-      }
-    } else if (qrStage === 3) {
-      if (ans.includes('الوعد') || ans.includes('القسم') || ans.includes('وعد')) {
-        setQrStage(4);
-        setQrRiddleAnswer('');
-        setQrMessage('🎉 تهانينا! حللت لغز القائد بالكامل بنجاح!');
-      } else {
-        setQrMessage('❌ إجابة غير صحيحة، ابحث عن عهد الكشافة.');
-      }
-    }
-  };
 
   const handleEnterCompetition = (comp) => {
     setSelectedComp(comp);
@@ -173,226 +130,250 @@ const Activities = () => {
   };
 
   return (
-    <main className="page-shell text-right dir-rtl">
-      {/* Header */}
-      <div className="glass-card mb-8 p-6 sm:p-8 rounded-3xl border border-emerald-500/20 bg-slate-950/70 shadow-2xl">
-        <div className="flex items-center justify-between gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
-            <Sparkles size={24} />
+    <main className="page-shell dir-rtl !max-w-6xl">
+
+      {/* ═══ HERO — بانر سينمائي ═══ */}
+      <motion.section
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        className="mb-12"
+      >
+        <MediaSlot
+          name="activities-hero"
+          kind="image"
+          ratio="21/8"
+          label="بانر ساحة التحديات — فرق كشفية حول نار السمر بمناديل بنفسجية"
+          className="!rounded-[2.5rem] border border-[rgba(245,158,11,0.25)]"
+          overlay
+        >
+          <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
+            <motion.span
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.25, duration: 0.5 }}
+              className="badge-ember backdrop-blur-xl"
+            >
+              <Flame size={13} />
+              ساحة المنافسة الرسمية
+            </motion.span>
+            <motion.h1
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35, duration: 0.6 }}
+              className="text-3xl font-black text-white sm:text-4xl"
+            >
+              أثبت جدارتك <span className="text-fire">حول النار</span>
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5, duration: 0.6 }}
+              className="max-w-md text-sm leading-7 text-[#d5d0e8]"
+            >
+              أربع تحديات رسمية بينك وبين منصة التتويج — كل نقطة تقرّبك من لقب المخيم.
+            </motion.p>
           </div>
-          <div>
-            <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">التحديات الرقمية والميدانية</span>
-            <h1 className="text-2xl font-black text-white mt-1">ساحة الأنشطة والمسابقات الكشفية</h1>
+        </MediaSlot>
+      </motion.section>
+
+      {/* ═══ شبكة المسابقات ═══ */}
+      <section className="mb-6 grid gap-6 md:grid-cols-2">
+        {competitions.map((comp, i) => (
+          <CompetitionShowcase
+            key={comp.id}
+            comp={comp}
+            completed={comp.id !== 4 && isCompleted(comp.id, user.name)}
+            onEnter={handleEnterCompetition}
+            index={i}
+          />
+        ))}
+      </section>
+
+      {/* ═══ ركن الألعاب الترفيهية ═══ */}
+      <motion.section
+        initial={{ opacity: 0, y: 24 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-60px' }}
+        transition={{ duration: 0.6 }}
+        className="mb-8"
+      >
+        <div className="glass-violet glass-sheen relative overflow-hidden p-7 sm:p-9">
+          <div className="flex flex-wrap items-center justify-between gap-5">
+            <div className="text-right">
+              <span className="badge-violet mb-3">
+                <Gamepad2 size={13} />
+                استراحة المحارب
+              </span>
+              <h2 className="text-2xl font-black text-white">ألعاب جانبية بين التحديات</h2>
+              <p className="mt-2 max-w-md text-sm leading-7 text-[#a9a3c2]">
+                تحدّيات خفيفة لتصفية ذهنك — لا تؤثر على نقاط المنافسة الرسمية.
+              </p>
+            </div>
+            <Sparkles size={44} className="text-[rgba(139,92,246,0.35)]" />
           </div>
+
+          {/* لعبة مطاردة الألوان */}
+          <ColorHuntGame />
+        </div>
+      </motion.section>
+
+      {/* ═══ Modal كلمة المرور ═══ */}
+      {selectedComp && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(7,6,12,0.85)] p-4 backdrop-blur-md"
+          onClick={() => setSelectedComp(null)}
+        >
+          <motion.form
+            initial={{ scale: 0.9, y: 24 }}
+            animate={{ scale: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+            onSubmit={handleVerifyPassword}
+            onClick={(e) => e.stopPropagation()}
+            className="glass-violet glass-sheen hud-frame w-full max-w-md p-7 text-right sm:p-8"
+          >
+            <div className="mb-2 flex items-center justify-end gap-2 text-[#c4b5fd]">
+              <h3 className="text-lg font-black text-white">رمز مرور المسابقة</h3>
+              <KeyRound size={22} />
+            </div>
+            <p className="mb-6 text-xs leading-6 text-[#a9a3c2]">
+              أدخل الرمز المسلّم لفريقك لمباشرة <span className="font-black text-white">{selectedComp.name}</span> فوراً.
+            </p>
+
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              required
+              placeholder="••••"
+              className="input-field mb-4 text-center font-mono text-2xl tracking-[0.5em]"
+              autoFocus
+            />
+
+            {passwordError && (
+              <motion.p
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="mb-4 rounded-2xl border border-[rgba(244,63,94,0.3)] bg-[rgba(244,63,94,0.1)] p-3 text-xs font-bold text-[#fda4af]"
+              >
+                {passwordError}
+              </motion.p>
+            )}
+
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setSelectedComp(null)} className="btn-ghost flex-1">
+                إلغاء
+              </button>
+              <button type="submit" className="btn-ember btn-shine flex-1">
+                بدء الاختبار
+                <ChevronLeft size={17} />
+              </button>
+            </div>
+          </motion.form>
+        </motion.div>
+      )}
+    </main>
+  );
+};
+
+/* ═══ لعبة مطاردة الألوان (محفوظة من النسخة القديمة بروح جديدة) ═══ */
+const ColorHuntGame = () => {
+  const [targetColor, setTargetColor] = useState(() => ({
+    r: Math.floor(Math.random() * 256),
+    g: Math.floor(Math.random() * 256),
+    b: Math.floor(Math.random() * 256),
+  }));
+  const [userColor, setUserColor] = useState({ r: 120, g: 120, b: 120 });
+  const [colorMatched, setColorMatched] = useState(false);
+  const [colorMatchScore, setColorMatchScore] = useState(null);
+
+  const handleCheck = () => {
+    const diffR = Math.abs(targetColor.r - userColor.r);
+    const diffG = Math.abs(targetColor.g - userColor.g);
+    const diffB = Math.abs(targetColor.b - userColor.b);
+    const matchPercent = Math.max(0, 100 - (diffR + diffG + diffB) / 7.65);
+    setColorMatchScore(matchPercent.toFixed(1));
+    if (matchPercent >= 92) setColorMatched(true);
+  };
+
+  const reset = () => {
+    setTargetColor({
+      r: Math.floor(Math.random() * 256),
+      g: Math.floor(Math.random() * 256),
+      b: Math.floor(Math.random() * 256),
+    });
+    setColorMatched(false);
+    setColorMatchScore(null);
+  };
+
+  return (
+    <div className="mt-7 rounded-3xl border border-[rgba(255,255,255,0.08)] bg-[rgba(7,6,12,0.45)] p-6">
+      <h3 className="mb-1.5 flex items-center gap-2 text-base font-black text-white">
+        مطاردة الألوان
+        <Sparkles size={16} className="text-[#fcd34d]" />
+      </h3>
+      <p className="mb-6 text-xs text-[#6e6889]">طابق اللون المستهدف بدقة 92% أو أكثر.</p>
+
+      <div className="mb-6 grid items-center gap-6 md:grid-cols-2">
+        <div className="flex justify-center gap-6">
+          <div className="text-center">
+            <motion.div
+              layout
+              className="h-24 w-24 rounded-2xl border-4 border-[rgba(255,255,255,0.1)] shadow-inner"
+              style={{ backgroundColor: `rgb(${userColor.r}, ${userColor.g}, ${userColor.b})` }}
+            />
+            <span className="mt-2 block text-xs font-bold text-[#a9a3c2]">لونك</span>
+          </div>
+          <div className="text-center">
+            <div
+              className="h-24 w-24 rounded-2xl border-4 border-[rgba(255,255,255,0.1)] shadow-[0_0_24px_rgba(255,255,255,0.08)]"
+              style={{ backgroundColor: `rgb(${targetColor.r}, ${targetColor.g}, ${targetColor.b})` }}
+            />
+            <span className="mt-2 block text-xs font-bold text-[#a9a3c2]">المستهدف</span>
+          </div>
+        </div>
+
+        <div className="space-y-3.5" dir="ltr">
+          {[
+            { key: 'r', accent: 'accent-rose-500' },
+            { key: 'g', accent: 'accent-emerald-500' },
+            { key: 'b', accent: 'accent-sky-500' },
+          ].map(({ key, accent }) => (
+            <input
+              key={key}
+              type="range"
+              min="0"
+              max="255"
+              value={userColor[key]}
+              onChange={(e) => setUserColor((prev) => ({ ...prev, [key]: parseInt(e.target.value) }))}
+              className={`w-full ${accent}`}
+            />
+          ))}
         </div>
       </div>
 
-      {/* Glassmorphic Tab Switcher */}
-      <div className="glass-card p-1.5 rounded-2xl mb-8 border border-white/10 bg-slate-950/80 flex gap-2">
-        <button
-          onClick={() => setActiveTab('competitions')}
-          className={`flex-1 py-3 rounded-xl text-xs font-black transition-all duration-300 ${
-            activeTab === 'competitions'
-              ? 'bg-emerald-500 text-slate-950 shadow-glow-green scale-[1.02]'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          مسابقات التقييم الرسمية
-        </button>
-        <button
-          onClick={() => setActiveTab('activities')}
-          className={`flex-1 py-3 rounded-xl text-xs font-black transition-all duration-300 ${
-            activeTab === 'activities'
-              ? 'bg-emerald-500 text-slate-950 shadow-glow-green scale-[1.02]'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          ألعاب وتحديات الأنشطة الترفيهية
-        </button>
-      </div>
-
-      {/* COMPETITIONS TAB */}
-      {activeTab === 'competitions' && (
-        <section className="grid gap-6 sm:grid-cols-2">
-          {competitions.map((comp) => {
-            const completed = comp.id !== 4 && isCompleted(comp.id, user.name);
-            return (
-              <div
-                key={comp.id}
-                className={`glass-card p-6 rounded-3xl border transition-all duration-300 flex flex-col justify-between ${
-                  comp.isOpen
-                    ? 'border-emerald-500/30 bg-slate-950/60 shadow-lg hover:border-emerald-500/60'
-                    : 'border-white/5 bg-slate-900/30 opacity-70'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
-                    <span className={`text-[10px] font-black px-3 py-1 rounded-full border ${
-                      comp.isOpen
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                        : 'bg-red-500/10 border-red-500/30 text-red-400'
-                    }`}>
-                      {comp.isOpen ? 'نشط ومتاح' : 'مغلق حالياً'}
-                    </span>
-                    <h3 className="font-black text-white text-base">{comp.name}</h3>
-                  </div>
-
-                  <p className="text-xs text-slate-300 leading-relaxed mb-6">
-                    {comp.id === 3 ? 'مسابقة كبرى مكونة من 10 دول كشفية عربية تحتوي أسئلة العواصم والعملات بمدة 30 دقيقة.' : ''}
-                    {comp.id === 1 ? 'تحدى معلوماتك بالتعرف على حقيقتين كشفتين والعبارة الكاذبة.' : ''}
-                    {comp.id === 2 ? 'مسابقة عبقرينو السريعة للذكاء والمعلومات كشفية الرقمية.' : ''}
-                    {comp.id === 4 ? 'توليد فيديو بالذكاء الاصطناعي من خلال صياغة برومبت مبتكر ومحاكاته.' : ''}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                  {completed ? (
-                    <span className="text-xs text-emerald-400 font-extrabold bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full flex items-center gap-1.5">
-                      <CheckCircle size={14} /> تم التسجيل
-                    </span>
-                  ) : comp.isOpen ? (
-                    <button
-                      onClick={() => handleEnterCompetition(comp)}
-                      className="command-button text-xs py-2 px-4 flex items-center gap-1.5"
-                    >
-                      <Play size={12} /> دخول المسابقة
-                    </button>
-                  ) : (
-                    <span className="text-xs text-slate-500 font-bold">في انتظار تفعيل القيادة</span>
-                  )}
-
-                  <span className="text-[11px] font-mono text-slate-400 font-bold">
-                    {comp.duration ? `${comp.duration / 60} دقيقة` : 'بدون توقيت'}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Password Modal */}
-          {selectedComp && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-              <form onSubmit={handleVerifyPassword} className="glass-card w-full max-w-md p-6 sm:p-8 rounded-3xl bg-slate-950 border border-emerald-500/30 text-right">
-                <div className="flex items-center justify-end gap-2 text-emerald-400 mb-3">
-                  <h3 className="font-black text-lg text-white">رمز مرور المسابقة</h3>
-                  <KeyRound size={22} />
-                </div>
-                <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-                  أدخل رمز المرور المسلم لفريقك لمباشرة المسابقة فوراً.
-                </p>
-
-                <div className="mb-4">
-                  <input
-                    type="password"
-                    value={passwordInput}
-                    onChange={(e) => setPasswordInput(e.target.value)}
-                    required
-                    placeholder="رمز المسابقة"
-                    className="ai-input text-center text-lg font-mono font-bold"
-                  />
-                </div>
-
-                {passwordError && (
-                  <p className="text-xs font-bold text-red-400 mb-4 bg-red-500/10 border border-red-500/20 p-3 rounded-xl">
-                    {passwordError}
-                  </p>
-                )}
-
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedComp(null)}
-                    className="flex-1 py-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 text-xs font-bold hover:text-white"
-                  >
-                    إلغاء
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 command-button text-xs py-3"
-                  >
-                    بدء الاختبار
-                  </button>
-                </div>
-              </form>
-            </div>
+      <div className="flex items-center justify-between border-t border-[rgba(255,255,255,0.07)] pt-4">
+        {colorMatchScore ? (
+          <span className={`text-sm font-black ${colorMatched ? 'text-[#6ee7b7]' : 'text-[#fcd34d]'}`}>
+            {colorMatched ? `مطابقة مثالية! ${colorMatchScore}%` : `المطابقة: ${colorMatchScore}%`}
+          </span>
+        ) : (
+          <span className="text-xs text-[#6e6889]">حرّك المؤشرات واضغط فحص</span>
+        )}
+        <div className="flex gap-2.5">
+          {colorMatched && (
+            <button onClick={reset} className="btn-ghost !px-5 !py-2.5 !text-xs">
+              جولة جديدة
+            </button>
           )}
-        </section>
-      )}
-
-      {/* ACTIVITIES TAB */}
-      {activeTab === 'activities' && (
-        <section className="space-y-6">
-          {/* Color Hunt */}
-          <div className="glass-card p-6 sm:p-8 rounded-3xl border border-white/10 bg-slate-950/60">
-            <h2 className="text-base font-black text-white mb-2 flex items-center gap-2">
-              Color Hunt — مطاردة الألوان
-              <Sparkles size={18} className="text-amber-400" />
-            </h2>
-            <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-              طابق اللون المستهدف بتحريك مؤشرات RGB لتحقيق 92% مطابقة.
-            </p>
-
-            <div className="grid gap-6 md:grid-cols-2 items-center mb-6">
-              <div className="flex justify-center gap-6">
-                <div className="text-center">
-                  <div
-                    className="h-28 w-28 rounded-2xl border-4 border-slate-800 shadow-inner"
-                    style={{ backgroundColor: `rgb(${userColor.r}, ${userColor.g}, ${userColor.b})` }}
-                  />
-                  <span className="text-xs font-bold text-slate-400 mt-2 block">لونك</span>
-                </div>
-                <div className="text-center">
-                  <div
-                    className="h-28 w-28 rounded-2xl border-4 border-slate-800 shadow-inner"
-                    style={{ backgroundColor: `rgb(${targetColor.r}, ${targetColor.g}, ${targetColor.b})` }}
-                  />
-                  <span className="text-xs font-bold text-slate-400 mt-2 block">المستهدف</span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <input
-                    type="range" min="0" max="255" value={userColor.r}
-                    onChange={(e) => setUserColor(prev => ({ ...prev, r: parseInt(e.target.value) }))}
-                    className="w-full accent-red-500"
-                  />
-                </div>
-                <div>
-                  <input
-                    type="range" min="0" max="255" value={userColor.g}
-                    onChange={(e) => setUserColor(prev => ({ ...prev, g: parseInt(e.target.value) }))}
-                    className="w-full accent-emerald-500"
-                  />
-                </div>
-                <div>
-                  <input
-                    type="range" min="0" max="255" value={userColor.b}
-                    onChange={(e) => setUserColor(prev => ({ ...prev, b: parseInt(e.target.value) }))}
-                    className="w-full accent-blue-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-white/10 pt-4">
-              {colorMatchScore && (
-                <span className={`text-xs font-bold ${colorMatched ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  المطابقة: {colorMatchScore}%
-                </span>
-              )}
-              <button
-                onClick={handleColorMatchCheck}
-                disabled={colorMatched}
-                className="command-button text-xs py-2 px-5"
-              >
-                فحص النسبة
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
-    </main>
+          <button onClick={handleCheck} disabled={colorMatched} className="btn-violet !px-6 !py-2.5 !text-xs">
+            فحص النسبة
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 

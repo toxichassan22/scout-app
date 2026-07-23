@@ -1,22 +1,171 @@
 import { memo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Newspaper, Flame, Trophy, Crown, Compass, Sparkles, FileText, ChevronLeft, Zap, ShieldCheck } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  Trophy, Sparkles, FileText, ChevronLeft, Flame,
+  Radio, Newspaper, Lock, ShieldCheck, CheckCircle
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { getLeaderboard, getNews } from '../services/api';
-import { FESTIVAL_DETAILS } from '../data/mockData';
+import { FESTIVAL_DETAILS, MOCK_TEAMS } from '../data/mockData';
 import NewsCard from '../components/NewsCard';
-import { FloatSettings } from '../components/FloatSettings';
+import LoadingSpinner from '../components/LoadingSpinner';
 
-/* ─── Neural Grid Background Effect ─── */
-const DigitalGridBackground = memo(function DigitalGridBackground() {
+/* ═══════════════════════════════════════════════════════════════
+   HOME — لوحة التحكم الكشفية الرقمية (Digital Scout App Dashboard)
+   - اسم الفريق الديناميكي بحسب مسجل الدخول
+   - لوحة الشرف: أفضل 5 مراكز فقط وبدون إظهار أسماء الفرق (هوية محجوبة)
+   - النشرة الإخبارية المباشرة للتوجيهات والمفقودات
+═══════════════════════════════════════════════════════════════ */
+
+/* عداد تنازلي للمهرجان */
+const Countdown = memo(function Countdown() {
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    const target = new Date(FESTIVAL_DETAILS.startDate).getTime();
+    const update = () => {
+      const now = Date.now();
+      const diff = Math.max(0, target - now);
+      setTimeLeft({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((diff % (1000 * 60)) / 1000),
+      });
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const items = [
+    { label: 'يوم', value: timeLeft.days },
+    { label: 'ساعة', value: timeLeft.hours },
+    { label: 'دقيقة', value: timeLeft.minutes },
+    { label: 'ثانية', value: timeLeft.seconds },
+  ];
+
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.05)_0,transparent_100%)]" />
-      <div className="ai-node" style={{ left: '15%', top: '20%' }} />
-      <div className="ai-node" style={{ left: '85%', top: '35%' }} />
-      <div className="ai-node" style={{ left: '45%', top: '75%' }} />
+    <div className="flex items-center gap-2.5 sm:gap-3.5">
+      {items.map((item) => (
+        <div key={item.label} className="flex flex-col items-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(16,185,129,0.3)] bg-[rgba(2,11,14,0.85)] sm:h-14 sm:w-14 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+            <span className="font-mono text-lg font-black text-[#38bdf8] sm:text-xl" dir="ltr">
+              {String(item.value).padStart(2, '0')}
+            </span>
+          </div>
+          <span className="mt-1 text-[9px] font-bold text-[#94a3b8]">{item.label}</span>
+        </div>
+      ))}
     </div>
+  );
+});
+
+/* لوحة الشرف — تعرض أفضل 5 مراكز فقط بدون إظهار أسماء الفرق (هوية محجوبة) */
+const CompactLeaderboard = memo(function CompactLeaderboard({ board = [], maxPoints = 0, loading = false }) {
+  const rankTitles = {
+    1: 'المركز الأول',
+    2: 'المركز الثاني',
+    3: 'المركز الثالث',
+    4: 'المركز الرابع',
+    5: 'المركز الخامس',
+  };
+
+  // حصر القائمة في أفضل 5 مراكز فقط
+  const rawList = board.length > 0 ? board.slice(0, 5) : MOCK_TEAMS.slice(0, 5);
+
+  const displayList = rawList.map((item, idx) => ({
+    rank: item.rank || idx + 1,
+    points: item.points || Math.max(0, 2850 - idx * 230),
+    title: rankTitles[idx + 1] || `المركز #${idx + 1}`,
+  }));
+
+  const highestPoints = maxPoints || displayList[0]?.points || 3000;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="glass-sheen p-6 space-y-4 rounded-[2.5rem] border border-[rgba(16,185,129,0.3)] bg-[#041a15]/85 backdrop-blur-2xl shadow-2xl shadow-black/80"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-[rgba(16,185,129,0.2)] pb-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[rgba(245,158,11,0.15)] border border-[rgba(245,158,11,0.3)] text-[#fcd34d]">
+            <Trophy size={18} />
+          </div>
+          <div>
+            <h3 className="text-base font-black text-white flex items-center gap-1.5">
+              لوحة <span className="text-fire">الشرف</span>
+              <Flame size={16} className="animate-flame text-[#f59e0b]" />
+            </h3>
+            <p className="text-[10px] text-[#64748b] font-bold">أفضل 5 مراكز متصدرة فقط</p>
+          </div>
+        </div>
+
+        <span className="badge-ember font-mono text-[10px] flex items-center gap-1">
+          <Lock size={10} />
+          هوية الفرق محجوبة
+        </span>
+      </div>
+
+      {loading ? (
+        <LoadingSpinner label="جاري تحديث المراكز..." />
+      ) : (
+        <div className="space-y-2.5">
+          {displayList.map((item) => {
+            const percent = highestPoints > 0 ? Math.min(100, Math.max(5, (item.points / highestPoints) * 100)) : 0;
+            const rankStyles = {
+              1: { bg: 'bg-[rgba(245,158,11,0.15)] border-[rgba(245,158,11,0.4)]', text: 'text-[#fcd34d]', icon: '👑' },
+              2: { bg: 'bg-[rgba(203,213,225,0.12)] border-[rgba(203,213,225,0.3)]', text: 'text-[#e2e8f0]', icon: '🥈' },
+              3: { bg: 'bg-[rgba(217,119,6,0.15)] border-[rgba(217,119,6,0.4)]', text: 'text-[#f97316]', icon: '🥉' },
+            }[item.rank] || { bg: 'bg-[rgba(2,11,14,0.6)] border-[rgba(16,185,129,0.15)]', text: 'text-[#7dd3fc]', icon: null };
+
+            return (
+              <motion.div
+                key={item.rank}
+                whileHover={{ scale: 1.01, x: -2 }}
+                className={`relative overflow-hidden rounded-2xl border p-3.5 transition-all duration-200 ${rankStyles.bg}`}
+              >
+                {/* Progress bar background */}
+                <div
+                  className="absolute inset-y-0 right-0 bg-gradient-to-l from-[rgba(56,189,248,0.2)] to-transparent pointer-events-none"
+                  style={{ width: `${percent}%` }}
+                />
+
+                <div className="relative z-10 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-xl font-mono text-sm font-black ${rankStyles.text} bg-[rgba(0,0,0,0.4)] border border-[rgba(255,255,255,0.1)]`}>
+                      {rankStyles.icon || `#${item.rank}`}
+                    </span>
+                    <div className="text-right">
+                      <p className="text-sm font-black text-white flex items-center gap-1.5">
+                        <span>{item.title}</span>
+                        <span className="text-[10px] text-[#f59e0b]">🔒</span>
+                      </p>
+                      <p className="text-[9px] font-mono text-[#64748b]">ترتيب الساحة الرسمية</p>
+                    </div>
+                  </div>
+
+                  <span className="font-mono text-base font-black text-[#38bdf8]" dir="ltr">
+                    {item.points} <span className="text-[10px] font-bold text-[#94a3b8]">نقطة</span>
+                  </span>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="pt-2 text-center border-t border-[rgba(16,185,129,0.15)]">
+        <p className="text-[10px] text-[#64748b] font-bold">
+          🔥 التحديث التلقائي الفوري مستمر طوال فترة المهرجان الكشفي
+        </p>
+      </div>
+    </motion.div>
   );
 });
 
@@ -27,14 +176,17 @@ const Home = memo(function Home() {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // اسم الفريق المسجل ديناميكياً
+  const teamName = user?.name || user?.teamName || user?.username || 'الكشاف';
+
   const fetchInitialData = async () => {
     try {
       const [leaderboardData, newsData] = await Promise.all([
         getLeaderboard().catch(() => []),
-        getNews().catch(() => [])
+        getNews().catch(() => []),
       ]);
       setBoard(leaderboardData);
-      setNews(newsData.slice(0, 2));
+      setNews(newsData.slice(0, 1));
     } catch (e) {
       console.error('Failed to load home data:', e);
     } finally {
@@ -44,20 +196,10 @@ const Home = memo(function Home() {
 
   useEffect(() => {
     fetchInitialData();
-
     if (socket) {
-      socket.on('leaderboard:update', (updatedBoard) => {
-        setBoard(updatedBoard);
-      });
-
-      socket.on('news:published', (newStory) => {
-        setNews((prev) => [newStory, ...prev.slice(0, 1)]);
-      });
-
-      socket.on('news:deleted', ({ id }) => {
-        setNews((prev) => prev.filter((item) => item.id !== id));
-      });
-
+      socket.on('leaderboard:update', setBoard);
+      socket.on('news:published', (story) => setNews((prev) => [story, ...prev.slice(0, 3)]));
+      socket.on('news:deleted', ({ id }) => setNews((prev) => prev.filter((n) => n.id !== id)));
       return () => {
         socket.off('leaderboard:update');
         socket.off('news:published');
@@ -66,285 +208,103 @@ const Home = memo(function Home() {
     }
   }, [socket]);
 
-  const first = board[0];
-  const second = board[1];
-  const third = board[2];
-  const rest = board.slice(3);
-
-  const firstPoints = first ? first.points : 0;
-  const secondPoints = second ? second.points : 0;
-  const thirdPoints = third ? third.points : 0;
-
-  const diffFirstSecond = first && second ? Math.round((firstPoints - secondPoints) * 10) / 10 : 0;
+  const maxPoints = board[0]?.points || 0;
 
   return (
-    <main className="page-shell relative text-right dir-rtl">
-      <DigitalGridBackground />
-      <FloatSettings />
+    <main className="relative min-h-screen overflow-hidden">
+      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-36 pt-6 sm:px-6">
 
-      {/* Modern Top Header Banner */}
-      <header className="glass-card mb-6 p-4 sm:p-6 border border-emerald-500/20 bg-slate-950/70 shadow-2xl rounded-3xl">
-        <div className="flex items-center justify-between gap-4">
-          {/* Logo 1 */}
-          <div className="shrink-0">
-            <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-2 flex items-center justify-center shadow-glow-green hover:scale-105 transition">
-              <img src={FESTIVAL_DETAILS.logo} alt="شعار المهرجان" className="h-full w-full object-contain" />
-            </div>
-          </div>
+        {/* ══════════ HERO DASHBOARD BANNER — بانر الترحيب الديناميكي باسم الفريق ══════════ */}
+        <motion.section
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="hud-frame glass-sheen relative overflow-hidden rounded-[2.5rem] border border-[rgba(16,185,129,0.3)] bg-gradient-to-r from-[#041a15]/95 via-[#031510]/90 to-[#020b0e] p-7 sm:p-10 mb-10 shadow-2xl shadow-black/80"
+        >
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-right">
 
-          {/* Title Branding */}
-          <div className="flex-1 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold mb-1">
-              <Zap size={13} className="animate-pulse" />
-              <span>المهرجان الكشفي الرقمي 2026</span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-black text-gradient">
-              كشفيتي بفكر ديجيتال
-            </h1>
-          </div>
-
-          {/* Logo 2 */}
-          <div className="shrink-0">
-            <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-2 flex items-center justify-center text-amber-400 font-black text-xs text-center hover:scale-105 transition">
-              منشية<br />التحرير
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Scout Welcome Banner */}
-      <section className="glass-card mb-8 p-5 sm:p-6 rounded-3xl border border-white/10 bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-slate-950/80">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-glow-amber shrink-0">
-              <Flame size={24} className="animate-pulse" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-extrabold text-amber-400">لوحة الفرق الكشفية</span>
-                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-              </div>
-              <h2 className="text-lg font-black text-white mt-0.5">
-                مرحباً بك في ساحة التنافس الكشفي الحي
-              </h2>
-            </div>
-          </div>
-
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs font-bold text-slate-300">
-            <ShieldCheck size={16} className="text-emerald-400" />
-            <span>الحساب مؤمن والبيانات لحظية</span>
-          </div>
-        </div>
-      </section>
-
-      {/* 🏆 Interactive 3D Podium (The Star Leaderboard) */}
-      <section className="glass-card mb-10 p-6 sm:p-8 rounded-3xl border border-amber-500/20 bg-slate-950/60 relative">
-        <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
-          <span className="text-xs font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
-            تحديث حي ومباشر (مجهول الفرق)
-          </span>
-          <h2 className="text-xl font-black text-white flex items-center gap-2">
-            لوحة التتويج وشرف المخيم
-            <Trophy size={24} className="text-amber-400 animate-bounce" />
-          </h2>
-        </div>
-
-        {loading ? (
-          <div className="py-16 text-center text-slate-500 text-sm">
-            <div className="mx-auto h-8 w-8 border-2 border-amber-500/20 border-t-amber-500 rounded-full animate-spin mb-3" />
-            جاري احتساب الترتيب الفوري...
-          </div>
-        ) : (
-          <div>
-            {/* The 3D Podium Blocks */}
-            <div className="grid grid-cols-3 gap-3 sm:gap-6 items-end pt-6 pb-6">
-              
-              {/* 🥈 2nd Place (Silver) */}
-              <div className="order-1 flex flex-col items-center">
-                {second ? (
-                  <div className="w-full glass-card-silver p-4 sm:p-5 text-center flex flex-col items-center">
-                    <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-slate-200/10 border border-slate-300/30 flex items-center justify-center text-slate-200 font-black text-lg mb-3 shadow-lg">
-                      2
-                    </div>
-                    <span className="text-xs font-black text-slate-200">المركز الثاني</span>
-                    <span className="text-base sm:text-xl font-mono font-black text-slate-100 mt-2">
-                      {secondPoints} <span className="text-xs text-slate-400">نقطة</span>
-                    </span>
-                  </div>
-                ) : (
-                  <div className="w-full p-4 rounded-2xl border border-slate-800 bg-slate-900/30 text-center text-xs text-slate-600">
-                    المركز 2
-                  </div>
-                )}
+            {/* Right side: Dynamic Welcome & Logged In Team Name */}
+            <div className="space-y-3 max-w-xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(56,189,248,0.4)] bg-[rgba(2,11,14,0.8)] px-4 py-1.5 text-xs font-black text-[#38bdf8] backdrop-blur-xl">
+                <span className="live-dot" />
+                <span>منصة العمليات الكشفية حية</span>
+                <Radio size={14} />
               </div>
 
-              {/* 👑 1st Place (Gold) - Elevated */}
-              <div className="order-2 flex flex-col items-center -translate-y-4">
-                {first ? (
-                  <div className="w-full glass-card-gold p-5 sm:p-6 text-center flex flex-col items-center relative">
-                    {/* Animated Gold Crown */}
-                    <div className="absolute -top-6 animate-crown text-amber-400">
-                      <Crown size={36} fill="#f59e0b" />
-                    </div>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white leading-tight">
+                أهلاً <span className="text-fire">{teamName}</span> ⚡
+              </h1>
 
-                    <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-black text-2xl mb-3 shadow-glow-amber mt-2">
-                      1
-                    </div>
-                    <span className="text-sm font-black text-gradient-gold">المركز الأول</span>
+              <p className="text-sm leading-7 text-[#94a3b8]">
+                مرحباً بك في لوحة تحكم المخيم الرقمي. ارفع تقرير الفريق وتابع التنبيهات الرسمية وتوجيهات القيادة الكشفية.
+              </p>
 
-                    {second && (
-                      <span className="text-[10px] sm:text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full mt-1">
-                        +{diffFirstSecond} ن عن الثاني
-                      </span>
-                    )}
-
-                    <span className="text-xl sm:text-2xl font-mono font-black text-amber-400 mt-2">
-                      {firstPoints} <span className="text-xs text-amber-300">نقطة</span>
-                    </span>
-                  </div>
-                ) : (
-                  <div className="w-full p-6 rounded-2xl border border-slate-800 bg-slate-900/30 text-center text-xs text-slate-600">
-                    المركز 1
-                  </div>
-                )}
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3.5 pt-2">
+                <Link to="/upload-report" className="btn-ember btn-shine !px-7 !py-3.5 !text-sm font-black">
+                  <FileText size={18} />
+                  تسليم تقرير
+                </Link>
+                <Link to="/activities" className="btn-ghost !px-7 !py-3.5 !text-sm font-black">
+                  <Trophy size={18} className="text-[#fcd34d]" />
+                  المسابقات والأنشطة
+                </Link>
               </div>
-
-              {/* 🥉 3rd Place (Bronze) */}
-              <div className="order-3 flex flex-col items-center">
-                {third ? (
-                  <div className="w-full glass-card-bronze p-4 sm:p-5 text-center flex flex-col items-center">
-                    <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-amber-700/20 border border-amber-600/30 flex items-center justify-center text-amber-500 font-black text-lg mb-3 shadow-lg">
-                      3
-                    </div>
-                    <span className="text-xs font-black text-amber-300">المركز الثالث</span>
-                    <span className="text-base sm:text-xl font-mono font-black text-amber-400 mt-2">
-                      {thirdPoints} <span className="text-xs text-amber-500">نقطة</span>
-                    </span>
-                  </div>
-                ) : (
-                  <div className="w-full p-4 rounded-2xl border border-slate-800 bg-slate-900/30 text-center text-xs text-slate-600">
-                    المركز 3
-                  </div>
-                )}
-              </div>
-
             </div>
 
-            {/* Rest of Competitors List */}
-            {rest.length > 0 && (
-              <div className="mt-6 pt-6 border-t border-white/10 space-y-2.5">
-                <h3 className="text-xs font-bold text-slate-400 mb-3">باقي المراكز التنافسية</h3>
-                {rest.map((item) => (
-                  <div
-                    key={item.rank}
-                    className="glass-card p-3.5 rounded-2xl flex items-center justify-between border-white/5 bg-slate-900/40 hover:bg-slate-900/80 transition"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="h-7 w-7 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-xs font-black flex items-center justify-center">
-                        #{item.rank}
-                      </span>
-                      <span className="text-xs font-bold text-slate-300">المركز الرقمي {item.rank}</span>
-                      {item.gapToNext > 0 && (
-                        <span className="text-[10px] text-slate-500 font-mono">
-                          (-{item.gapToNext} ن عن السابق)
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-sm font-mono font-black text-emerald-400">{item.points} نقطة</span>
-                  </div>
-                ))}
+            {/* Left side: Countdown Widget */}
+            <div className="flex flex-col items-center md:items-end gap-2 bg-[rgba(2,11,14,0.6)] p-5 rounded-3xl border border-[rgba(16,185,129,0.2)]">
+              <span className="text-xs font-black text-[#fcd34d] flex items-center gap-1.5 mb-1">
+                <Flame size={15} className="animate-flame" />
+                المتبقي على البداية              </span>
+              <Countdown />
+            </div>
+
+          </div>
+        </motion.section>
+
+        {/* ══════════ MAIN DASHBOARD GRID (50% / 50%) ══════════ */}
+        <div className="grid gap-8 lg:grid-cols-12 items-start">
+
+          {/* Right Column: Top 5 Anonymized Leaderboard */}
+          <div className="lg:col-span-5">
+            <CompactLeaderboard board={board} maxPoints={maxPoints} loading={loading} />
+          </div>
+
+          {/* Left Column: Live News & Important Broadcast Announcements */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* Header: عنوان + كل الأخبار inline */}
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[rgba(56,189,248,0.15)] border border-[rgba(56,189,248,0.3)] text-[#38bdf8]">
+                <Newspaper size={18} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-black text-white leading-tight">النشرة الإخبارية والقرارات</h2>
+                  <Link to="/news" className="inline-flex items-center gap-1 rounded-full border border-[rgba(56,189,248,0.3)] bg-[rgba(56,189,248,0.08)] px-2.5 py-0.5 text-[10px] font-black text-[#38bdf8] hover:bg-[rgba(56,189,248,0.18)] transition">
+                    كل الأخبار
+                    <ChevronLeft size={11} />
+                  </Link>
+                </div>
+
+              </div>
+            </div>
+
+            {loading ? (
+              <LoadingSpinner label="جاري تحميل البلاغات..." />
+            ) : news.length > 0 ? (
+              <NewsCard item={news[0]} />
+            ) : (
+              <div className="rounded-3xl border border-dashed border-[rgba(16,185,129,0.2)] bg-[rgba(2,11,14,0.4)] p-8 text-center">
+                <p className="text-sm font-bold text-[#94a3b8]">لا توجد بلاغات عاجلة حالياً</p>
+                <p className="mt-1 text-xs text-[#64748b]">سيتم بث الإعلانات والقرارات الرسمية هنا فور صدورها من القيادة.</p>
               </div>
             )}
           </div>
-        )}
-      </section>
 
-      {/* Shortcuts & Quick Actions Grid */}
-      <section className="mb-10">
-        <h2 className="text-lg font-black text-white mb-4 flex items-center gap-2">
-          الوصول السريع لخدمات المهرجان
-          <Sparkles size={18} className="text-emerald-400" />
-        </h2>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Link
-            to="/activities"
-            className="glass-card p-5 rounded-3xl text-right group hover:border-emerald-500/40 flex flex-col justify-between"
-          >
-            <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition">
-              <Sparkles size={20} />
-            </div>
-            <div>
-              <h3 className="text-sm font-black text-white group-hover:text-emerald-400 transition">الأنشطة والمسابقات</h3>
-              <p className="text-[11px] text-slate-400 mt-1">التحديات الرقمية والميدانية</p>
-            </div>
-          </Link>
-
-          <Link
-            to="/program"
-            className="glass-card p-5 rounded-3xl text-right group hover:border-blue-500/40 flex flex-col justify-between"
-          >
-            <div className="h-10 w-10 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mb-4 group-hover:scale-110 transition">
-              <Compass size={20} />
-            </div>
-            <div>
-              <h3 className="text-sm font-black text-white group-hover:text-blue-400 transition">البرنامج والخريطة</h3>
-              <p className="text-[11px] text-slate-400 mt-1">جدول المواعيد والمناطق</p>
-            </div>
-          </Link>
-
-          <Link
-            to="/upload-report"
-            className="glass-card p-5 rounded-3xl text-right group hover:border-amber-500/40 flex flex-col justify-between"
-          >
-            <div className="h-10 w-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mb-4 group-hover:scale-110 transition">
-              <FileText size={20} />
-            </div>
-            <div>
-              <h3 className="text-sm font-black text-white group-hover:text-amber-400 transition">رفع التقارير</h3>
-              <p className="text-[11px] text-slate-400 mt-1">تسليم ملفات الإنجاز</p>
-            </div>
-          </Link>
-
-          <Link
-            to="/news"
-            className="glass-card p-5 rounded-3xl text-right group hover:border-rose-500/40 flex flex-col justify-between"
-          >
-            <div className="h-10 w-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mb-4 group-hover:scale-110 transition">
-              <Newspaper size={20} />
-            </div>
-            <div>
-              <h3 className="text-sm font-black text-white group-hover:text-rose-400 transition">الجريدة الرقمية</h3>
-              <p className="text-[11px] text-slate-400 mt-1">التوجيهات والقرارات الحية</p>
-            </div>
-          </Link>
-        </div>
-      </section>
-
-      {/* Latest Official News Preview */}
-      <section className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <Link to="/news" className="text-xs font-extrabold text-emerald-400 hover:underline flex items-center gap-1">
-            مشاهدة كل الأخبار <ChevronLeft size={14} />
-          </Link>
-          <h2 className="text-lg font-black text-white flex items-center gap-2">
-            آخر الأخبار الرسمية
-            <Newspaper size={18} className="text-emerald-400" />
-          </h2>
         </div>
 
-        {news.length === 0 ? (
-          <div className="glass-card p-6 text-center text-slate-500 text-xs rounded-2xl">
-            لا توجد أخبار جديدة حالياً
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {news.map((item) => (
-              <NewsCard key={item.id} item={item} />
-            ))}
-          </div>
-        )}
-      </section>
+      </div>
     </main>
   );
 });

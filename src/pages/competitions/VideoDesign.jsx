@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Sparkles, Video, Wand2, Loader2, Play, AlertCircle, Cpu, Terminal, CheckCircle2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  Send, Sparkles, Video, Wand2, Loader2, Play, Cpu, Terminal, CheckCircle2, Film,
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCompetitions } from '../../context/CompetitionContext';
+import MediaSlot from '../../components/MediaSlot';
 
 const MAX_ATTEMPTS = 3;
 
@@ -12,8 +16,7 @@ const VideoDesign = () => {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState('');
   const [generatingId, setGeneratingId] = useState(null);
-  
-  // Local Simulator States
+
   const [simulatingId, setSimulatingId] = useState(null);
   const [simulationProgress, setSimulationProgress] = useState(0);
   const [simulationLogs, setSimulationLogs] = useState([]);
@@ -35,7 +38,7 @@ const VideoDesign = () => {
     try {
       submitEntry(4, user.name, { prompt, score: 0 });
       setPrompt('');
-      alert('تم حفظ البرومبت بنجاح! يمكنك الآن الضغط على زر التوليد في الأسفل لبدء التوليف الذكي.');
+      alert('تم حفظ البرومبت بنجاح! يمكنك الآن الضغط على زر التوليد في الأسفل.');
     } catch (error) {
       alert(error.message);
     }
@@ -44,15 +47,15 @@ const VideoDesign = () => {
   const runLocalSimulation = (attemptId, promptText) => {
     setSimulatingId(attemptId);
     setSimulationProgress(0);
-    
+
     const logs = [
-      "⚡ جاري تنشيط محرك التوزيع الكشفي ذو الذكاء الكوانتي...",
-      "🔍 تحليل المصطلحات الكشفية والجمالية داخل البرومبت...",
-      "🧠 استدعاء نوى شبكات Stable Diffusion 2.1 المتقدمة...",
-      "🎨 توليد وحساب مصفوفات الإطارات البصرية (دقة 4K فائقة)...",
-      "🏃 دمج انسيابية الحركة الكشفتية بمعدل 60 إطاراً بالثانية...",
-      "🎬 تصدير ملف البث النهائي ذو التشفير عالي الكفاءة H.264...",
-      "🚀 تم الانتهاء بنجاح! تم رفع الفيديو وحفظه في سحابة المخيم الرقمي."
+      '⚡ جاري تنشيط محرك التوزيع الكشفي ذو الذكاء الكوانتي...',
+      '🔍 تحليل المصطلحات الكشفية والجمالية داخل البرومبت...',
+      '🧠 استدعاء نوى شبكات التوليد البصري المتقدمة...',
+      '🎨 توليد وحساب مصفوفات الإطارات البصرية...',
+      '🏃 دمج انسيابية الحركة بمعدل 60 إطاراً بالثانية...',
+      '🎬 تصدير ملف البث النهائي عالي الكفاءة...',
+      '🚀 تم الانتهاء! الفيديو جاهز في سحابة المخيم.',
     ];
 
     setSimulationLogs([logs[0]]);
@@ -61,22 +64,13 @@ const VideoDesign = () => {
     const interval = setInterval(() => {
       progress += 4;
       setSimulationProgress(progress);
-      
-      const logIndex = Math.min(
-        Math.floor((progress / 100) * logs.length),
-        logs.length - 1
-      );
-      setSimulationLogs(prev => {
-        if (!prev.includes(logs[logIndex])) {
-          return [...prev, logs[logIndex]];
-        }
-        return prev;
-      });
+
+      const logIndex = Math.min(Math.floor((progress / 100) * logs.length), logs.length - 1);
+      setSimulationLogs((prev) => (prev.includes(logs[logIndex]) ? prev : [...prev, logs[logIndex]]));
 
       if (progress >= 100) {
         clearInterval(interval);
-        
-        // Pick simulated high-fidelity direct-MP4 video loops depending on prompt
+
         let videoUrl = 'https://assets.mixkit.co/videos/preview/mixkit-forest-stream-in-the-sunlight-529-large.mp4';
         const lowerPrompt = promptText.toLowerCase();
         if (lowerPrompt.includes('نار') || lowerPrompt.includes('مخيم') || lowerPrompt.includes('كشافة') || lowerPrompt.includes('حريق') || lowerPrompt.includes('خيم')) {
@@ -88,19 +82,18 @@ const VideoDesign = () => {
         }
 
         updateSubmissionVideo(attemptId, videoUrl);
-        
+
         setTimeout(() => {
           setSimulatingId(null);
           setSimulationProgress(0);
           setSimulationLogs([]);
         }, 1500);
       }
-    }, 200); // Takes ~5 seconds
+    }, 200);
   };
 
   const handleGenerateVideo = async (submission) => {
     if (!colabUrl) {
-      // Local Simulator active
       runLocalSimulation(submission.id, submission.data.prompt);
       return;
     }
@@ -116,174 +109,210 @@ const VideoDesign = () => {
   };
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 relative">
-      {/* Dynamic cyberpunk blur background blobs */}
-      <div className="absolute top-10 left-10 -z-10 h-72 w-72 rounded-full bg-primary/5 blur-[80px] pointer-events-none" />
-      <div className="absolute bottom-10 right-10 -z-10 h-80 w-80 rounded-full bg-accent/5 blur-[90px] pointer-events-none" />
+    <main className="page-shell dir-rtl !max-w-4xl">
 
-      <header className="tech-panel mb-6 flex items-center justify-between p-5 border border-primary/20 bg-slate-950/70 backdrop-blur-md rounded-xl">
-        <span className="status-badge status-badge-amber">AI LAB // ACTIVE</span>
-        <h1 className="text-2xl font-black text-slate-50 flex items-center gap-2">
-          تصميم الفيديو بالذكاء الاصطناعي
-          <Video className="text-signal" />
-        </h1>
-      </header>
+      {/* ═══ HERO — بانر المختبر ═══ */}
+      <motion.section
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        className="mb-8"
+      >
+        <MediaSlot
+          name="video-lab-hero"
+          kind="video"
+          ratio="21/8"
+          label="فيديو خلفية مختبر الذكاء الاصطناعي — جسيمات وشفرات متوهجة"
+          className="!rounded-[2rem] border border-[rgba(139,92,246,0.3)]"
+          overlay
+        >
+          <div className="flex h-full flex-col justify-end p-7">
+            <span className="badge-violet mb-2.5 w-fit">
+              <Cpu size={13} className="animate-pulse" />
+              AI LAB · مسابقة تقييمية
+            </span>
+            <h1 className="flex items-center gap-2.5 text-2xl font-black text-white sm:text-3xl">
+              تصميم الفيديو بالذكاء الاصطناعي
+              <Film size={28} className="text-[#a78bfa]" />
+            </h1>
+            <p className="mt-1.5 max-w-lg text-xs leading-6 text-[#d5d0e8] sm:text-sm">
+              الموضوع: <span className="font-black text-[#c4b5fd]">الكشافة في عصر الذكاء الاصطناعي</span> —
+              اكتب برومبت مبتكر وشاهد فكرتك تتحول إلى فيديو.
+            </p>
+          </div>
+        </MediaSlot>
+      </motion.section>
 
-      {/* Cybernetic Processor Status Banner */}
-      <section className="card mb-6 border-primary/25 bg-slate-950/70 p-5 text-right relative overflow-hidden backdrop-blur-md">
-        <div className="absolute top-0 left-0 h-full w-1.5 bg-gradient-to-b from-primary via-signal to-accent" />
-        <div className="flex items-center justify-end gap-2 text-primary mb-2">
-          <h3 className="font-extrabold text-base">نظام التوليد المحلي الذكي (Built-in AI Local Core V2.1)</h3>
-          <Cpu size={20} className="animate-pulse" />
+      {/* ═══ عداد المحاولات ═══ */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15, duration: 0.5 }}
+        className="glass mb-8 flex items-center justify-between p-5"
+      >
+        <div className="flex items-center gap-2">
+          {Array.from({ length: MAX_ATTEMPTS }).map((_, i) => (
+            <span
+              key={i}
+              className={`h-3.5 w-9 rounded-full transition-all duration-500 ${
+                i < remaining
+                  ? 'bg-gradient-to-l from-[#a78bfa] to-[#6d28d9] shadow-[0_0_12px_rgba(139,92,246,0.6)]'
+                  : 'bg-[rgba(255,255,255,0.08)]'
+              }`}
+            />
+          ))}
         </div>
-        <p className="text-right text-sm leading-7 text-slate-300">
-          {!colabUrl 
-            ? "بوابة Google Colab السحابية غير متصلة حالياً. تم تفعيل نظام توليد الفيديو المدمج الفوري تلقائياً لتتمكن من توليف وإنتاج فيديوهاتك بدقة عالية وسرعة فائقة مباشرةً!" 
-            : "بوابة Google Colab متصلة بالخادم السحابي. في حال حدوث أي خطأ في الخادم السحابي، سيتولى المعالج المدمج المحلي تشغيل وإنجاز مهامك تلقائياً."
-          }
+        <p className="text-sm font-black text-white">
+          المحاولات المتبقية: <span className="font-mono text-[#c4b5fd]" dir="ltr">{remaining} / {MAX_ATTEMPTS}</span>
         </p>
-      </section>
+      </motion.div>
 
-      <section className="card mb-6 text-right border-slate-800 bg-slate-950/50 p-6 relative">
-        {/* Corner tech lines */}
-        <div className="absolute top-0 right-0 h-1.5 w-1.5 border-r border-t border-accent/40" />
-        <div className="absolute bottom-0 left-0 h-1.5 w-1.5 border-l border-b border-accent/40" />
-
-        <div className="mb-3 flex items-center justify-end gap-2 text-accent">
-          <h2 className="font-black text-lg">الموضوع: الكشافة في عصر الذكاء الاصطناعي</h2>
-          <Sparkles size={20} />
-        </div>
-        <p className="leading-8 text-slate-300">
-          اكتب برومبت (وصفاً) كشفياً مبتكراً وجذاباً يوضح كيف يمكن للتطبيقات التكنولوجية الحديثة دعم الفرق الكشفية في التخطيط، القيادة، والتعاون الجماعي.
-        </p>
-        <p className="mt-4 rounded-lg border border-primary/25 bg-primary/10 p-3.5 text-center font-black text-primary-light drop-shadow-sm">
-          المحاولات المتبقية لفريقك: {remaining} محاولات
-        </p>
-      </section>
-
-      <section className="card mb-6 text-right border-signal/25 bg-signal-soft/5 p-6 relative">
-        <div className="mb-3 flex items-center justify-end gap-2 text-signal">
-          <h2 className="font-black">بوابة التحكم والتوليد</h2>
-          <Wand2 size={20} />
-        </div>
-        <ol className="mr-5 list-decimal leading-8 text-slate-300 text-right space-y-1">
-          <li>صِف المشهد البصري المطلوب باللغة العربية أو الإنجليزية.</li>
-          <li>اضغط على زر <strong className="text-white">"حفظ البرومبت"</strong> لتسجيل المحاولة.</li>
-          <li>اضغط على زر <strong className="text-white">"توليد الفيديو بالذكاء الاصطناعي"</strong> المتاح على كرت المحاولة بالأسفل.</li>
-          <li>شاهد معالج الذكاء الاصطناعي وهو يقوم بتوليف وحساب المؤثرات لتستمتع بمشاهدة الفيديو فوراً!</li>
-        </ol>
-      </section>
-
+      {/* ═══ فورم البرومبت ═══ */}
       {remaining > 0 ? (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <textarea 
-            className="input-field h-40 resize-none text-right font-medium leading-7 border-slate-800 bg-slate-950/70 p-4 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-lg text-slate-200 placeholder:text-slate-600" 
-            placeholder="مثال للبرومبت: نار مخيم كشفية مشتعلة تتوسط الغابة تحت السماء المرصعة بالنجوم مع كشافة يتحلقون حولها ويستخدمون لوحات رقمية مضيئة..." 
-            value={prompt} 
-            onChange={(event) => setPrompt(event.target.value)} 
-            required 
-          />
-          <button type="submit" className="command-button flex w-full items-center justify-center gap-2 py-3.5 hover:shadow-[0_0_22px_rgba(40,216,255,0.45)] transition-all duration-300 text-slate-950 font-black rounded-lg">
+        <motion.form
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, duration: 0.55 }}
+          onSubmit={handleSubmit}
+          className="mb-10 space-y-4"
+        >
+          <div className="glass-violet glass-sheen relative p-5 sm:p-6">
+            <div className="mb-3 flex items-center justify-end gap-2 text-[#c4b5fd]">
+              <h2 className="text-base font-black text-white">وحدة صياغة البرومبت</h2>
+              <Wand2 size={19} />
+            </div>
+            <textarea
+              className="input-field h-36 resize-none !rounded-2xl text-base leading-8"
+              placeholder="مثال: نار مخيم كشفية مشتعلة تتوسط الغابة تحت سماء مرصعة بالنجوم، كشافة بمناديل بنفسجية يتحلقون حولها ويستخدمون لوحات رقمية مضيئة..."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              required
+            />
+          </div>
+          <button type="submit" className="btn-violet btn-shine w-full !py-4 text-base">
             حفظ البرومبت للمحاولة
             <Send size={18} />
           </button>
-        </form>
+        </motion.form>
       ) : (
-        <div className="card border-red-400/25 bg-red-500/10 py-8 text-center font-black text-red-200 rounded-lg">
-          تم استنفاد الحد الأقصى للمحاولات (3 محاولات) لهذا الفريق بنجاح.
-        </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.97 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="mb-10 rounded-3xl border border-[rgba(244,63,94,0.3)] bg-[rgba(244,63,94,0.08)] p-8 text-center text-sm font-black text-[#fda4af]"
+        >
+          تم استنفاد الحد الأقصى للمحاولات (3 محاولات) لهذا الفريق.
+        </motion.div>
       )}
 
+      {/* ═══ المحاولات المسجلة ═══ */}
       {attempts.length > 0 && (
-        <section className="mt-10">
-          <h2 className="mb-4 text-right font-black text-xl text-slate-50 border-r-2 border-accent pr-3">المحاولات المسجلة الحالية</h2>
-          <div className="grid gap-4">
+        <section>
+          <h2 className="mb-5 flex items-center gap-2.5 border-r-[3px] border-[#8b5cf6] pr-3 text-xl font-black text-white">
+            المحاولات المسجلة
+            <Sparkles size={20} className="text-[#a78bfa]" />
+          </h2>
+
+          <div className="grid gap-5">
             {attempts.map((attempt, index) => (
-              <article key={attempt.id} className="card text-right border-slate-800 bg-slate-950/60 p-5 rounded-xl backdrop-blur-md relative overflow-hidden">
-                <div className="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3">
-                  <div className="flex items-center gap-2">
+              <motion.article
+                key={attempt.id}
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.08, duration: 0.5 }}
+                className="glass-sheen glass relative overflow-hidden p-5 sm:p-6"
+              >
+                <div className="mb-4 flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] pb-3.5">
+                  <div className="flex items-center gap-2.5">
                     {attempt.data.videoUrl ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-signal border border-signal/25 bg-signal-soft/10 px-2 py-0.5 rounded flex items-center gap-1">
-                          <CheckCircle2 size={10} />
+                      <>
+                        <span className="badge-fern !text-[10px]">
+                          <CheckCircle2 size={11} />
                           جاهز للمشاهدة
                         </span>
                         <a
                           href={attempt.data.videoUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-black text-primary hover:bg-primary/20 transition-all"
+                          className="badge-violet !text-[10px] transition hover:brightness-125"
                         >
-                          <Play size={12} />
-                          فتح رابط خارجي
+                          <Play size={11} />
+                          فتح خارجي
                         </a>
-                      </div>
+                      </>
                     ) : (
                       <button
                         onClick={() => handleGenerateVideo(attempt)}
                         disabled={generatingId === attempt.id || attempt.data.videoStatus === 'generating' || simulatingId === attempt.id}
-                        className="flex items-center gap-1.5 rounded-lg border border-accent/30 bg-accent-soft/20 px-3.5 py-1.5 text-xs font-black text-accent hover:bg-accent-soft/40 transition-all disabled:opacity-50 hover:shadow-[0_0_12px_rgba(246,183,60,0.2)]"
+                        className="btn-ember !px-4 !py-2 !text-xs"
                       >
                         {generatingId === attempt.id ? (
                           <>
                             <Loader2 size={13} className="animate-spin" />
-                            جاري الاتصال بالسحابة...
+                            جاري الاتصال...
                           </>
                         ) : (
                           <>
                             <Wand2 size={13} />
-                            توليد الفيديو بالذكاء الاصطناعي
+                            توليد الفيديو
                           </>
                         )}
                       </button>
                     )}
                   </div>
-                  <p className="mb-1 text-xs font-extrabold text-slate-400">المحاولة رقم {index + 1}</p>
+                  <p className="text-xs font-black text-[#6e6889]">المحاولة {index + 1}</p>
                 </div>
 
-                <p className="leading-7 text-slate-200 mb-4 bg-slate-900/40 p-3 rounded border border-slate-800/50">{attempt.data.prompt}</p>
+                <p className="mb-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(7,6,12,0.45)] p-4 text-sm leading-7 text-[#e8e4f5]">
+                  {attempt.data.prompt}
+                </p>
 
-                {/* Local Simulation Terminal HUD */}
+                {/* طرفية المحاكاة */}
                 {simulatingId === attempt.id && (
-                  <div className="mt-4 rounded-lg border border-primary/30 bg-slate-950 p-4 text-right backdrop-blur-md relative overflow-hidden">
-                    <div className="absolute top-0 left-0 h-1 bg-gradient-to-r from-primary to-signal transition-all duration-300" style={{ width: `${simulationProgress}%` }} />
-                    <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
-                      <div className="flex items-center gap-2 text-primary">
-                        <Loader2 size={14} className="animate-spin" />
-                        <span className="text-xs font-mono font-bold">{simulationProgress}% // AI RENDER INC</span>
-                      </div>
-                      <span className="text-xs font-black text-slate-400 font-mono flex items-center gap-1">
-                        <Terminal size={12} />
-                        DSC-AI-CORE
-                      </span>
-                    </div>
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto font-mono text-[10px] sm:text-[11px] text-slate-400 leading-6">
-                      {simulationLogs.map((log, lIdx) => (
-                        <div key={lIdx} className={`${lIdx === simulationLogs.length - 1 ? 'text-primary animate-pulse font-bold' : ''}`}>
-                          {log}
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="mb-4 overflow-hidden rounded-2xl border border-[rgba(139,92,246,0.35)] bg-[rgba(7,6,12,0.9)]"
+                  >
+                    <div className="h-1 bg-gradient-to-l from-[#a78bfa] to-[#f59e0b] transition-all duration-300" style={{ width: `${simulationProgress}%` }} />
+                    <div className="p-4">
+                      <div className="mb-3 flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] pb-2.5">
+                        <div className="flex items-center gap-2 text-[#a78bfa]">
+                          <Loader2 size={13} className="animate-spin" />
+                          <span className="font-mono text-xs font-bold" dir="ltr">{simulationProgress}% · RENDERING</span>
                         </div>
-                      ))}
+                        <span className="flex items-center gap-1.5 font-mono text-[10px] font-bold text-[#6e6889]" dir="ltr">
+                          <Terminal size={11} />
+                          DSC-AI-CORE
+                        </span>
+                      </div>
+                      <div className="max-h-32 space-y-1.5 overflow-y-auto font-mono text-[11px] leading-6 text-[#a9a3c2]" dir="rtl">
+                        {simulationLogs.map((log, i) => (
+                          <div key={i} className={i === simulationLogs.length - 1 ? 'animate-pulse font-bold text-[#c4b5fd]' : ''}>
+                            {log}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  </motion.div>
                 )}
 
+                {/* الفيديو الناتج */}
                 {attempt.data.videoUrl && (
-                  <div className="rounded-lg overflow-hidden border border-slate-800 bg-slate-950 p-1 mt-2">
-                    <video
-                      src={attempt.data.videoUrl}
-                      controls
-                      className="w-full max-h-72 rounded-lg bg-black object-cover"
-                      poster="/festival-logo.png"
-                    >
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.1)] bg-black"
+                  >
+                    <video src={attempt.data.videoUrl} controls className="max-h-80 w-full object-cover" poster="/festival-logo.png">
                       متصفحك لا يدعم تشغيل الفيديو.
                     </video>
-                  </div>
+                  </motion.div>
                 )}
 
                 {attempt.data.videoStatus === 'failed' && (
-                  <p className="mt-2 text-sm text-red-400">فشل التوليد: {attempt.data.videoError}</p>
+                  <p className="mt-3 text-xs font-bold text-[#fda4af]">فشل التوليد: {attempt.data.videoError}</p>
                 )}
-              </article>
+              </motion.article>
             ))}
           </div>
         </section>

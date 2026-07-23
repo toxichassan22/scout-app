@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Zap } from 'lucide-react';
-import Timer from '../../components/Timer';
+import QuizShell from '../../components/QuizShell';
 import { useAuth } from '../../context/AuthContext';
 import { useCompetitions } from '../../context/CompetitionContext';
 
@@ -11,6 +12,7 @@ const Genius = () => {
   const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
+  const [picked, setPicked] = useState(null);
   const submittedRef = useRef(false);
   const competition = getCompetition(2);
   const questionList = questions.genius;
@@ -39,46 +41,77 @@ const Genius = () => {
     [navigate, score, submitEntry, user.name],
   );
 
-  const handleAnswer = (answer) => {
+  const handleAnswer = (answer, index) => {
+    if (picked !== null) return;
+    setPicked(index);
     const current = questionList[currentIndex];
     const nextScore = score + (answer === current.answer ? 1 : 0);
     setScore(nextScore);
-    if (currentIndex + 1 >= questionList.length) {
-      finish(nextScore);
-      return;
-    }
-    setCurrentIndex((value) => value + 1);
+
+    setTimeout(() => {
+      setPicked(null);
+      if (currentIndex + 1 >= questionList.length) {
+        finish(nextScore);
+        return;
+      }
+      setCurrentIndex((v) => v + 1);
+    }, 650);
   };
 
   const currentQuestion = questionList[currentIndex];
 
   if (!currentQuestion) {
-    return <div className="p-6 text-center text-slate-400">لا توجد أسئلة متاحة حالياً</div>;
+    return <div className="p-6 text-center text-[#6e6889]">لا توجد أسئلة متاحة حالياً</div>;
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6">
-      <header className="tech-panel mb-6 flex items-center justify-between p-5">
-        <Timer initialSeconds={remaining} onEnd={() => finish(score)} />
-        <h1 className="text-xl font-black text-slate-50">عبقرينو</h1>
-      </header>
-
-      <section className="card mb-5 border-b-4 border-accent text-right">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-accent/25 bg-accent/10 text-accent">
-          <Zap />
-        </div>
-        <p className="mb-2 text-sm font-bold text-slate-400">سؤال {currentIndex + 1} من {questionList.length}</p>
-        <h2 className="text-xl font-black text-slate-50">{currentQuestion.question}</h2>
-      </section>
-
-      <div className="grid gap-3">
-        {currentQuestion.options.map((option) => (
-          <button key={option} type="button" onClick={() => handleAnswer(option)} className="card text-right text-lg font-bold text-slate-100 transition hover:border-signal hover:bg-signal/10">
-            {option}
-          </button>
-        ))}
+    <QuizShell
+      title="عبقرينو"
+      icon={Zap}
+      tone="ember"
+      currentIndex={currentIndex}
+      total={questionList.length}
+      remainingSeconds={remaining}
+      onTimerEnd={() => finish(score)}
+      questionKey={currentIndex}
+    >
+      <div className="glass-sheen glass-ember mb-6 p-6 text-center sm:p-8">
+        <p className="section-kicker mb-3">اختر الإجابة الصحيحة بسرعة</p>
+        <h2 className="text-xl font-black leading-relaxed text-white sm:text-2xl">
+          {currentQuestion.question}
+        </h2>
       </div>
-    </main>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {currentQuestion.options.map((option, index) => {
+          const isPicked = picked === index;
+          const isCorrect = option === currentQuestion.answer;
+          const stateCls =
+            picked === null
+              ? 'glass-hover'
+              : isPicked && isCorrect
+                ? '!border-[rgba(16,185,129,0.6)] bg-[rgba(16,185,129,0.12)] shadow-[0_0_30px_-6px_rgba(16,185,129,0.5)]'
+                : isPicked && !isCorrect
+                  ? '!border-[rgba(244,63,94,0.6)] bg-[rgba(244,63,94,0.1)]'
+                  : 'opacity-40';
+
+          return (
+            <motion.button
+              key={option}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 + index * 0.08, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              whileTap={{ scale: 0.97 }}
+              type="button"
+              onClick={() => handleAnswer(option, index)}
+              className={`glass flex items-center justify-center p-6 text-center transition-all duration-300 ${stateCls}`}
+            >
+              <span className="text-base font-black text-white sm:text-lg">{option}</span>
+            </motion.button>
+          );
+        })}
+      </div>
+    </QuizShell>
   );
 };
 

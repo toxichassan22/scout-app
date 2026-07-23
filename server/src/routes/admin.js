@@ -333,6 +333,24 @@ router.delete('/agenda/:id', async (req, res) => {
   }
 });
 
+router.put('/agenda/:id', async (req, res) => {
+  try {
+    const { title, type, zoneId, startTime, endTime, description } = req.body;
+    const item = await prisma.agendaItem.update({
+      where: { id: req.params.id },
+      data: { title, type, zoneId, startTime, endTime, description }
+    });
+
+    if (req.io) {
+      req.io.emit('agenda:update');
+    }
+
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في تعديل الفعالية' });
+  }
+});
+
 // Reports Management
 router.get('/reports', async (req, res) => {
   try {

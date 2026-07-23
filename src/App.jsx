@@ -37,8 +37,13 @@ const AdminTeams = lazy(() => import('./pages/admin/Teams'));
 const AdminJudges = lazy(() => import('./pages/admin/AdminJudges'));
 const AdminScoring = lazy(() => import('./pages/admin/AdminScoring'));
 const AdminReports = lazy(() => import('./pages/admin/AdminReports'));
+const AdminAgenda = lazy(() => import('./pages/admin/Agenda'));
 const AdminQuestions = lazy(() => import('./pages/admin/Questions'));
 const AdminStressTest = lazy(() => import('./pages/admin/StressTest'));
+
+import { TopHeader } from './components/TopHeader';
+import { ScoutMascotToy } from './components/ScoutMascotToy';
+import { ScoutCampfireScene } from './components/ScoutCampfireScene';
 
 const App = memo(function App() {
   const { user } = useAuth();
@@ -52,7 +57,9 @@ const App = memo(function App() {
 
   return (
     <SocketProvider>
-      <div dir="rtl" className="app-shell">
+      <div dir="rtl" className="app-shell min-h-screen">
+        <TopHeader />
+        <ScoutCampfireScene />
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
             {/* Public Routes */}
@@ -92,6 +99,7 @@ const App = memo(function App() {
             <Route path="/admin/judges" element={<ProtectedRoute allowedRoles={['admin']}><AdminJudges /></ProtectedRoute>} />
             <Route path="/admin/scoring" element={<ProtectedRoute allowedRoles={['admin']}><AdminScoring /></ProtectedRoute>} />
             <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={['admin']}><AdminReports /></ProtectedRoute>} />
+            <Route path="/admin/agenda" element={<ProtectedRoute allowedRoles={['admin']}><AdminAgenda /></ProtectedRoute>} />
             <Route path="/admin/questions" element={<ProtectedRoute allowedRoles={['admin']}><AdminQuestions /></ProtectedRoute>} />
             <Route path="/admin/stress-test" element={<ProtectedRoute allowedRoles={['admin']}><AdminStressTest /></ProtectedRoute>} />
 
@@ -99,6 +107,7 @@ const App = memo(function App() {
             <Route path="*" element={<Navigate to={defaultRoute} replace />} />
           </Routes>
         </Suspense>
+        <ScoutMascotToy />
         <Navbar />
       </div>
     </SocketProvider>

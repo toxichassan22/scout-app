@@ -2,39 +2,82 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════
+   DSC·30 — DESIGN SYSTEM v3  "المخيم الكشفي الرقمي" (Cyber Scout Theme)
+   مطابق تماماً لهوية وتصميم صفحة الهبوط (Landing Page)
+   ─────────────────────────────────────────────────────────────
+   Palette:
+   • Deep Cyber (الخلفيات) → #020b0e, #04140b, #05160f
+   • Cyan Laser (التوهج الرقمي) → #38bdf8, #06b6d4
+   • Scout Emerald (الزمرد الكشفي) → #10b981, #34d399
+   • Camp Amber (نار الميدان) → #f59e0b, #fbbf24
+═══════════════════════════════════════════════════════════════ */
+
 :root {
-  --ink: #060907;
-  --ink-2: #0b120c;
-  --panel: rgba(12, 22, 14, 0.82);
-  --panel-2: rgba(16, 28, 18, 0.75);
-  --line: rgba(16, 185, 129, 0.18);
-  --green: #10b981;
-  --green-soft: rgba(16, 185, 129, 0.12);
-  --amber: #f59e0b;
-  --amber-soft: rgba(245, 158, 11, 0.12);
-  --cyan: #06b6d4;
-  --cyan-soft: rgba(6, 182, 212, 0.12);
-  --danger: #ef4444;
+  /* ── الليل والعمق الرقمي ── */
+  --night-0: #020b0e;
+  --night-1: #04140b;
+  --night-2: #05160f;
+  --night-3: #071c14;
+
+  /* ── الزجاج الميداني ── */
+  --glass: rgba(5, 28, 20, 0.5);
+  --glass-strong: rgba(7, 35, 25, 0.75);
+  --glass-border: rgba(16, 185, 129, 0.2);
+
+  /* ── الليزر السماوي (Cyan) ── */
+  --cyan: #38bdf8;
+  --cyan-deep: #0284c7;
+  --cyan-soft: rgba(56, 189, 248, 0.14);
+  --cyan-glow: rgba(56, 189, 248, 0.45);
+
+  /* ── الزمرد الكشفي (Emerald) ── */
+  --emerald: #10b981;
+  --emerald-deep: #047857;
+  --emerald-soft: rgba(16, 185, 129, 0.14);
+  --emerald-glow: rgba(16, 185, 129, 0.4);
+
+  /* ── نار المخيم (Amber) ── */
+  --ember: #f59e0b;
+  --ember-deep: #d97706;
+  --ember-soft: rgba(245, 158, 11, 0.13);
+  --ember-glow: rgba(245, 158, 11, 0.45);
+
+  /* ── مساعدة ── */
+  --danger: #f43f5e;
+  --danger-soft: rgba(244, 63, 94, 0.12);
+
+  /* ── النصوص ── */
   --text: #f1f5f9;
   --text-dim: #94a3b8;
-  --bg-gradient-1: rgba(16, 185, 129, 0.08);
-  --bg-gradient-2: rgba(245, 158, 11, 0.06);
+  --text-mute: #64748b;
+
+  /* ── الخطوط ── */
+  --font-display: 'Cairo', system-ui, sans-serif;
+  --font-body: 'Cairo', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+
+  /* ── الحركة ── */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 0.18s;
+  --dur-med: 0.35s;
+  --dur-slow: 0.7s;
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   html,
   body {
     @apply font-sans antialiased;
     min-height: 100%;
     color: var(--text);
-    background-color: var(--ink);
-    background-image:
-      radial-gradient(ellipse at 50% 0%, rgba(16, 185, 129, 0.12) 0%, transparent 60%),
-      radial-gradient(ellipse at 20% 80%, rgba(245, 158, 11, 0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 90%, rgba(6, 182, 212, 0.06) 0%, transparent 50%);
+    background-color: var(--night-0);
     direction: rtl;
     touch-action: manipulation;
-    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   *,
@@ -44,261 +87,366 @@
   }
 
   ::selection {
-    background: var(--green-soft);
+    background: var(--emerald-soft);
     color: #fff;
   }
 
   input,
   textarea {
-    caret-color: var(--green);
+    caret-color: var(--cyan);
   }
 
   :focus-visible {
-    outline: 2px solid var(--green);
+    outline: 2px solid var(--emerald);
     outline-offset: 2px;
-    border-radius: 6px;
-  }
-
-  html {
-    scroll-behavior: smooth;
+    border-radius: 8px;
   }
 }
 
 @layer components {
-
-  /* ─── App shell ─── */
+  /* ═══ App Shell — ثيم الهبوط الكشفي الرقمي ═══ */
   .app-shell {
     @apply relative min-h-screen overflow-x-hidden;
     color: var(--text);
     background:
-      radial-gradient(ellipse at 30% 0%, var(--bg-gradient-1) 0%, transparent 55%),
-      radial-gradient(ellipse at 70% 100%, var(--bg-gradient-2) 0%, transparent 55%),
-      var(--ink);
+      radial-gradient(ellipse 60% 40% at 50% -5%, rgba(16, 185, 129, 0.15), transparent 65%),
+      radial-gradient(ellipse 45% 35% at 85% 100%, rgba(245, 158, 11, 0.1), transparent 60%),
+      radial-gradient(ellipse 40% 30% at 10% 90%, rgba(56, 189, 248, 0.1), transparent 60%),
+      linear-gradient(180deg, #020b0e 0%, #04140b 50%, #05160f 100%);
   }
 
-  /* Animated background mesh glow */
+  /* شبكة ليزر رقمية متناسقة مع Landing Page */
   .app-shell::before {
     content: '';
     position: fixed;
-    inset: -25%;
+    inset: 0;
     z-index: 0;
     pointer-events: none;
-    background:
-      radial-gradient(40% 35% at 20% 10%, rgba(16, 185, 129, 0.15), transparent 70%),
-      radial-gradient(35% 30% at 85% 25%, rgba(245, 158, 11, 0.12), transparent 70%),
-      radial-gradient(45% 40% at 50% 90%, rgba(6, 182, 212, 0.1), transparent 70%);
-    filter: blur(60px);
-    animation: auroraDrift 20s ease-in-out infinite alternate;
+    background-image:
+      linear-gradient(to right, rgba(16, 185, 129, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(16, 185, 129, 0.05) 1px, transparent 1px);
+    background-size: 50px 50px;
+    mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.8) 0%, transparent 80%);
+  }
+
+  /* نجوم وجمر رقمي عائم */
+  .app-shell::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(1.5px 1.5px at 15% 25%, rgba(56, 189, 248, 0.4) 50%, transparent 50%),
+      radial-gradient(1px 1px at 45% 60%, rgba(52, 211, 153, 0.35) 50%, transparent 50%),
+      radial-gradient(1.5px 1.5px at 70% 15%, rgba(245, 158, 11, 0.4) 50%, transparent 50%),
+      radial-gradient(1px 1px at 85% 70%, rgba(56, 189, 248, 0.3) 50%, transparent 50%);
+    opacity: 0.6;
+    animation: starTwinkle 6s ease-in-out infinite alternate;
   }
 
   .page-shell {
-    @apply mx-auto max-w-5xl px-4 pb-32 pt-6 sm:px-6 lg:pt-8 relative z-10;
+    @apply relative z-10 mx-auto max-w-5xl px-4 pb-36 pt-6 sm:px-6 lg:pt-10;
   }
 
-  /* ─── Glassmorphism Cards ─── */
-  .glass-card {
-    @apply relative overflow-hidden rounded-3xl border backdrop-blur-2xl transition-all duration-300;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
-    border-color: rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  /* ═══ البطاقة الزجاجية الأساسية — ثيم الزمرد الرقمي ═══ */
+  .glass {
+    @apply relative overflow-hidden rounded-3xl border backdrop-blur-2xl;
+    background: linear-gradient(160deg, rgba(7, 28, 20, 0.85) 0%, rgba(4, 20, 14, 0.75) 55%, rgba(2, 11, 14, 0.9) 100%);
+    border-color: rgba(16, 185, 129, 0.22);
+    box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    transition: border-color var(--dur-med) var(--ease-out), box-shadow var(--dur-med) var(--ease-out), transform var(--dur-med) var(--ease-out);
   }
 
-  .glass-card:hover {
-    border-color: rgba(16, 185, 129, 0.35);
-    box-shadow: 0 12px 40px -8px rgba(16, 185, 129, 0.2);
+  .glass-hover {
+    @apply glass;
   }
-
-  .glass-card-emerald {
-    @apply relative overflow-hidden rounded-3xl border backdrop-blur-2xl transition-all duration-300;
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.02) 100%);
-    border-color: rgba(16, 185, 129, 0.25);
-    box-shadow: 0 0 30px -5px rgba(16, 185, 129, 0.15), 0 10px 40px 0 rgba(0, 0, 0, 0.5);
-  }
-
-  .glass-card-amber {
-    @apply relative overflow-hidden rounded-3xl border backdrop-blur-2xl transition-all duration-300;
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.02) 100%);
-    border-color: rgba(245, 158, 11, 0.25);
-    box-shadow: 0 0 30px -5px rgba(245, 158, 11, 0.15), 0 10px 40px 0 rgba(0, 0, 0, 0.5);
-  }
-
-  /* Gold Tier (1st Place) */
-  .glass-card-gold {
-    @apply relative overflow-hidden rounded-3xl border backdrop-blur-xl transition-all duration-300;
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.03) 100%);
-    border-color: rgba(245, 158, 11, 0.4);
-    box-shadow: 0 0 35px -5px rgba(245, 158, 11, 0.25), 0 10px 40px 0 rgba(0, 0, 0, 0.5);
-  }
-
-  .glass-card-gold:hover {
-    border-color: rgba(245, 158, 11, 0.6);
-    box-shadow: 0 0 50px 0 rgba(245, 158, 11, 0.35);
-    transform: translateY(-4px);
-  }
-
-  /* Silver Tier (2nd Place) */
-  .glass-card-silver {
-    @apply relative overflow-hidden rounded-3xl border backdrop-blur-xl transition-all duration-300;
-    background: linear-gradient(135deg, rgba(226, 232, 240, 0.12) 0%, rgba(226, 232, 240, 0.02) 100%);
-    border-color: rgba(226, 232, 240, 0.25);
-    box-shadow: 0 0 25px -5px rgba(226, 232, 240, 0.12), 0 10px 30px 0 rgba(0, 0, 0, 0.4);
-  }
-
-  .glass-card-silver:hover {
-    border-color: rgba(226, 232, 240, 0.45);
+  .glass-hover:hover {
+    border-color: rgba(56, 189, 248, 0.45);
+    box-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.9), 0 0 40px -12px var(--cyan-glow), inset 0 1px 0 rgba(255, 255, 255, 0.12);
     transform: translateY(-3px);
   }
 
-  /* Bronze Tier (3rd Place) */
-  .glass-card-bronze {
-    @apply relative overflow-hidden rounded-3xl border backdrop-blur-xl transition-all duration-300;
-    background: linear-gradient(135deg, rgba(217, 119, 6, 0.12) 0%, rgba(217, 119, 6, 0.02) 100%);
-    border-color: rgba(217, 119, 6, 0.25);
-    box-shadow: 0 0 25px -5px rgba(217, 119, 6, 0.12), 0 10px 30px 0 rgba(0, 0, 0, 0.4);
+  /* خط علوي متدرج يضيء عند الـ hover */
+  .glass-sheen::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 10%;
+    left: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.5), rgba(52, 211, 153, 0.5), transparent);
+    opacity: 0.85;
   }
 
-  .glass-card-bronze:hover {
-    border-color: rgba(217, 119, 6, 0.45);
-    transform: translateY(-3px);
+  /* ═══ تنويعات لونية للبطاقات ═══ */
+  .glass-violet, .glass-cyan {
+    @apply glass;
+    background: linear-gradient(160deg, rgba(6, 182, 212, 0.14) 0%, rgba(4, 20, 14, 0.8) 60%, transparent 100%);
+    border-color: rgba(56, 189, 248, 0.3);
+  }
+  .glass-ember {
+    @apply glass;
+    background: linear-gradient(160deg, rgba(245, 158, 11, 0.14) 0%, rgba(4, 20, 14, 0.8) 60%, transparent 100%);
+    border-color: rgba(245, 158, 11, 0.3);
+  }
+  .glass-fern {
+    @apply glass;
+    background: linear-gradient(160deg, rgba(16, 185, 129, 0.14) 0%, rgba(4, 20, 14, 0.8) 60%, transparent 100%);
+    border-color: rgba(16, 185, 129, 0.3);
   }
 
-  /* ─── Modern Buttons ─── */
-  .btn-primary,
-  .command-button {
-    @apply relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-2xl px-6 py-3.5 font-black transition duration-300 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40;
-    color: #060907;
-    background: linear-gradient(135deg, #34d399 0%, #10b981 50%, #059669 100%);
-    box-shadow: 0 4px 20px -4px rgba(16, 185, 129, 0.4);
+  /* ═══ الأزرار ═══ */
+  .btn {
+    @apply relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-2xl px-6 py-3.5 text-sm font-black transition-all duration-300 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40;
   }
 
-  .btn-primary::after,
-  .command-button::after {
+  /* الزر الرئيسي — نار السمر والذهب */
+  .btn-ember {
+    @apply btn;
+    color: #0b1712;
+    background: linear-gradient(135deg, #fcd34d 0%, var(--ember) 55%, var(--ember-deep) 100%);
+    box-shadow: 0 6px 24px -6px var(--ember-glow), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+  .btn-ember:hover {
+    box-shadow: 0 8px 32px -4px var(--ember-glow), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+  }
+
+  /* زر الزمرد / السماوي الكشفي */
+  .btn-cyan, .btn-violet {
+    @apply btn;
+    color: #061710;
+    background: linear-gradient(135deg, #38bdf8 0%, #06b6d4 50%, #10b981 100%);
+    box-shadow: 0 6px 24px -6px var(--cyan-glow), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+  .btn-cyan:hover, .btn-violet:hover {
+    box-shadow: 0 8px 32px -4px var(--cyan-glow);
+    transform: translateY(-2px);
+  }
+
+  /* زر شبح — خفيف على الزجاج */
+  .btn-ghost {
+    @apply btn;
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    backdrop-filter: blur(12px);
+  }
+  .btn-ghost:hover {
+    color: #fff;
+    border-color: rgba(56, 189, 248, 0.5);
+    background: rgba(16, 185, 129, 0.12);
+  }
+
+  /* زر خطر */
+  .btn-danger {
+    @apply btn;
+    color: #fecdd3;
+    background: var(--danger-soft);
+    border: 1px solid rgba(244, 63, 94, 0.3);
+  }
+  .btn-danger:hover {
+    background: rgba(244, 63, 94, 0.2);
+    border-color: rgba(244, 63, 94, 0.5);
+  }
+
+  /* لمعة تمر على الزر */
+  .btn-shine::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.4) 50%, transparent 70%);
-    transform: translateX(-150%) skewX(-15deg);
-    transition: transform 0.6s ease;
+    background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.35) 50%, transparent 65%);
+    transform: translateX(160%) skewX(-15deg);
+    transition: transform 0.7s var(--ease-out);
     pointer-events: none;
   }
-
-  .btn-primary:hover::after,
-  .command-button:hover::after {
-    transform: translateX(150%) skewX(-15deg);
+  .btn-shine:hover::after {
+    transform: translateX(-160%) skewX(-15deg);
   }
 
-  .btn-primary:hover,
-  .command-button:hover {
-    box-shadow: 0 6px 28px -4px rgba(16, 185, 129, 0.6);
-    transform: translateY(-1.5px);
-  }
-
-  /* ─── Glow Utility ─── */
-  .shadow-glow-green {
-    box-shadow: 0 0 25px rgba(16, 185, 129, 0.4);
-  }
-  .shadow-glow-amber {
-    box-shadow: 0 0 25px rgba(245, 158, 11, 0.4);
-  }
-  .shadow-glow-cyan {
-    box-shadow: 0 0 25px rgba(6, 182, 212, 0.4);
-  }
-
-  /* ─── Radar Pulse Animation ─── */
-  .radar-ring {
-    position: absolute;
-    border-radius: 50%;
-    border: 1px solid rgba(16, 185, 129, 0.3);
-    animation: radarExpand 4s infinite linear;
-  }
-
-  /* ─── Inputs ─── */
-  .input-field,
-  .ai-input {
-    @apply w-full rounded-xl border px-4 py-3 outline-none transition placeholder:text-slate-500 text-white font-medium;
-    border-color: rgba(255, 255, 255, 0.1);
-    background: rgba(0, 0, 0, 0.4);
+  /* ═══ المدخلات ═══ */
+  .input-field {
+    @apply w-full rounded-2xl border px-4 py-3.5 text-base font-bold text-white outline-none transition-all duration-300 placeholder:font-normal;
+    border-color: rgba(16, 185, 129, 0.25);
+    background: rgba(2, 11, 14, 0.75);
     backdrop-filter: blur(12px);
   }
-
-  .input-field:focus,
-  .ai-input:focus {
-    border-color: var(--green);
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
-    background: rgba(0, 0, 0, 0.6);
+  .input-field::placeholder {
+    color: var(--text-mute);
+  }
+  .input-field:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15), 0 0 24px -6px var(--cyan-glow);
+    background: rgba(4, 20, 14, 0.9);
+  }
+  .input-field:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
-  /* ─── Text Gradients ─── */
-  .text-gradient {
-    background: linear-gradient(135deg, #ffffff 0%, #a7f3d0 40%, var(--green) 70%, var(--amber) 100%);
+  /* ═══ الشارات (Badges) ═══ */
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-black;
+  }
+  .badge-violet, .badge-cyan {
+    @apply badge;
+    color: #7dd3fc;
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.35);
+  }
+  .badge-ember {
+    @apply badge;
+    color: #fcd34d;
+    background: var(--ember-soft);
+    border-color: rgba(245, 158, 11, 0.35);
+  }
+  .badge-fern {
+    @apply badge;
+    color: #6ee7b7;
+    background: var(--emerald-soft);
+    border-color: rgba(16, 185, 129, 0.35);
+  }
+  .badge-danger {
+    @apply badge;
+    color: #fda4af;
+    background: var(--danger-soft);
+    border-color: rgba(244, 63, 94, 0.35);
+  }
+  .badge-mute {
+    @apply badge;
+    color: var(--text-mute);
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  /* نقطة حية نابضة */
+  .live-dot {
+    @apply relative inline-block h-2 w-2 rounded-full;
+    background: var(--emerald);
+  }
+  .live-dot::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid var(--emerald);
+    animation: livePulse 1.8s ease-out infinite;
+  }
+
+  /* ═══ النصوص المتدرجة ═══ */
+  .text-fire {
+    background: linear-gradient(120deg, #fde68a 0%, var(--ember) 45%, #fb923c 80%, #f97316 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-scout {
+    background: linear-gradient(120deg, #e0f2fe 0%, #38bdf8 45%, #10b981 85%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-oasis {
+    background: linear-gradient(120deg, #d1fae5 0%, #6ee7b7 50%, var(--emerald) 90%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
 
-  .text-gradient-gold {
-    background: linear-gradient(135deg, #fff 0%, #fef08a 40%, #f59e0b 80%, #d97706 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  /* ═══ عناصر العناوين ═══ */
+  .section-kicker {
+    @apply text-[11px] font-black tracking-[0.2em];
+    color: var(--text-mute);
   }
 
-  .text-gradient-emerald {
-    background: linear-gradient(135deg, #ecfdf5 0%, #34d399 50%, #10b981 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  .divider-glow {
+    @apply h-px w-full border-0;
+    background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.2) 30%, rgba(56, 189, 248, 0.4) 50%, rgba(16, 185, 129, 0.2) 70%, transparent);
+  }
+
+  /* ═══ توهجات مساعدة ═══ */
+  .glow-violet, .glow-cyan { box-shadow: 0 0 32px -4px var(--cyan-glow); }
+  .glow-ember { box-shadow: 0 0 32px -4px var(--ember-glow); }
+  .glow-fern { box-shadow: 0 0 32px -4px var(--emerald-glow); }
+
+  /* ═══ زخرفة الزوايا (HUD corners) ═══ */
+  .hud-frame {
+    position: relative;
+  }
+  .hud-frame::before,
+  .hud-frame::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+    transition: all var(--dur-med) var(--ease-out);
+  }
+  .hud-frame::before {
+    top: -1px;
+    right: -1px;
+    border-top: 2px solid rgba(56, 189, 248, 0.5);
+    border-right: 2px solid rgba(56, 189, 248, 0.5);
+    border-top-right-radius: 8px;
+  }
+  .hud-frame::after {
+    bottom: -1px;
+    left: -1px;
+    border-bottom: 2px solid rgba(16, 185, 129, 0.5);
+    border-left: 2px solid rgba(16, 185, 129, 0.5);
+    border-bottom-left-radius: 8px;
   }
 }
 
-/* ─── Keyframe Animations ─── */
-@keyframes auroraDrift {
-  0% { transform: translate3d(-2%, -2%, 0) scale(1); }
-  50% { transform: translate3d(2%, 1%, 0) scale(1.06); }
-  100% { transform: translate3d(-1%, 2%, 0) scale(1.02); }
+/* ═══════════════════════════════════════════
+   KEYFRAMES — حركات التصميم
+═══════════════════════════════════════════ */
+
+@keyframes starTwinkle {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.7; }
 }
 
-@keyframes radarExpand {
-  0% { transform: scale(0.3); opacity: 0.8; }
-  100% { transform: scale(2.5); opacity: 0; }
+@keyframes livePulse {
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
 }
 
-@keyframes floatUp {
-  0% { transform: translateY(0) scale(0.8); opacity: 0; }
-  50% { opacity: 0.8; }
-  100% { transform: translateY(-100vh) scale(1.2); opacity: 0; }
+@keyframes flameFlicker {
+  0%, 100% { transform: scale(1) rotate(-1.5deg); opacity: 0.95; }
+  25% { transform: scale(1.04) rotate(1deg); opacity: 1; }
+  50% { transform: scale(0.97) rotate(-1deg); opacity: 0.9; }
+  75% { transform: scale(1.03) rotate(1.5deg); opacity: 1; }
 }
 
-@keyframes softFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+@keyframes radarSweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-@keyframes crownBounce {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-5px) rotate(4deg); }
+.animate-flame { animation: flameFlicker 2.4s ease-in-out infinite; transform-origin: 50% 90%; }
+.animate-radar { animation: radarSweep 8s linear infinite; transform-origin: center; }
+
+/* هيكل تحميل متلألئ (Skeleton) */
+.skeleton {
+  background: linear-gradient(90deg, rgba(5, 28, 20, 0.5) 25%, rgba(16, 185, 129, 0.15) 50%, rgba(5, 28, 20, 0.5) 75%);
+  background-size: 200% 100%;
+  animation: shimmerSlide 1.6s linear infinite;
 }
 
-.animate-soft-float {
-  animation: softFloat 5s ease-in-out infinite;
-}
-
-.animate-crown {
-  animation: crownBounce 3s ease-in-out infinite;
-}
-
-/* Scrollbar */
+/* شريط التمرير */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--ink);
+  background: #020b0e;
 }
 ::-webkit-scrollbar-thumb {
   background: rgba(16, 185, 129, 0.4);
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--green);
+  background: #38bdf8;
 }
-
