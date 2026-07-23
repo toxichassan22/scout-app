@@ -66,13 +66,15 @@ model Question {
 }
 
 model GeographyCountry {
-  id       String @id @default(uuid())
-  name     String
-  capital  String
-  currency String
-  flag     String
-  mapUrl   String
-  sortOrder Int   @default(0)
+  id         String @id @default(uuid())
+  name       String
+  capital    String
+  currency   String
+  division   String @default("")
+  governance String @default("")
+  flag       String
+  mapUrl     String @default("")
+  sortOrder  Int    @default(0)
 }
 
 model Score {

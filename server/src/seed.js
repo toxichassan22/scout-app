@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import prisma from './db.js';
 
 async function seed() {
-  console.log('[Seed] Starting comprehensive database seed...');
+  console.log('[Seed] Starting comprehensive database seed with official 22 Arab Geography countries...');
 
   // 1️⃣ Create default Admin
   const adminPassword = await bcrypt.hash('admin123', 10);
@@ -79,7 +79,7 @@ async function seed() {
       name: 'مسابقة الجغرافيا وتضاريس الوطن العربي',
       slug: 'geography',
       type: 'auto_digital',
-      description: 'التعرف على الأعلام والعواصم والعملات للبلدان الكشفية والعربية',
+      description: 'التعرف على الأعلام والعواصم والعملات والتقسيم الإداري ونظام الحكم للـ 22 دولة عربية',
       isOpen: true,
       duration: 600,
       criteria: JSON.stringify([])
@@ -109,7 +109,42 @@ async function seed() {
   }
   console.log('[Seed] All Digital & Manual Competitions created!');
 
-  // 5️⃣ Seed Official Questions for "عبقرينو" (comp-digital-1)
+  // 5️⃣ Seed Official 22 Arab Geography Countries Table
+  const arabCountries = [
+    { id: 'geo-1', name: 'مصر', capital: 'القاهرة', division: '27 محافظة', governance: 'جمهوري رئاسي', currency: 'جنيه مصري', flag: '🇪🇬', sortOrder: 1 },
+    { id: 'geo-2', name: 'السعودية', capital: 'الرياض', division: '13 منطقة إدارية', governance: 'ملكي مطلق', currency: 'ريال سعودي', flag: '🇸🇦', sortOrder: 2 },
+    { id: 'geo-3', name: 'الإمارات', capital: 'أبوظبي', division: '7 إمارات اتحادية', governance: 'إتحادي رئاسي', currency: 'درهم إماراتي', flag: '🇦🇪', sortOrder: 3 },
+    { id: 'geo-4', name: 'الكويت', capital: 'الكويت', division: '6 محافظات', governance: 'أميري دستوري', currency: 'دينار كويتي', flag: '🇰🇼', sortOrder: 4 },
+    { id: 'geo-5', name: 'قطر', capital: 'الدوحة', division: '8 بلديات', governance: 'أميري وراثي', currency: 'ريال قطري', flag: '🇶🇦', sortOrder: 5 },
+    { id: 'geo-6', name: 'البحرين', capital: 'المنامة', division: '4 محافظات', governance: 'ملكي دستوري', currency: 'دينار بحريني', flag: '🇧🇭', sortOrder: 6 },
+    { id: 'geo-7', name: 'سلطنة عُمان', capital: 'مسقط', division: '11 محافظة', governance: 'سلطاني وراثي', currency: 'ريال عُماني', flag: '🇴🇲', sortOrder: 7 },
+    { id: 'geo-8', name: 'الأردن', capital: 'عمّان', division: '12 محافظة', governance: 'ملكي نيابي وراثي', currency: 'دينار أردني', flag: '🇯🇴', sortOrder: 8 },
+    { id: 'geo-9', name: 'العراق', capital: 'بغداد', division: '18 محافظة', governance: 'جمهوري برلماني اتحادي', currency: 'دينار عراقي', flag: '🇮🇶', sortOrder: 9 },
+    { id: 'geo-10', name: 'سوريا', capital: 'دمشق', division: '14 محافظة', governance: 'جمهوري', currency: 'ليرة سورية', flag: '🇸🇾', sortOrder: 10 },
+    { id: 'geo-11', name: 'لبنان', capital: 'بيروت', division: '9 محافظات', governance: 'جمهوري برلماني', currency: 'ليرة لبنانية', flag: '🇱🇧', sortOrder: 11 },
+    { id: 'geo-12', name: 'فلسطين', capital: 'القدس', division: '16 محافظة', governance: 'جمهوري شبه رئاسي', currency: 'الشيكل / الدينار الأردني', flag: '🇵🇸', sortOrder: 12 },
+    { id: 'geo-13', name: 'اليمن', capital: 'صنعاء', division: '22 محافظة', governance: 'جمهوري', currency: 'ريال يمني', flag: '🇾🇪', sortOrder: 13 },
+    { id: 'geo-14', name: 'السودان', capital: 'الخرطوم', division: '18 ولاية', governance: 'جمهوري', currency: 'جنيه سوداني', flag: '🇸🇩', sortOrder: 14 },
+    { id: 'geo-15', name: 'ليبيا', capital: 'طرابلس', division: '22 بلدية', governance: 'جمهوري', currency: 'دينار ليبي', flag: '🇱🇾', sortOrder: 15 },
+    { id: 'geo-16', name: 'تونس', capital: 'تونس', division: '24 ولاية', governance: 'جمهوري رئاسي', currency: 'دينار تونسي', flag: '🇹🇳', sortOrder: 16 },
+    { id: 'geo-17', name: 'الجزائر', capital: 'الجزائر', division: '58 ولاية', governance: 'جمهوري شبه رئاسي', currency: 'دينار جزائري', flag: '🇩🇿', sortOrder: 17 },
+    { id: 'geo-18', name: 'المغرب', capital: 'الرباط', division: '12 جهة', governance: 'ملكي دستوري نيابي', currency: 'درهم مغربي', flag: '🇲🇦', sortOrder: 18 },
+    { id: 'geo-19', name: 'موريتانيا', capital: 'نواكشوط', division: '15 ولاية', governance: 'جمهوري إسلامي', currency: 'أوقية موريتانية', flag: '🇲🇷', sortOrder: 19 },
+    { id: 'geo-20', name: 'الصومال', capital: 'مقديشو', division: '18 إقليماً', governance: 'جمهوري اتحادي برلماني', currency: 'شلن صومالي', flag: '🇸🇴', sortOrder: 20 },
+    { id: 'geo-21', name: 'جيبوتي', capital: 'جيبوتي', division: '6 أقاليم', governance: 'جمهوري شبه رئاسي', currency: 'فرنك جيبوتي', flag: '🇩🇯', sortOrder: 21 },
+    { id: 'geo-22', name: 'جزر القمر', capital: 'موروني', division: '3 جزر رئيسية', governance: 'جمهوري اتحادي رئاسي', currency: 'فرنك قمري', flag: '🇰🇲', sortOrder: 22 },
+  ];
+
+  for (const item of arabCountries) {
+    await prisma.geographyCountry.upsert({
+      where: { id: item.id },
+      update: item,
+      create: item
+    });
+  }
+  console.log('[Seed] Official 22 Arab Geography Countries seeded successfully!');
+
+  // 6️⃣ Seed Official Questions for "عبقرينو" (comp-digital-1)
   const geniusQuestions = [
     {
       id: 'g_q1',
@@ -165,48 +200,6 @@ async function seed() {
       create: q
     });
   }
-  console.log('[Seed] Genius quiz questions seeded!');
-
-  // 6️⃣ Seed Official Questions for "حقيقتان وكذبة" (comp-digital-2)
-  const twoTruthsQuestions = [
-    {
-      id: 'tt_q1',
-      competitionId: 'comp-digital-2',
-      text: 'عين العبارة الكاذبة من العبارات الكشفية التالية:',
-      options: JSON.stringify([
-        { text: 'الوعد الكشفي يتضمن الواجب نحو الله ثم الوطن.', isLie: false },
-        { text: 'أول مخيم كشفي تجريبي أقيم في جزيرة براونسي عام 1907.', isLie: false },
-        { text: 'التحية الكشفية تؤدى بالأصابع الأربعة المرفوعة.', isLie: true },
-        { text: 'الزهرة الكشفية العالمية تحتوي على ثلاثة فصوص.', isLie: false }
-      ]),
-      correctOption: 2,
-      points: 10,
-      sortOrder: 1
-    },
-    {
-      id: 'tt_q2',
-      competitionId: 'comp-digital-2',
-      text: 'عين العبارة الكاذبة عن مركز شباب منشية التحرير:',
-      options: JSON.stringify([
-        { text: 'يقع مركز الشباب في منطقة عين شمس بالقاهرة.', isLie: false },
-        { text: 'يحتوي المركز على ملاعب خماسية ومسجد ومبنى للأنشطة.', isLie: false },
-        { text: 'تأسست مجموعة منشية التحرير الكشفية سنة 2024 فقط.', isLie: true },
-        { text: 'يستضيف المركز المهرجان الكشفي الإرشادي الثلاثين.', isLie: false }
-      ]),
-      correctOption: 2,
-      points: 10,
-      sortOrder: 2
-    }
-  ];
-
-  for (const q of twoTruthsQuestions) {
-    await prisma.question.upsert({
-      where: { id: q.id },
-      update: q,
-      create: q
-    });
-  }
-  console.log('[Seed] Two Truths & A Lie questions seeded!');
 
   // 7️⃣ Create official 8 Zones from center map
   const officialZones = [
@@ -321,7 +314,7 @@ async function seed() {
     });
   }
 
-  console.log('[Seed] Complete seed finished successfully!');
+  console.log('[Seed] All 22 Arab Countries & Quiz datasets populated successfully!');
 }
 
 seed()
