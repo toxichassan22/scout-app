@@ -59,6 +59,7 @@ async function seed() {
     create: {
       id: 'comp-digital-1',
       name: 'المسابقة الثقافية الرقمية',
+      slug: 'cultural-quiz',
       type: 'auto_digital',
       isOpen: true,
       criteria: JSON.stringify([])
@@ -71,6 +72,7 @@ async function seed() {
     create: {
       id: 'comp-video-1',
       name: 'مسابقة تصميم الفيديو الكشفي',
+      slug: 'video-design',
       type: 'manual_judged',
       isOpen: true,
       passcode: '1234',
