@@ -10,6 +10,7 @@ import newsRoutes from './routes/news.js';
 import agendaRoutes from './routes/agenda.js';
 import judgeRoutes from './routes/judge.js';
 import adminRoutes from './routes/admin.js';
+import quizRoutes from './routes/quiz.js';
 
 dotenv.config();
 
@@ -61,6 +62,7 @@ app.use('/api/news', newsRoutes);
 app.use('/api/agenda', agendaRoutes);
 app.use('/api/judge', judgeRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/quiz', quizRoutes);
 
 // Health check endpoint for Render monitoring
 app.get('/api/health', (req, res) => {

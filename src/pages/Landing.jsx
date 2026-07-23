@@ -129,6 +129,21 @@ const Landing = () => {
   const [viewMode, setViewMode] = useState('3d');
   const modelViewerReady = useModelViewer();
 
+  // Persistent Auth Redirect Check
+  useEffect(() => {
+    const token = localStorage.getItem('dsc_token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.role === 'admin') navigate('/admin/dashboard', { replace: true });
+        else if (payload.role === 'judge') navigate('/judge/passcode', { replace: true });
+        else if (payload.role === 'team') navigate('/home', { replace: true });
+      } catch (e) {
+        // invalid token
+      }
+    }
+  }, [navigate]);
+
   const scrollTo = (target) => {
     document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setMenuOpen(false);

@@ -136,3 +136,37 @@ model Report {
   fileName      String
   uploadedAt    DateTime     @default(now())
 }
+
+model QuizSession {
+  id            String   @id @default(uuid())
+  teamId        String
+  competitionId String
+  deviceId      String   // Unique device fingerprint that started the quiz
+  startedAt     DateTime @default(now())
+  expiresAt     DateTime
+  isCompleted   Boolean  @default(false)
+  completedAt   DateTime?
+
+  draftAnswers DraftAnswer[]
+
+  @@unique([teamId, competitionId])
+}
+
+model DraftAnswer {
+  id            String      @id @default(uuid())
+  sessionId     String
+  session       QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId    String
+  selectedIndex Int
+  isCorrect     Boolean     @default(false)
+  pointsEarned  Float       @default(0)
+  savedAt       DateTime    @default(now())
+
+  @@unique([sessionId, questionId])
+}
+
+model SystemSetting {
+  key   String @id
+  value String
+}
+

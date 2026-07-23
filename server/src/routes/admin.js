@@ -364,4 +364,59 @@ router.get('/reports', async (req, res) => {
   }
 });
 
+// Admin Emergency Freeze / Unfreeze Switch
+router.post('/emergency-freeze', async (req, res) => {
+  try {
+    const { frozen } = req.body;
+    await prisma.systemSetting.upsert({
+      where: { key: 'EMERGENCY_FREEZE' },
+      update: { value: frozen ? 'true' : 'false' },
+      create: { key: 'EMERGENCY_FREEZE', value: frozen ? 'true' : 'false' }
+    });
+
+    if (req.io) {
+      req.io.emit('emergency:freeze', { frozen: !!frozen });
+    }
+
+    res.json({ success: true, frozen: !!frozen });
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في تغيير حالة الطوارئ' });
+  }
+});
+
+// Admin Clean Slate (Reset Test Data before Event)
+router.post('/clean-slate', async (req, res) => {
+  try {
+    const { confirmPassword } = req.body;
+    const admin = await prisma.admin.findUnique({ where: { id: req.user.id } });
+
+    if (!admin) {
+      return res.status(401).json({ error: 'غير مصرح' });
+    }
+
+    const valid = await bcrypt.compare(confirmPassword || '', admin.passwordHash);
+    if (!valid) {
+      return res.status(401).json({ error: 'كلمة السر غير صحيحة لتأكيد التصفير' });
+    }
+
+    // Wipe scores, draft answers, quiz sessions, and test reports
+    await prisma.$transaction([
+      prisma.draftAnswer.deleteMany({}),
+      prisma.quizSession.deleteMany({}),
+      prisma.score.deleteMany({}),
+      prisma.report.deleteMany({})
+    ]);
+
+    if (req.io) {
+      req.io.emit('leaderboard:update');
+      req.io.emit('system:clean-slate');
+    }
+
+    res.json({ success: true, message: 'تم تصفير كافة درجات وتجارب الاختبار بنجاح!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'فشل في تصفير البيانات التجريبية' });
+  }
+});
+
 export default router;

@@ -130,3 +130,44 @@ export const updateAgendaItem = (id, data) =>
 
 export const getAdminReports = () => 
   apiFetch('/admin/reports');
+
+// Device ID Generator / Helper
+export const getDeviceId = () => {
+  let id = localStorage.getItem('dsc_device_id');
+  if (!id) {
+    id = 'dev_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now().toString(36);
+    localStorage.setItem('dsc_device_id', id);
+  }
+  return id;
+};
+
+// Quiz API calls
+export const startQuizSession = (competitionId) => 
+  apiFetch('/quiz/start', { 
+    method: 'POST', 
+    body: JSON.stringify({ competitionId, deviceId: getDeviceId() }) 
+  });
+
+export const saveQuizAnswer = (sessionId, questionId, selectedIndex) => 
+  apiFetch('/quiz/save-answer', { 
+    method: 'POST', 
+    body: JSON.stringify({ sessionId, questionId, selectedIndex, deviceId: getDeviceId() }) 
+  });
+
+export const submitQuizSession = (sessionId) => 
+  apiFetch('/quiz/submit', { 
+    method: 'POST', 
+    body: JSON.stringify({ sessionId, deviceId: getDeviceId() }) 
+  });
+
+export const triggerEmergencyFreeze = (frozen) => 
+  apiFetch('/admin/emergency-freeze', { 
+    method: 'POST', 
+    body: JSON.stringify({ frozen }) 
+  });
+
+export const triggerCleanSlate = (confirmPassword) => 
+  apiFetch('/admin/clean-slate', { 
+    method: 'POST', 
+    body: JSON.stringify({ confirmPassword }) 
+  });
