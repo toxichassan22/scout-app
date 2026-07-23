@@ -9,9 +9,23 @@ const router = Router();
 router.use(authenticateToken);
 router.use(requireRole(['judge']));
 
-// Unlock competition with passcode
+// Anti-Bruteforce Rate Limiter for Judge Passcodes (Memory Store)
+const failedAttempts = new Map();
+
+// Unlock competition with passcode (Protected against brute-force)
 router.post('/unlock', async (req, res) => {
   try {
+    const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const attempts = failedAttempts.get(clientIp) || { count: 0, resetAt: 0 };
+
+    // Check rate limit block
+    if (attempts.count >= 5 && Date.now() < attempts.resetAt) {
+      const waitSeconds = Math.ceil((attempts.resetAt - Date.now()) / 1000);
+      return res.status(429).json({
+        error: `تم حظر المحاولات مؤقتاً لحماية النظام. يُرجى الانتظار ${waitSeconds} ثانية.`
+      });
+    }
+
     const { passcode } = req.body;
     if (!passcode) {
       return res.status(400).json({ error: 'كود المسابقة مطلوب' });
@@ -22,8 +36,17 @@ router.post('/unlock', async (req, res) => {
     });
 
     if (!competition) {
+      // Record failed attempt
+      const newCount = attempts.count + 1;
+      failedAttempts.set(clientIp, {
+        count: newCount,
+        resetAt: Date.now() + 60000 // 1 minute lockout after 5 failed attempts
+      });
       return res.status(404).json({ error: 'كود المسابقة غير صحيح أو المسابقة مغلقة حالياً' });
     }
+
+    // Reset attempts on successful unlock
+    failedAttempts.delete(clientIp);
 
     let criteria = [];
     try {

@@ -2,9 +2,9 @@ import bcrypt from 'bcryptjs';
 import prisma from './db.js';
 
 async function seed() {
-  console.log('[Seed] Starting database seed...');
+  console.log('[Seed] Starting comprehensive database seed...');
 
-  // Create default Admin
+  // 1️⃣ Create default Admin
   const adminPassword = await bcrypt.hash('admin123', 10);
   await prisma.admin.upsert({
     where: { username: 'admin' },
@@ -16,7 +16,7 @@ async function seed() {
   });
   console.log('[Seed] Admin account created: admin / admin123');
 
-  // Create sample Teams
+  // 2️⃣ Create sample Teams
   const sampleTeams = [
     { username: 'team1', label: 'الكتيبة الأولى', pass: 'team123' },
     { username: 'team2', label: 'فريق الصقور', pass: 'team123' },
@@ -39,7 +39,7 @@ async function seed() {
   }
   console.log('[Seed] Sample teams created.');
 
-  // Create sample Judge
+  // 3️⃣ Create sample Judges
   const judgePassword = await bcrypt.hash('judge123', 10);
   await prisma.judge.upsert({
     where: { username: 'judge1' },
@@ -52,28 +52,44 @@ async function seed() {
   });
   console.log('[Seed] Sample judge created: judge1 / judge123');
 
-  // Create sample Competitions
-  const comp1 = await prisma.competition.upsert({
-    where: { id: 'comp-digital-1' },
-    update: {},
-    create: {
+  // 4️⃣ Create All Official Competitions
+  const competitions = [
+    {
       id: 'comp-digital-1',
-      name: 'المسابقة الثقافية الرقمية',
-      slug: 'cultural-quiz',
+      name: 'مسابقة عبقرينو التقنية الكشفية',
+      slug: 'genius',
       type: 'auto_digital',
+      description: 'أسئلة سرعة وتفكير ذكي حول التكنولوجيا والتقاليد الكشفية',
       isOpen: true,
+      duration: 600,
       criteria: JSON.stringify([])
-    }
-  });
-
-  const comp2 = await prisma.competition.upsert({
-    where: { id: 'comp-video-1' },
-    update: {},
-    create: {
+    },
+    {
+      id: 'comp-digital-2',
+      name: 'مسابقة حقيقتان وكذبة',
+      slug: 'two_truths',
+      type: 'auto_digital',
+      description: 'اكتشف عبارة الزور من بين الحقائق الكشفية والتاريخية',
+      isOpen: true,
+      duration: 600,
+      criteria: JSON.stringify([])
+    },
+    {
+      id: 'comp-digital-3',
+      name: 'مسابقة الجغرافيا وتضاريس الوطن العربي',
+      slug: 'geography',
+      type: 'auto_digital',
+      description: 'التعرف على الأعلام والعواصم والعملات للبلدان الكشفية والعربية',
+      isOpen: true,
+      duration: 600,
+      criteria: JSON.stringify([])
+    },
+    {
       id: 'comp-video-1',
-      name: 'مسابقة تصميم الفيديو الكشفي',
-      slug: 'video-design',
+      name: 'مسابقة تصميم الفيديو الكشفي (دقيقتين)',
+      slug: 'video_design',
       type: 'manual_judged',
+      description: 'تقييم لجنة التحكيم لمونتاج ومحتوى الفيديو الكشفي',
       isOpen: true,
       passcode: '1234',
       criteria: JSON.stringify([
@@ -82,10 +98,117 @@ async function seed() {
         { key: 'sound', label: 'الهندسة الصوتية والمؤثرات', maxScore: 30 }
       ])
     }
-  });
-  console.log('[Seed] Competitions created (Passcode for video judging: 1234)');
+  ];
 
-  // Create official 8 Zones from center map
+  for (const comp of competitions) {
+    await prisma.competition.upsert({
+      where: { id: comp.id },
+      update: comp,
+      create: comp
+    });
+  }
+  console.log('[Seed] All Digital & Manual Competitions created!');
+
+  // 5️⃣ Seed Official Questions for "عبقرينو" (comp-digital-1)
+  const geniusQuestions = [
+    {
+      id: 'g_q1',
+      competitionId: 'comp-digital-1',
+      text: 'ما هو اسم مؤسس الحركة الكشفية العالمية؟',
+      options: JSON.stringify(['روبرت بادن باول', 'تشارلز داروين', 'جوزيف بوينت', 'وليم سميث']),
+      correctOption: 0,
+      points: 10,
+      sortOrder: 1
+    },
+    {
+      id: 'g_q2',
+      competitionId: 'comp-digital-1',
+      text: 'أي من الروابط الكشفية التالية تستخدم لربط حبلين مختلفين في السمك؟',
+      options: JSON.stringify(['العقدة الأفقية', 'الربطة التسميكية (Sheet Bend)', 'عقدة الوتد', 'ربطة المشنقة']),
+      correctOption: 1,
+      points: 10,
+      sortOrder: 2
+    },
+    {
+      id: 'g_q3',
+      competitionId: 'comp-digital-1',
+      text: 'ما معنى اختصار كلمة AI باللغة العربية؟',
+      options: JSON.stringify(['الأمن المعلوماتي', 'الذكاء الاصطناعي', 'الإنترنت المتقدم', 'الأدوات التفاعلية']),
+      correctOption: 1,
+      points: 10,
+      sortOrder: 3
+    },
+    {
+      id: 'g_q4',
+      competitionId: 'comp-digital-1',
+      text: 'في أي عام تأسست الحركة الكشفية بمصر رسمياً؟',
+      options: JSON.stringify(['1914م', '1920م', '1907م', '1952م']),
+      correctOption: 0,
+      points: 10,
+      sortOrder: 4
+    },
+    {
+      id: 'g_q5',
+      competitionId: 'comp-digital-1',
+      text: 'ما الشفرة التقنية الحديثة التي تتكون من مربعات سوداء وبيضاء وتُقرأ بميرا الموبايل؟',
+      options: JSON.stringify(['شفرة مورس', 'شفرة سيزار', 'شفرة الاستجابة السريعة (QR Code)', 'شفرة الشفافية']),
+      correctOption: 2,
+      points: 10,
+      sortOrder: 5
+    }
+  ];
+
+  for (const q of geniusQuestions) {
+    await prisma.question.upsert({
+      where: { id: q.id },
+      update: q,
+      create: q
+    });
+  }
+  console.log('[Seed] Genius quiz questions seeded!');
+
+  // 6️⃣ Seed Official Questions for "حقيقتان وكذبة" (comp-digital-2)
+  const twoTruthsQuestions = [
+    {
+      id: 'tt_q1',
+      competitionId: 'comp-digital-2',
+      text: 'عين العبارة الكاذبة من العبارات الكشفية التالية:',
+      options: JSON.stringify([
+        { text: 'الوعد الكشفي يتضمن الواجب نحو الله ثم الوطن.', isLie: false },
+        { text: 'أول مخيم كشفي تجريبي أقيم في جزيرة براونسي عام 1907.', isLie: false },
+        { text: 'التحية الكشفية تؤدى بالأصابع الأربعة المرفوعة.', isLie: true },
+        { text: 'الزهرة الكشفية العالمية تحتوي على ثلاثة فصوص.', isLie: false }
+      ]),
+      correctOption: 2,
+      points: 10,
+      sortOrder: 1
+    },
+    {
+      id: 'tt_q2',
+      competitionId: 'comp-digital-2',
+      text: 'عين العبارة الكاذبة عن مركز شباب منشية التحرير:',
+      options: JSON.stringify([
+        { text: 'يقع مركز الشباب في منطقة عين شمس بالقاهرة.', isLie: false },
+        { text: 'يحتوي المركز على ملاعب خماسية ومسجد ومبنى للأنشطة.', isLie: false },
+        { text: 'تأسست مجموعة منشية التحرير الكشفية سنة 2024 فقط.', isLie: true },
+        { text: 'يستضيف المركز المهرجان الكشفي الإرشادي الثلاثين.', isLie: false }
+      ]),
+      correctOption: 2,
+      points: 10,
+      sortOrder: 2
+    }
+  ];
+
+  for (const q of twoTruthsQuestions) {
+    await prisma.question.upsert({
+      where: { id: q.id },
+      update: q,
+      create: q
+    });
+  }
+  console.log('[Seed] Two Truths & A Lie questions seeded!');
+
+  // 7️⃣ Create official 8 Zones from center map
   const officialZones = [
     { id: 'zone-1', numberLabel: '١', name: 'مبنى الإدارة', description: 'المقر الإداري واستقبال الوفود', colorHex: '#ef4444', order: 1 },
     { id: 'zone-2', numberLabel: '٢', name: 'مبنى الأنشطة', description: 'منطقة الورش والمسابقات الثقافية والذكاء الاصطناعي', colorHex: '#10b981', order: 2 },
@@ -104,7 +227,8 @@ async function seed() {
       create: z
     });
   }
-  // Create official Agenda Items from the festival schedule (12.png)
+
+  // 8️⃣ Create official Agenda Items
   const officialAgenda = [
     {
       id: 'agenda-1',
@@ -192,29 +316,12 @@ async function seed() {
   for (const item of officialAgenda) {
     await prisma.agendaItem.upsert({
       where: { id: item.id },
-      update: {
-        title: item.title,
-        type: item.type,
-        zoneId: item.zoneId,
-        startTime: item.startTime,
-        endTime: item.endTime,
-        description: item.description
-      },
+      update: item,
       create: item
     });
   }
-  console.log('[Seed] Official 9 Agenda items created.');
 
-  // Create sample News
-  await prisma.news.create({
-    data: {
-      title: 'مرحباً بكم في المهرجان الكشفي الرقمي',
-      body: 'نتمنى لجميع الفرق المشاركة التوفيق والتميز في فعاليات اليوم.',
-      createdByAdminId: 'admin'
-    }
-  });
-
-  console.log('[Seed] Seed completed successfully!');
+  console.log('[Seed] Complete seed finished successfully!');
 }
 
 seed()

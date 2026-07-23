@@ -4,20 +4,35 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = Router();
 
-// Helper to calculate anonymous leaderboard
+/**
+ * Helper to calculate anonymous leaderboard with Speed Tie-Breaker
+ * When scores are equal, team with earlier submission time / faster completion ranks higher!
+ */
 export async function getAnonymousLeaderboard() {
   const teams = await prisma.team.findMany({
     include: { scores: true }
   });
 
-  // Calculate totals
+  // Calculate totals and last submission timestamp for tie-breaking
   const teamTotals = teams.map(team => {
     const totalScore = team.scores.reduce((acc, curr) => acc + (curr.total || 0), 0);
-    return { id: team.id, totalScore };
+    // Find latest submission timestamp as tie-breaker (earlier timestamp = faster)
+    const latestSubmission = team.scores.reduce((latest, curr) => {
+      const time = new Date(curr.submittedAt).getTime();
+      return time > latest ? time : latest;
+    }, 0);
+
+    return { id: team.id, totalScore, latestSubmission };
   });
 
-  // Sort descending
-  teamTotals.sort((a, b) => b.totalScore - a.totalScore);
+  // Sort descending by totalScore, then ascending by submission time (speed tie-breaker)
+  teamTotals.sort((a, b) => {
+    if (b.totalScore !== a.totalScore) {
+      return b.totalScore - a.totalScore;
+    }
+    // Tie-breaker: earlier submission wins!
+    return a.latestSubmission - b.latestSubmission;
+  });
 
   // Map to anonymous structure with ranks and gap to next
   const leaderboard = teamTotals.map((item, index) => {
