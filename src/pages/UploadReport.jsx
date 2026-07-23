@@ -47,8 +47,28 @@ const UploadReport = () => {
     return `متبقي ${minutes} دقيقة و ${seconds} ثانية`;
   };
 
+  const MAX_FILE_SIZE_MB = 50;
+  const ALLOWED_EXTENSIONS = ['pdf', 'docx', 'doc', 'zip', 'rar', 'mp4', 'jpg', 'jpeg', 'png'];
+
   const pickFile = (file) => {
-    if (file) setFileInput(file);
+    if (!file) return;
+    setError('');
+
+    // Check size limit (50MB)
+    const fileSizeMB = file.size / (1024 * 1024);
+    if (fileSizeMB > MAX_FILE_SIZE_MB) {
+      setError(`حجم الملف كبير جداً (${fileSizeMB.toFixed(1)}MB). الحد الأقصى المسموح به هو 50MB.`);
+      return;
+    }
+
+    // Check extension
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      setError(`نوع الملف غير مسموح. الأنواع المسموحة هي: ${ALLOWED_EXTENSIONS.join(', ')}`);
+      return;
+    }
+
+    setFileInput(file);
   };
 
   const handleSubmit = (e) => {

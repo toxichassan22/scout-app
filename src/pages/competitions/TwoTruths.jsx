@@ -1,67 +1,146 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AlertCircle } from 'lucide-react';
 import QuizShell from '../../components/QuizShell';
 import { useAuth } from '../../context/AuthContext';
 import { useCompetitions } from '../../context/CompetitionContext';
+import { startQuizSession, saveQuizAnswer, submitQuizSession } from '../../services/api';
 
 const TwoTruths = () => {
   const { user } = useAuth();
-  const { getCompetition, getRemainingSeconds, registerCompetitionEntry, submitEntry, questions } = useCompetitions();
+  const { questions } = useCompetitions();
   const navigate = useNavigate();
+
+  const [sessionId, setSessionId] = useState(null);
+  const [remainingSeconds, setRemainingSeconds] = useState(600);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [picked, setPicked] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState(null);
   const submittedRef = useRef(false);
-  const competition = getCompetition(1);
-  const questionList = questions.two_truths;
-  const remaining = useMemo(() => getRemainingSeconds(competition), [competition, getRemainingSeconds]);
 
+  const questionList = questions.two_truths || [];
+
+  // Start Session on mount with Server Timer & Device Lock
   useEffect(() => {
-    const result = registerCompetitionEntry(1, user.name);
-    if (!result.ok) {
-      alert(result.message);
-      navigate('/competitions', { replace: true });
-    }
-  }, []);
-
-  const finish = useCallback(
-    (finalScore = score) => {
-      if (submittedRef.current) return;
-      submittedRef.current = true;
+    async function initQuiz() {
       try {
-        submitEntry(1, user.name, { score: finalScore });
-        alert(`تم تسجيل نتيجتك: ${finalScore}`);
-      } catch (error) {
-        alert(error.message);
-      }
-      navigate('/competitions', { replace: true });
-    },
-    [navigate, score, submitEntry, user.name],
-  );
+        setLoading(true);
+        // comp-digital-2 for TwoTruths
+        const res = await startQuizSession('comp-digital-2');
+        setSessionId(res.sessionId);
+        setRemainingSeconds(res.remainingSeconds);
 
-  const handleAnswer = (isLie, index) => {
-    if (picked !== null) return;
+        if (res.isCompleted) {
+          alert('لقد أكمل فريقك هذه المسابقة بالفعل!');
+          navigate('/competitions', { replace: true });
+          return;
+        }
+
+        // Restore draft answers if reconnecting
+        if (res.draftAnswers) {
+          const answeredCount = Object.keys(res.draftAnswers).length;
+          if (answeredCount > 0 && answeredCount < questionList.length) {
+            setCurrentIndex(answeredCount);
+          }
+        }
+
+      } catch (err) {
+        setErrorMsg(err.message || 'فشل في بدء المسابقة');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    initQuiz();
+  }, [navigate, questionList.length]);
+
+  // Server-Synced Countdown Timer
+  useEffect(() => {
+    if (loading || errorMsg || remainingSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setRemainingSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          finishQuiz();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [loading, errorMsg, remainingSeconds]);
+
+  const finishQuiz = useCallback(async () => {
+    if (submittedRef.current || !sessionId) return;
+    submittedRef.current = true;
+    try {
+      const res = await submitQuizSession(sessionId);
+      alert(`تم تسليم المسابقة بنجاح! النتيجة: ${res.totalScore || score}`);
+    } catch (e) {
+      alert(e.message || 'تم حفظ جميع إجاباتك تلقائياً في السيرفر.');
+    }
+    navigate('/competitions', { replace: true });
+  }, [sessionId, score, navigate]);
+
+  const handleAnswer = async (isLie, index) => {
+    if (picked !== null || !sessionId) return;
     setPicked(index);
-    const nextScore = score + (isLie ? 10 : 0);
-    setScore(nextScore);
+
+    const current = questionList[currentIndex];
+    if (isLie) setScore((s) => s + 10);
+
+    // Realtime Auto-Save to Server
+    try {
+      await saveQuizAnswer(sessionId, current.id || `q_twotruths_${currentIndex}`, index);
+    } catch (e) {
+      console.warn('Auto-save error:', e.message);
+    }
 
     setTimeout(() => {
       setPicked(null);
       if (currentIndex + 1 >= questionList.length) {
-        finish(nextScore);
+        finishQuiz();
         return;
       }
       setCurrentIndex((v) => v + 1);
     }, 650);
   };
 
-  const currentQuestion = questionList[currentIndex];
-
-  if (!currentQuestion) {
-    return <div className="p-6 text-center text-[#6e6889]">لا توجد أسئلة متاحة حالياً</div>;
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#070b14] text-white">
+        <div className="text-center font-bold">
+          <AlertCircle className="mx-auto mb-3 animate-bounce text-violet-400" size={36} />
+          <p>جارٍ بدء جلسة مسابقة حقيقتان وكذبة ومزامنة العداد من السيرفر...</p>
+        </div>
+      </div>
+    );
   }
+
+  if (errorMsg) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#070b14] p-4 text-white">
+        <div className="max-w-md rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-center shadow-2xl backdrop-blur-xl">
+          <AlertCircle className="mx-auto mb-3 text-red-400" size={40} />
+          <h2 className="mb-2 text-lg font-black">تنبيه الحماية والدخول المزدوج</h2>
+          <p className="mb-6 text-sm text-slate-300 leading-relaxed">{errorMsg}</p>
+          <button
+            type="button"
+            onClick={() => navigate('/competitions', { replace: true })}
+            className="w-full rounded-xl bg-red-500 px-4 py-2.5 font-bold text-white shadow-lg transition hover:bg-red-600"
+          >
+            العودة لقائمة المسابقات
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const currentQuestion = questionList[currentIndex];
 
   return (
     <QuizShell
@@ -70,21 +149,19 @@ const TwoTruths = () => {
       tone="violet"
       currentIndex={currentIndex}
       total={questionList.length}
-      remainingSeconds={remaining}
-      onTimerEnd={() => finish(score)}
+      remainingSeconds={remainingSeconds}
+      onTimerEnd={finishQuiz}
       questionKey={currentIndex}
     >
-      {/* بطاقة السؤال */}
       <div className="glass-sheen glass-violet mb-6 p-6 text-center sm:p-8">
-        <p className="section-kicker mb-3">أيّ العبارات التالية كاذبة؟</p>
+        <p className="section-kicker mb-3">أيّ العبارات التالية كاذبة؟ (حفظ تلقائي للخيارات)</p>
         <h2 className="text-xl font-black leading-relaxed text-white sm:text-2xl">
-          {currentQuestion.question}
+          {currentQuestion?.question}
         </h2>
       </div>
 
-      {/* الخيارات */}
       <div className="grid gap-4">
-        {currentQuestion.options.map((option, index) => {
+        {currentQuestion?.options.map((option, index) => {
           const isPicked = picked === index;
           const stateCls =
             picked === null
