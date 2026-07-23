@@ -67,17 +67,18 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'Digital Scout Camp API', time: new Date() });
 });
 
-// Socket connection handling
+// Socket connection handling (optimized for high concurrency)
 io.on('connection', (socket) => {
-  console.log(`[Socket] Client connected: ${socket.id}`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[Socket] Client connected: ${socket.id}`);
+  }
 
   socket.on('join:room', (room) => {
     socket.join(room);
-    console.log(`[Socket] Client ${socket.id} joined room: ${room}`);
   });
 
   socket.on('disconnect', () => {
-    console.log(`[Socket] Client disconnected: ${socket.id}`);
+    // Silent disconnects to prevent log flooding under 5000 users
   });
 });
 

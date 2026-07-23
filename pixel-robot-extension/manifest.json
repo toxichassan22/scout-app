@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Pixel Robot Mouse Follower",
+  "version": "1.0.0",
+  "description": "A cute pixel robot overlay that follows your mouse cursor with smooth physics, thruster flames, and particle trails.",
+  "permissions": [
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Pixel Robot Settings"
+  }
+}

@@ -1,0 +1,41 @@
+/* Pixel Robot Canvas Overlay Styles */
+#pixel-robot-canvas-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  pointer-events: none !important;
+  z-index: 999999999 !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  overflow: hidden !important;
+}
+
+/* Make click reaction area interactive when clicking robot */
+.pixel-robot-click-burst {
+  position: fixed;
+  pointer-events: none;
+  z-index: 999999999;
+  font-family: monospace;
+  font-weight: bold;
+  user-select: none;
+  animation: robotBurstFloat 1s ease-out forwards;
+}
+
+@keyframes robotBurstFloat {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.5) translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2) translateY(-25px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1) translateY(-50px);
+  }
+}
