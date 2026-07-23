@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import prisma from './db.js';
 
 async function seed() {
-  console.log('[Seed] Starting comprehensive database seed with official 22 Arab Geography countries...');
+  console.log('[Seed] Starting comprehensive database seed with official 50 Genius Quiz Questions...');
 
   // 1️⃣ Create default Admin
   const adminPassword = await bcrypt.hash('admin123', 10);
@@ -14,7 +14,6 @@ async function seed() {
       passwordHash: adminPassword
     }
   });
-  console.log('[Seed] Admin account created: admin / admin123');
 
   // 2️⃣ Create sample Teams
   const sampleTeams = [
@@ -37,7 +36,6 @@ async function seed() {
       }
     });
   }
-  console.log('[Seed] Sample teams created.');
 
   // 3️⃣ Create sample Judges
   const judgePassword = await bcrypt.hash('judge123', 10);
@@ -50,18 +48,17 @@ async function seed() {
       passwordHash: judgePassword
     }
   });
-  console.log('[Seed] Sample judge created: judge1 / judge123');
 
-  // 4️⃣ Create All Official Competitions
+  // 4️⃣ Create All Official Competitions (Genius Quiz set to 15 mins / 900 seconds)
   const competitions = [
     {
       id: 'comp-digital-1',
-      name: 'مسابقة عبقرينو التقنية الكشفية',
+      name: 'مسابقة عبقرينو (50 سؤالاً في 15 دقيقة)',
       slug: 'genius',
       type: 'auto_digital',
-      description: 'أسئلة سرعة وتفكير ذكي حول التكنولوجيا والتقاليد الكشفية',
+      description: 'خمسون سؤالاً في ربع ساعة - الثقافة العامة والكشفية والدينية والعلوم',
       isOpen: true,
-      duration: 600,
+      duration: 900, // 15 minutes
       criteria: JSON.stringify([])
     },
     {
@@ -107,9 +104,81 @@ async function seed() {
       create: comp
     });
   }
-  console.log('[Seed] All Digital & Manual Competitions created!');
 
-  // 5️⃣ Seed Official 22 Arab Geography Countries Table
+  // 5️⃣ Seed All 50 Official Questions for "مسابقة عبقرينو"
+  const genius50Questions = [
+    { text: 'أين يوجد مقام سيدنا إبراهيم عليه السلام ؟', options: ['المدينة المنورة', 'القدس', 'مكة المكرمة'], correctOption: 2 },
+    { text: 'ما هي أطول رحلة في تاريخ البشرية ؟', options: ['رحلة الشتاء والصيف', 'رحلة الإسراء والمعراج', 'اكتشاف الأميركتين'], correctOption: 1 },
+    { text: 'ما هي السورة التي تقع في نصف القرآن ؟', options: ['سورة مريم', 'سورة الكهف', 'سورة الأنفال'], correctOption: 1 },
+    { text: 'ما هو الشيء الذي خُلق من حجر ؟', options: ['ناقة صالح', 'هدهد سليمان', 'فيل أبرهة'], correctOption: 0 },
+    { text: 'من هم من حُفظهم بالحجر ؟', options: ['أهل قريش', 'أهل الكهف', 'قوم عاد'], correctOption: 1 },
+    { text: 'من الشخص الذي هلك بالحجر ؟', options: ['قوم عاد', 'قوم نوح', 'جيش ابرهة الحبشي'], correctOption: 2 },
+    { text: 'لماذا سمي سيدنا عمر ابن الخطاب بالفاروق ؟', options: ['لأنه يفرق بين الحق والباطل', 'لأنه يفرق أحسنا', 'لأنه قدراته فارقة عن غيره'], correctOption: 0 },
+    { text: 'من هو مؤذن الرسول ؟', options: ['عبد الله بن مسعود', 'بلال بن رباح', 'سعد بن أبي وقاص'], correctOption: 1 },
+    { text: 'من أول من رمى سهم في سبيل الله ؟', options: ['حمزة بن عبد المطلب', 'عمر بن الخطاب', 'سعد بن أبي وقاص'], correctOption: 2 },
+    { text: 'من الذي قاد المسلمين في معركة عين جالوت ؟', options: ['صلاح الدين الأيوبي', 'سيف الدين قطز', 'الظاهر بيبرس'], correctOption: 1 },
+    { text: 'من أول من أسس علم الأخلاق ؟', options: ['سيدنا عبد الله بن عباس', 'سيدنا علي بن أبي طالب', 'سيدنا عمر بن عبد العزيز'], correctOption: 2 },
+    { text: 'كم عدد السجدات في القرآن الكريم ؟', options: ['15 سجدة', '21 سجدة', '30 سجدة'], correctOption: 0 },
+    { text: 'ما هي الشجرة التي تنبت في قعر جهنم ؟', options: ['شجرة جهنم', 'شجرة الزقوم', 'شجرة خميائل'], correctOption: 1 },
+    { text: 'كم عدد أرباع القرآن الكريم ؟', options: ['180 ربع', '240 ربع', '280 ربع'], correctOption: 1 },
+    { text: 'كم عدد آيات القرآن الكريم ؟', options: ['6236', '6848', '7214'], correctOption: 0 },
+    { text: 'كم عدد المرات التي سعت فيها السيدة هاجر بين الصفا والمروة ؟', options: ['خمس مرات', 'سبع مرات', 'تسع مرات'], correctOption: 1 },
+    { text: 'ماهي السورة الوحيدة التي بدأت وانتهت بنداء ( يا أيها الذين أمنو ) ؟', options: ['سورة الأنفال', 'سورة هود', 'سورة الممتحنة'], correctOption: 2 },
+    { text: 'كم عدد الطيور التي أمر الله سيدنا إبراهيم أن يوزع أصلائها على قمم الجبال ؟', options: ['أربع طيور', 'ستة طيور', 'ثمانية طيور'], correctOption: 0 },
+    { text: 'ما هي أكبر جزيرة في البحر المتوسط ؟', options: ['براونسي', 'جزيرة صقلية', 'برمودة'], correctOption: 1 },
+    { text: 'ما هي اصغر دولة في العالم ؟', options: ['الفاتيكان', 'البحرين', 'قطر'], correctOption: 0 },
+    { text: 'ما اللون الموجود في 75% من أعلام الدول ؟', options: ['اللون الاحمر', 'اللون الأبيض', 'اللون الأخضر'], correctOption: 2 },
+    { text: 'في أنف الإنسان يوجد ما يسمى بالجيو بالأنفية فما عدد هذه الجيوب ؟', options: ['8 جيوب', '10 جيوب', '12 جيوب'], correctOption: 0 },
+    { text: 'ما هي أصغر دولة عربية من حيث المساحة ؟', options: ['قطر', 'البحرين', 'جزر القمر'], correctOption: 1 },
+    { text: 'ما هي المدينة التي تسمى بمدينة الضباب ؟', options: ['باريس', 'موسكو', 'لندن'], correctOption: 2 },
+    { text: 'من هو مكتشف أمريكا ؟', options: ['ماجلان', 'كريستوفر كولومبوس', 'كونت كونتى'], correctOption: 1 },
+    { text: 'إلى ماذا يشير مصطلح الذهب الأسود ؟', options: ['البترول', 'الفحم', 'الغاز الطبيعي'], correctOption: 0 },
+    { text: 'كم تبلغ نسبة ملوحة البحر الميت بالمقارنة بالمحيطات ؟', options: ['7 مرات', '8 مرات', '9 مرات'], correctOption: 2 },
+    { text: 'ما هو أكبر بحار العالم ؟', options: ['البحر الأحمر', 'البحر الأبيض المتوسط', 'البحر الميت'], correctOption: 1 },
+    { text: 'ما هي أول دولة قامت باستخدام الطابع البريدي فما هي ؟', options: ['فرنسا', 'بريطانيا', 'تركيا'], correctOption: 1 },
+    { text: 'ماهي الدولة التي يطلق عليها بلد المليون شهيد ؟', options: ['مصر', 'فلسطين', 'الجزائر'], correctOption: 2 },
+    { text: 'ما هو الملك الذي قتلته ذبابة ؟', options: ['النجاشي', 'النمرود', 'العكنان'], correctOption: 1 },
+    { text: 'من أول من عرف البارود و أشعله ؟', options: ['الصينيون', 'البيانيون', 'القدماء المصريين'], correctOption: 0 },
+    { text: 'ما هي أول دوله استخدمت النساء في مصلحة البريد ؟', options: ['بريطانيا', 'فرنسا', 'اليابان'], correctOption: 1 },
+    { text: 'من أول من اكتشف المطاط ؟', options: ['الفرنسييون', 'الألمان', 'الإسبان'], correctOption: 2 },
+    { text: 'من أول من استعمل خاتم الخطبة ؟', options: ['الرومان', 'الصينيون', 'القدماء المصريون'], correctOption: 0 },
+    { text: 'ما هي أول الصحف العربية ؟', options: ['صحيفة الوقائع المصرية', 'الأهرام المصرية', 'الميدان الجزائرية'], correctOption: 0 },
+    { text: 'كم عدد ألوان قوس قزح ؟', options: ['7 ألوان', '9 ألوان', '11 لون'], correctOption: 0 },
+    { text: 'ما حجم كوكب المشترى بالنسبة للأرض ؟', options: ['316 مرة', '318 مرة', '320 مرة'], correctOption: 1 },
+    { text: 'أين توجد عظمة الترقوة ؟', options: ['في الكتف', 'في الحوض', 'في الركبة'], correctOption: 0 },
+    { text: 'كم مدينة تسمى القاهرة ؟', options: ['13 مدينة', '16 مدينة', '19 مدينة'], correctOption: 0 },
+    { text: 'من أول من اكتشف الدورة الدموية ؟', options: ['ابن النفيس', 'بعلبك', 'ابن سينا'], correctOption: 0 },
+    { text: 'من أول من عرف مكونات العين ؟', options: ['أبو بكر الرازي', 'ابن النفيس', 'الحسن ابن الهيثم'], correctOption: 2 },
+    { text: 'من هو أول من اكتشف وحدة قياس الفيمتو ثانية ( Femto - Second ) ؟', options: ['د/أحمد زويل', 'الحسن بن الهيثم', 'جابر بن حيان'], correctOption: 0 },
+    { text: 'من هو أبو الكيمياء ؟', options: ['جابر بن حيان', 'ابن النفيس', 'أبوبكر الرازي'], correctOption: 0 },
+    { text: 'من هو مؤسس علم الجبر ؟', options: ['جابر بن حيان', 'ابن النفيس', 'الخوارزمي'], correctOption: 2 },
+    { text: 'من هو مخترع الراديو ؟', options: ['ماركوني', 'أديسون', 'جرهام بيل'], correctOption: 0 },
+    { text: 'من هو مخترع المصباح ؟', options: ['ماركوني', 'أديسون', 'جرهام بيل'], correctOption: 1 },
+    { text: 'من هو مخترع التليفون ؟', options: ['ماركوني', 'أديسون', 'جرهام بيل'], correctOption: 2 },
+    { text: 'من هو مخترع البنسلين ؟', options: ['ألكسندر فلمنج', 'أرشميدس', 'أحمد زويل'], correctOption: 0 },
+    { text: 'من هو مخترع قانون الجاذبية ؟', options: ['آينشتين', 'أرشميدس', 'إسحاق نيوتن'], correctOption: 2 }
+  ];
+
+  // Wipe old questions for comp-digital-1
+  await prisma.question.deleteMany({ where: { competitionId: 'comp-digital-1' } });
+
+  for (let idx = 0; idx < genius50Questions.length; idx++) {
+    const q = genius50Questions[idx];
+    await prisma.question.create({
+      data: {
+        id: `g_q_${idx + 1}`,
+        competitionId: 'comp-digital-1',
+        text: q.text,
+        options: JSON.stringify(q.options),
+        correctOption: q.correctOption,
+        points: 2, // 50 questions * 2 points = 100 total
+        sortOrder: idx + 1
+      }
+    });
+  }
+  console.log('[Seed] All 50 Genius Quiz questions seeded successfully!');
+
+  // 6️⃣ Seed Official 22 Arab Geography Countries
   const arabCountries = [
     { id: 'geo-1', name: 'مصر', capital: 'القاهرة', division: '27 محافظة', governance: 'جمهوري رئاسي', currency: 'جنيه مصري', flag: '🇪🇬', sortOrder: 1 },
     { id: 'geo-2', name: 'السعودية', capital: 'الرياض', division: '13 منطقة إدارية', governance: 'ملكي مطلق', currency: 'ريال سعودي', flag: '🇸🇦', sortOrder: 2 },
@@ -140,64 +209,6 @@ async function seed() {
       where: { id: item.id },
       update: item,
       create: item
-    });
-  }
-  console.log('[Seed] Official 22 Arab Geography Countries seeded successfully!');
-
-  // 6️⃣ Seed Official Questions for "عبقرينو" (comp-digital-1)
-  const geniusQuestions = [
-    {
-      id: 'g_q1',
-      competitionId: 'comp-digital-1',
-      text: 'ما هو اسم مؤسس الحركة الكشفية العالمية؟',
-      options: JSON.stringify(['روبرت بادن باول', 'تشارلز داروين', 'جوزيف بوينت', 'وليم سميث']),
-      correctOption: 0,
-      points: 10,
-      sortOrder: 1
-    },
-    {
-      id: 'g_q2',
-      competitionId: 'comp-digital-1',
-      text: 'أي من الروابط الكشفية التالية تستخدم لربط حبلين مختلفين في السمك؟',
-      options: JSON.stringify(['العقدة الأفقية', 'الربطة التسميكية (Sheet Bend)', 'عقدة الوتد', 'ربطة المشنقة']),
-      correctOption: 1,
-      points: 10,
-      sortOrder: 2
-    },
-    {
-      id: 'g_q3',
-      competitionId: 'comp-digital-1',
-      text: 'ما معنى اختصار كلمة AI باللغة العربية؟',
-      options: JSON.stringify(['الأمن المعلوماتي', 'الذكاء الاصطناعي', 'الإنترنت المتقدم', 'الأدوات التفاعلية']),
-      correctOption: 1,
-      points: 10,
-      sortOrder: 3
-    },
-    {
-      id: 'g_q4',
-      competitionId: 'comp-digital-1',
-      text: 'في أي عام تأسست الحركة الكشفية بمصر رسمياً؟',
-      options: JSON.stringify(['1914م', '1920م', '1907م', '1952م']),
-      correctOption: 0,
-      points: 10,
-      sortOrder: 4
-    },
-    {
-      id: 'g_q5',
-      competitionId: 'comp-digital-1',
-      text: 'ما الشفرة التقنية الحديثة التي تتكون من مربعات سوداء وبيضاء وتُقرأ بميرا الموبايل؟',
-      options: JSON.stringify(['شفرة مورس', 'شفرة سيزار', 'شفرة الاستجابة السريعة (QR Code)', 'شفرة الشفافية']),
-      correctOption: 2,
-      points: 10,
-      sortOrder: 5
-    }
-  ];
-
-  for (const q of geniusQuestions) {
-    await prisma.question.upsert({
-      where: { id: q.id },
-      update: q,
-      create: q
     });
   }
 
@@ -314,7 +325,7 @@ async function seed() {
     });
   }
 
-  console.log('[Seed] All 22 Arab Countries & Quiz datasets populated successfully!');
+  console.log('[Seed] All 50 Genius Questions & Datasets populated successfully!');
 }
 
 seed()
