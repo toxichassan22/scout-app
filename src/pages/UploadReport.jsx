@@ -53,7 +53,8 @@ const UploadReport = () => {
   const currentReportNumber = Math.min(reportCount + 1, MAX_REPORTS);
   const progressPercent = Math.round((reportCount / MAX_REPORTS) * 100);
 
-  const activeComp = competitions.find((c) => c.id === Number(selectedCompId) || c.id === selectedCompId);
+  const sameId = (a, b) => String(a) === String(b);
+  const activeComp = competitions.find((c) => sameId(c.id, selectedCompId));
 
   const getDeadlineText = (comp) => {
     if (!comp) return '';
@@ -100,7 +101,7 @@ const UploadReport = () => {
       return;
     }
 
-    const comp = competitions.find((c) => c.id === Number(selectedCompId) || c.id === selectedCompId);
+    const comp = competitions.find((c) => sameId(c.id, selectedCompId));
     if (!comp) {
       setError('المسابقة غير موجودة');
       return;
@@ -333,7 +334,7 @@ const UploadReport = () => {
             onChange={(e) => {
               const val = e.target.value;
               setSelectedCompId(val);
-              const comp = competitions.find((c) => c.id === Number(val));
+              const comp = competitions.find((c) => sameId(c.id, val));
               if (comp) {
                 setReportTitle(comp.name);
                 setReportContent(`تقرير مسابقة ${comp.name} لفرقة ${teamName}`);
