@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Activity,
@@ -120,10 +121,9 @@ const reveal = {
   visible: { opacity: 1, y: 0 },
 };
 
-
-
 const Landing = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeZone, setActiveZone] = useState(4);
   const [viewMode, setViewMode] = useState('3d');
@@ -131,18 +131,12 @@ const Landing = () => {
 
   // Persistent Auth Redirect Check
   useEffect(() => {
-    const token = localStorage.getItem('dsc_token');
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.role === 'admin') navigate('/admin/dashboard', { replace: true });
-        else if (payload.role === 'judge') navigate('/judge/passcode', { replace: true });
-        else if (payload.role === 'team') navigate('/home', { replace: true });
-      } catch (e) {
-        // invalid token
-      }
+    if (user) {
+      if (user.role === 'admin') navigate('/admin/dashboard', { replace: true });
+      else if (user.role === 'judge') navigate('/judge/passcode', { replace: true });
+      else navigate('/home', { replace: true });
     }
-  }, [navigate]);
+  }, [user, navigate]);
 
   const scrollTo = (target) => {
     document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });

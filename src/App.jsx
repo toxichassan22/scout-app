@@ -63,7 +63,7 @@ const App = memo(function App() {
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<Landing />} />
+            <Route path="/" element={user ? <Navigate to={defaultRoute} replace /> : <Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/judge/login" element={<JudgeLogin />} />
             <Route path="/admin/login" element={<AdminLogin />} />
