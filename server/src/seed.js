@@ -2,9 +2,9 @@ import bcrypt from 'bcryptjs';
 import prisma from './db.js';
 
 async function seed() {
-  console.log('[Seed] Starting comprehensive database seed with official 50 Genius Quiz Questions...');
+  console.log('[Seed] Starting database seed with balanced 50 Genius Quiz Questions (25 AI & Tech + 25 Scout & Culture)...');
 
-  // 1️⃣ Create default Admin
+  // 1️⃣ Admin Account
   const adminPassword = await bcrypt.hash('admin123', 10);
   await prisma.admin.upsert({
     where: { username: 'admin' },
@@ -15,7 +15,7 @@ async function seed() {
     }
   });
 
-  // 2️⃣ Create sample Teams
+  // 2️⃣ Sample Teams
   const sampleTeams = [
     { username: 'team1', label: 'الكتيبة الأولى', pass: 'team123' },
     { username: 'team2', label: 'فريق الصقور', pass: 'team123' },
@@ -37,7 +37,7 @@ async function seed() {
     });
   }
 
-  // 3️⃣ Create sample Judges
+  // 3️⃣ Sample Judge
   const judgePassword = await bcrypt.hash('judge123', 10);
   await prisma.judge.upsert({
     where: { username: 'judge1' },
@@ -49,16 +49,16 @@ async function seed() {
     }
   });
 
-  // 4️⃣ Create All Official Competitions (Genius Quiz set to 15 mins / 900 seconds)
+  // 4️⃣ Official Competitions
   const competitions = [
     {
       id: 'comp-digital-1',
-      name: 'مسابقة عبقرينو (50 سؤالاً في 15 دقيقة)',
+      name: 'مسابقة عبقرينو (50 سؤالاً: 25 تقني + 25 كشفي)',
       slug: 'genius',
       type: 'auto_digital',
-      description: 'خمسون سؤالاً في ربع ساعة - الثقافة العامة والكشفية والدينية والعلوم',
+      description: 'خمسون سؤالاً متوازناً في ربع ساعة - الذكاء الاصطناعي والثقافة الكشفية والعامة',
       isOpen: true,
-      duration: 900, // 15 minutes
+      duration: 900, // 15 mins
       criteria: JSON.stringify([])
     },
     {
@@ -105,65 +105,68 @@ async function seed() {
     });
   }
 
-  // 5️⃣ Seed All 50 Official Questions for "مسابقة عبقرينو"
-  const genius50Questions = [
+  // 5️⃣ 50 Balanced Genius Questions (25 AI/Tech + 25 Scout/Culture)
+  const balanced50Questions = [
+    // 🧠 25 AI & Tech Questions
+    { text: 'ما الميزة الأساسية لمعمارية الـ Transformer مقارنة بنماذج الـ RNN التقليدية؟', options: ['الاعتماد الكلي على القواعد المكتوبة يدوياً', 'معالجة البيانات بالتوازي (Parallel Processing)', 'عدم الحاجة لوجود معالجات رسومية (GPUs)'], correctOption: 1 },
+    { text: 'ما الهدف الأساسي من خوارزمية الـ Gradient Descent في تعلم الآلة؟', options: ['تقليل قيمة دالة الخسارة (Loss Function)', 'زيادة عدد طبقات الشبكة العصبية', 'تحويل النصوص إلى صور تلقائياً'], correctOption: 0 },
+    { text: 'مفهوم يعني انحياز النموذج للبيانات التي تدرب عليها فقط فيحقق دقة عالية في التدريب وأداءً سيئاً مع البيانات الجديدة:', options: ['Overfitting', 'Underfitting', 'Quantization'], correctOption: 0 },
+    { text: 'ما هي دالة التفعيل (Activation Function) الأكثر استخداماً في الطبقات الخفية لتجنب مشكلة Vanishing Gradient؟', options: ['Sigmoid', 'Softmax', 'ReLU'], correctOption: 2 },
+    { text: 'تقنية تُتيح نقل معرفة نموذج تم تدريبه مسبقاً لاستخدامه في مهمة جديدة:', options: ['إعادة تدريب النموذج من الصفر دائماً', 'Transfer Learning', 'تشفير البيانات أثناء النقل'], correctOption: 1 },
+    { text: 'ما الهدف الأساسي من تقنية RAG (Retrieval-Augmented Generation)؟', options: ['تزويد النموذج ببيانات خارجية موثوقة لتقليل الهلوسة ودعم الإجابات ببيانات حديثة', 'تسريع توليد الصور فقط', 'ضغط حجم الهارد ديسك الخاص بالسيرفر'], correctOption: 0 },
+    { text: 'ماذا يعني مصطلح Quantization في نماذج الذكاء الاصطناعي؟', options: ['تقليل دقة تمثيل أوزان النموذج لتسريع الاستدلال وحفظ الذاكرة', 'زيادة أعداد البارامترات في النموذج', 'حظر الإجابات المسيئة وغير الأخلاقية'], correctOption: 0 },
+    { text: 'معامل "Temperature" في إعدادات النماذج اللغوية يحدد:', options: ['درجة حرارة المعالج أثناء التشغيل', 'مدى عشوائية وإبداع النص المُولد', 'سرعة اتصال الجهاز بالإنترنت'], correctOption: 1 },
+    { text: 'ما هو هجوم الـ Prompt Injection؟', options: ['مسح محادثات المستخدم القديمة', 'إدخال تعليمات خبيثة لتجاوز قيود النموذج وجعله ينفذ أوامر غير مصرح بها', 'تعطيل الراوتر بشكل كامل'], correctOption: 1 },
+    { text: 'ما هي نماذج الموداليات المتعددة (Multimodal Models)؟', options: ['نماذج تعمل بدون الحاجة لإنترنت', 'نماذج قادرة على فهم ومعالجة أنواع مختلفة من البيانات (نص، صورة، صوت) معاً', 'نماذج مخصصة للعمل كآلة حاسبة فقط'], correctOption: 1 },
+    { text: 'ظاهرة "الهلوسة" (Hallucination) في النماذج اللغوية تعني:', options: ['توقف النظام عن العمل تماماً', 'مسح البيانات المسجلة بالخطأ', 'تقديم النموذج لمعلومات غير صحيحة أو مخترعة بثقة عالية'], correctOption: 2 },
+    { text: 'ما التعقيدية الزمانية (Time Complexity) للبحث في شجرة بحث ثنائية متوازنة (Balanced BST)؟', options: ['O(1)', 'O(n²)', 'O(log n)'], correctOption: 2 },
+    { text: 'حالة الـ Deadlock في أنظمة التشغيل تعني:', options: ['ارتفاع درجة حرارة اللوحة الأم', 'توقف العمليات لأن كل عملية تنتظر مورداً تحتجز العمليات الأخرى', 'انقطاع الاتصال بالشبكة المحلية'], correctOption: 1 },
+    { text: 'مشكلة Race Condition في البرمجة متعددة الخيوط (Multithreading) تحدث عندما:', options: ['تحاول خيوط برمجية متعددة القراءة والتعديل على نفس البيانات في نفس الوقت دون تزامن', 'يعمل المعالج بأقصى سرعة ممكنة', 'يغلق البرنامج تلقائياً بعد إنهاء المهام'], correctOption: 0 },
+    { text: 'ما ميزة بروتوكول UDP مقارنة بـ TCP؟', options: ['أنه بروتوكول غير متصل (Connectionless) وسريع ولكنه لا يضمن وصول الحزم', 'أنه يبطئ نقل البيانات في الشبكة', 'أنه يضمن ترتيب وصول الحزم بنسبة 100%'], correctOption: 0 },
+    { text: 'ما الفرق الجوهري بين gRPC و REST APIs؟', options: ['gRPC تعتمد على HTTP/2 و Protocol Buffers بينما REST تعتمد غالباً على HTTP/1.1 و JSON', 'REST أسرع دائماً في نقل البيانات', 'gRPC لا تعمل مع لغات البرمجة الحديثة'], correctOption: 0 },
+    { text: 'الهدف الرئيسي من استخدام أنظمة الـ CI/CD Pipelines هو:', options: ['أتمتة عمليات بناء، اختبار، ونشر الكود باستمرار وبأقل أخطاء بشرية', 'كتابة الأكواد البرمجية بدلاً من المطورين', 'مسح الملفات القديمة من السيرفر'], correctOption: 0 },
+    { text: 'الـ Reverse Proxy (مثل Nginx) يُستخدم أساساً لـ:', options: ['استقبال الطلبات وتوزيع الأحمال (Load Balancing) وحماية السيرفرات الخلفية', 'تسريع تشغيل الألعاب على الحاسوب', 'تعديل كود الـ HTML تلقائياً'], correctOption: 0 },
+    { text: 'ميزة الـ WebSockets مقارنة بالـ HTTP التقليدي:', options: ['أنها تعمل بدون إتصال بالإنترنت', 'توفير قناة اتصال مستمرة وثنائية الاتجاه (Full-duplex) بين العميل والسيرفر', 'تقليل حجم الصور المرفوعة تلقائياً'], correctOption: 1 },
+    { text: 'هجوم Cross-Site Scripting (XSS) يتضمن:', options: ['حقن كود JavaScript خبيث ليتنفذ داخل متصفح المستخدمين الآخرين', 'قطع التيار الكهربائي عن غرفة السيرفرات', 'تخمين كلمة المرور يدوياً'], correctOption: 0 },
+    { text: 'حماية قواعد البيانات من هجمات الـ SQL Injection تتطلب:', options: ['تغيير اسم قاعدة البيانات أسبوعياً', 'استخدام الاستعلامات المعلمية (Prepared Statements / Parameterized Queries)', 'إغلاق السيرفرات خلال أوقات الليل'], correctOption: 1 },
+    { text: 'ثغرة الـ Zero-Day تعني:', options: ['ثغرة أمنية مجهولة تم استغلالها قبل توفر تحديث أو علاج أمني لها من المطور', 'ثغرة تظهر فقط في اليوم الأول من كل شهر', 'تطبيق ينتهي اشتراكه بعد يوم واحد'], correctOption: 0 },
+    { text: 'الـ Hashing (مثل SHA-256) يختلف عن التشفير التقليدي بأنه:', options: ['يمكن فك الهاش بسهولة بمفتاح خاص', 'عملية أحادية الاتجاه (One-way) لا يمكن استرجاع النص الأصلي منها', 'يُستخدم فقط للصور وليس للنصوص'], correctOption: 1 },
+    { text: 'هجوم الـ DDoS Attack يهدف إلى:', options: ['إغراق السيرفر بطلبات وهمية مكثفة من شبكة أجهزة مخترقة لإسقاط الخدمة', 'سرقة الشاشات التابعة للسيرفر', 'تعديل ألوان الموقع الإلكتروني'], correctOption: 0 },
+    { text: 'أداة الـ JWT (JSON Web Token) تُستخدم بشكل شائع في:', options: ['تخزين ملفات الفيديو الضخمة', 'إثبات الهوية والترخيص (Authentication & Authorization) بشكل آمن', 'ضغط الصور قبل نشرها'], correctOption: 1 },
+
+    // ⚜️ 25 Scout, Religious & General Culture Questions
     { text: 'أين يوجد مقام سيدنا إبراهيم عليه السلام ؟', options: ['المدينة المنورة', 'القدس', 'مكة المكرمة'], correctOption: 2 },
     { text: 'ما هي أطول رحلة في تاريخ البشرية ؟', options: ['رحلة الشتاء والصيف', 'رحلة الإسراء والمعراج', 'اكتشاف الأميركتين'], correctOption: 1 },
     { text: 'ما هي السورة التي تقع في نصف القرآن ؟', options: ['سورة مريم', 'سورة الكهف', 'سورة الأنفال'], correctOption: 1 },
     { text: 'ما هو الشيء الذي خُلق من حجر ؟', options: ['ناقة صالح', 'هدهد سليمان', 'فيل أبرهة'], correctOption: 0 },
-    { text: 'من هم من حُفظهم بالحجر ؟', options: ['أهل قريش', 'أهل الكهف', 'قوم عاد'], correctOption: 1 },
-    { text: 'من الشخص الذي هلك بالحجر ؟', options: ['قوم عاد', 'قوم نوح', 'جيش ابرهة الحبشي'], correctOption: 2 },
     { text: 'لماذا سمي سيدنا عمر ابن الخطاب بالفاروق ؟', options: ['لأنه يفرق بين الحق والباطل', 'لأنه يفرق أحسنا', 'لأنه قدراته فارقة عن غيره'], correctOption: 0 },
     { text: 'من هو مؤذن الرسول ؟', options: ['عبد الله بن مسعود', 'بلال بن رباح', 'سعد بن أبي وقاص'], correctOption: 1 },
     { text: 'من أول من رمى سهم في سبيل الله ؟', options: ['حمزة بن عبد المطلب', 'عمر بن الخطاب', 'سعد بن أبي وقاص'], correctOption: 2 },
     { text: 'من الذي قاد المسلمين في معركة عين جالوت ؟', options: ['صلاح الدين الأيوبي', 'سيف الدين قطز', 'الظاهر بيبرس'], correctOption: 1 },
-    { text: 'من أول من أسس علم الأخلاق ؟', options: ['سيدنا عبد الله بن عباس', 'سيدنا علي بن أبي طالب', 'سيدنا عمر بن عبد العزيز'], correctOption: 2 },
     { text: 'كم عدد السجدات في القرآن الكريم ؟', options: ['15 سجدة', '21 سجدة', '30 سجدة'], correctOption: 0 },
-    { text: 'ما هي الشجرة التي تنبت في قعر جهنم ؟', options: ['شجرة جهنم', 'شجرة الزقوم', 'شجرة خميائل'], correctOption: 1 },
     { text: 'كم عدد أرباع القرآن الكريم ؟', options: ['180 ربع', '240 ربع', '280 ربع'], correctOption: 1 },
     { text: 'كم عدد آيات القرآن الكريم ؟', options: ['6236', '6848', '7214'], correctOption: 0 },
     { text: 'كم عدد المرات التي سعت فيها السيدة هاجر بين الصفا والمروة ؟', options: ['خمس مرات', 'سبع مرات', 'تسع مرات'], correctOption: 1 },
     { text: 'ماهي السورة الوحيدة التي بدأت وانتهت بنداء ( يا أيها الذين أمنو ) ؟', options: ['سورة الأنفال', 'سورة هود', 'سورة الممتحنة'], correctOption: 2 },
-    { text: 'كم عدد الطيور التي أمر الله سيدنا إبراهيم أن يوزع أصلائها على قمم الجبال ؟', options: ['أربع طيور', 'ستة طيور', 'ثمانية طيور'], correctOption: 0 },
     { text: 'ما هي أكبر جزيرة في البحر المتوسط ؟', options: ['براونسي', 'جزيرة صقلية', 'برمودة'], correctOption: 1 },
     { text: 'ما هي اصغر دولة في العالم ؟', options: ['الفاتيكان', 'البحرين', 'قطر'], correctOption: 0 },
-    { text: 'ما اللون الموجود في 75% من أعلام الدول ؟', options: ['اللون الاحمر', 'اللون الأبيض', 'اللون الأخضر'], correctOption: 2 },
-    { text: 'في أنف الإنسان يوجد ما يسمى بالجيو بالأنفية فما عدد هذه الجيوب ؟', options: ['8 جيوب', '10 جيوب', '12 جيوب'], correctOption: 0 },
     { text: 'ما هي أصغر دولة عربية من حيث المساحة ؟', options: ['قطر', 'البحرين', 'جزر القمر'], correctOption: 1 },
     { text: 'ما هي المدينة التي تسمى بمدينة الضباب ؟', options: ['باريس', 'موسكو', 'لندن'], correctOption: 2 },
     { text: 'من هو مكتشف أمريكا ؟', options: ['ماجلان', 'كريستوفر كولومبوس', 'كونت كونتى'], correctOption: 1 },
     { text: 'إلى ماذا يشير مصطلح الذهب الأسود ؟', options: ['البترول', 'الفحم', 'الغاز الطبيعي'], correctOption: 0 },
-    { text: 'كم تبلغ نسبة ملوحة البحر الميت بالمقارنة بالمحيطات ؟', options: ['7 مرات', '8 مرات', '9 مرات'], correctOption: 2 },
-    { text: 'ما هو أكبر بحار العالم ؟', options: ['البحر الأحمر', 'البحر الأبيض المتوسط', 'البحر الميت'], correctOption: 1 },
     { text: 'ما هي أول دولة قامت باستخدام الطابع البريدي فما هي ؟', options: ['فرنسا', 'بريطانيا', 'تركيا'], correctOption: 1 },
     { text: 'ماهي الدولة التي يطلق عليها بلد المليون شهيد ؟', options: ['مصر', 'فلسطين', 'الجزائر'], correctOption: 2 },
-    { text: 'ما هو الملك الذي قتلته ذبابة ؟', options: ['النجاشي', 'النمرود', 'العكنان'], correctOption: 1 },
     { text: 'من أول من عرف البارود و أشعله ؟', options: ['الصينيون', 'البيانيون', 'القدماء المصريين'], correctOption: 0 },
-    { text: 'ما هي أول دوله استخدمت النساء في مصلحة البريد ؟', options: ['بريطانيا', 'فرنسا', 'اليابان'], correctOption: 1 },
-    { text: 'من أول من اكتشف المطاط ؟', options: ['الفرنسييون', 'الألمان', 'الإسبان'], correctOption: 2 },
-    { text: 'من أول من استعمل خاتم الخطبة ؟', options: ['الرومان', 'الصينيون', 'القدماء المصريون'], correctOption: 0 },
-    { text: 'ما هي أول الصحف العربية ؟', options: ['صحيفة الوقائع المصرية', 'الأهرام المصرية', 'الميدان الجزائرية'], correctOption: 0 },
     { text: 'كم عدد ألوان قوس قزح ؟', options: ['7 ألوان', '9 ألوان', '11 لون'], correctOption: 0 },
-    { text: 'ما حجم كوكب المشترى بالنسبة للأرض ؟', options: ['316 مرة', '318 مرة', '320 مرة'], correctOption: 1 },
-    { text: 'أين توجد عظمة الترقوة ؟', options: ['في الكتف', 'في الحوض', 'في الركبة'], correctOption: 0 },
-    { text: 'كم مدينة تسمى القاهرة ؟', options: ['13 مدينة', '16 مدينة', '19 مدينة'], correctOption: 0 },
-    { text: 'من أول من اكتشف الدورة الدموية ؟', options: ['ابن النفيس', 'بعلبك', 'ابن سينا'], correctOption: 0 },
-    { text: 'من أول من عرف مكونات العين ؟', options: ['أبو بكر الرازي', 'ابن النفيس', 'الحسن ابن الهيثم'], correctOption: 2 },
     { text: 'من هو أول من اكتشف وحدة قياس الفيمتو ثانية ( Femto - Second ) ؟', options: ['د/أحمد زويل', 'الحسن بن الهيثم', 'جابر بن حيان'], correctOption: 0 },
-    { text: 'من هو أبو الكيمياء ؟', options: ['جابر بن حيان', 'ابن النفيس', 'أبوبكر الرازي'], correctOption: 0 },
-    { text: 'من هو مؤسس علم الجبر ؟', options: ['جابر بن حيان', 'ابن النفيس', 'الخوارزمي'], correctOption: 2 },
-    { text: 'من هو مخترع الراديو ؟', options: ['ماركوني', 'أديسون', 'جرهام بيل'], correctOption: 0 },
-    { text: 'من هو مخترع المصباح ؟', options: ['ماركوني', 'أديسون', 'جرهام بيل'], correctOption: 1 },
-    { text: 'من هو مخترع التليفون ؟', options: ['ماركوني', 'أديسون', 'جرهام بيل'], correctOption: 2 },
-    { text: 'من هو مخترع البنسلين ؟', options: ['ألكسندر فلمنج', 'أرشميدس', 'أحمد زويل'], correctOption: 0 },
     { text: 'من هو مخترع قانون الجاذبية ؟', options: ['آينشتين', 'أرشميدس', 'إسحاق نيوتن'], correctOption: 2 }
   ];
 
   // Wipe old questions for comp-digital-1
   await prisma.question.deleteMany({ where: { competitionId: 'comp-digital-1' } });
 
-  for (let idx = 0; idx < genius50Questions.length; idx++) {
-    const q = genius50Questions[idx];
+  for (let idx = 0; idx < balanced50Questions.length; idx++) {
+    const q = balanced50Questions[idx];
     await prisma.question.create({
       data: {
         id: `g_q_${idx + 1}`,
@@ -171,12 +174,12 @@ async function seed() {
         text: q.text,
         options: JSON.stringify(q.options),
         correctOption: q.correctOption,
-        points: 2, // 50 questions * 2 points = 100 total
+        points: 2, // 50 * 2 = 100 points
         sortOrder: idx + 1
       }
     });
   }
-  console.log('[Seed] All 50 Genius Quiz questions seeded successfully!');
+  console.log('[Seed] All 50 Balanced Genius Questions (25 AI & Tech + 25 Scout & Culture) seeded successfully!');
 
   // 6️⃣ Seed Official 22 Arab Geography Countries
   const arabCountries = [
@@ -212,7 +215,7 @@ async function seed() {
     });
   }
 
-  // 7️⃣ Create official 8 Zones from center map
+  // 7️⃣ Official 8 Zones
   const officialZones = [
     { id: 'zone-1', numberLabel: '١', name: 'مبنى الإدارة', description: 'المقر الإداري واستقبال الوفود', colorHex: '#ef4444', order: 1 },
     { id: 'zone-2', numberLabel: '٢', name: 'مبنى الأنشطة', description: 'منطقة الورش والمسابقات الثقافية والذكاء الاصطناعي', colorHex: '#10b981', order: 2 },
@@ -232,7 +235,7 @@ async function seed() {
     });
   }
 
-  // 8️⃣ Create official Agenda Items
+  // 8️⃣ Official Agenda Items
   const officialAgenda = [
     {
       id: 'agenda-1',
@@ -325,7 +328,7 @@ async function seed() {
     });
   }
 
-  console.log('[Seed] All 50 Genius Questions & Datasets populated successfully!');
+  console.log('[Seed] Balanced 50 Genius Questions (25 AI/Tech + 25 Scout) populated successfully!');
 }
 
 seed()
