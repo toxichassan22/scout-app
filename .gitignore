@@ -47,6 +47,9 @@ coverage/
 # Temporary folders
 tmp/
 temp/
+scout-backups/
+server/prisma/*.db-wal
+server/prisma/*.db-shm
 
 # Playwright
 .playwright-mcp/
