@@ -430,4 +430,21 @@ router.post('/backup/trigger', async (req, res) => {
   }
 });
 
+// Admin Manual Git Pull Deploy Endpoint
+router.post('/deploy/git-pull', async (req, res) => {
+  const { exec } = await import('child_process');
+  try {
+    const deployScriptPath = '/var/www/scout-app/deploy.sh';
+    exec(`chmod +x ${deployScriptPath} && ${deployScriptPath}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error('[Deploy Error]:', stderr || error.message);
+        return res.status(500).json({ error: 'حدث خطأ أثناء التحديث', details: stderr || error.message });
+      }
+      res.json({ success: true, message: 'تم سحب وتحديث السيرفر بنجاح من GitHub!', log: stdout });
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في تشغيل سكريبت النشر' });
+  }
+});
+
 export default router;

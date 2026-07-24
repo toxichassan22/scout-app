@@ -171,3 +171,6 @@ export const triggerCleanSlate = (confirmPassword) =>
     method: 'POST', 
     body: JSON.stringify({ confirmPassword }) 
   });
+
+export const triggerGitDeploy = () => 
+  apiFetch('/admin/deploy/git-pull', { method: 'POST' });
