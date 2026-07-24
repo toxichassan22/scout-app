@@ -25,6 +25,20 @@ router.post('/', authenticateToken, requireRole(['team']), async (req, res) => {
       return res.status(400).json({ error: 'أدخل عنواناً أو محتوى أو ملفاً' });
     }
 
+    // Verify valid competition ID or fallback to null (to satisfy foreign key)
+    let validCompId = null;
+    if (competitionId) {
+      const comp = await prisma.competition.findFirst({
+        where: {
+          OR: [
+            { id: String(competitionId) },
+            { slug: String(competitionId) }
+          ]
+        }
+      });
+      if (comp) validCompId = comp.id;
+    }
+
     let storedName = fileName || 'report.txt';
     let fileUrl = '';
 
@@ -32,8 +46,8 @@ router.post('/', authenticateToken, requireRole(['team']), async (req, res) => {
       const match = String(fileBase64).match(/^data:([^;]+);base64,(.+)$/);
       const raw = match ? match[2] : String(fileBase64);
       const buffer = Buffer.from(raw, 'base64');
-      if (buffer.length > 8 * 1024 * 1024) {
-        return res.status(400).json({ error: 'حجم الملف أكبر من 8 ميجابايت' });
+      if (buffer.length > 50 * 1024 * 1024) {
+        return res.status(400).json({ error: 'حجم الملف أكبر من 50 ميجابايت' });
       }
       const safeBase = (fileName || `report-${Date.now()}`).replace(/[^a-zA-Z0-9._\-\u0600-\u06FF]/g, '_');
       storedName = `${Date.now()}-${safeBase}`;
@@ -51,7 +65,7 @@ router.post('/', authenticateToken, requireRole(['team']), async (req, res) => {
     const report = await prisma.report.create({
       data: {
         teamId: req.user.id,
-        competitionId: competitionId || null,
+        competitionId: validCompId,
         title: title || '',
         content: content || '',
         fileUrl,
@@ -92,8 +106,8 @@ router.post('/', authenticateToken, requireRole(['team']), async (req, res) => {
 
     res.status(201).json({ success: true, report });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في رفع التقرير' });
+    console.error('[Report Upload Backend Error]:', err);
+    res.status(500).json({ error: 'فشل في رفع التقرير: ' + err.message });
   }
 });
 
