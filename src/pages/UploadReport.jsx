@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Send, AlertCircle, Clock, UploadCloud, FileCheck, History,
@@ -6,11 +6,26 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
-import { uploadTeamReport } from '../services/api';
+import { uploadTeamReport, getCompetitions } from '../services/api';
 
 const UploadReport = () => {
   const { user } = useAuth();
-  const { competitions, submitEntry, submissions } = useCompetitions();
+  const { submitEntry, submissions } = useCompetitions();
+
+  const [competitions, setCompetitions] = useState([]);
+
+  useEffect(() => {
+    const fetchComps = async () => {
+      try {
+        const res = await getCompetitions();
+        const judged = res.filter(c => c.type === 'manual_judged');
+        setCompetitions(judged);
+      } catch (err) {
+        console.error('Failed to load competitions:', err);
+      }
+    };
+    fetchComps();
+  }, []);
 
   // Dynamic MAX_REPORTS based on manual report competitions (16)
   const reportCompetitions = competitions.filter((c) => c.type === 'manual_judged' || !c.type || c.type === 'video');

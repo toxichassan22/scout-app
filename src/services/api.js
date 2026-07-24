@@ -205,6 +205,8 @@ export const createJudge = (data) =>
 export const deleteJudge = (id) => 
   apiFetch(`/admin/judges/${id}`, { method: 'DELETE' });
 
+export const getCompetitions = () => apiFetch('/competitions');
+
 export const getAdminCompetitions = () => 
   apiFetch('/admin/competitions');
 
