@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const BACKUP_ROOT = path.join(__dirname, '..', '..', 'scout-backups');
-const GDRIVE_WEBHOOK_URL = process.env.GDRIVE_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycbymWqZ5DAN9AKghfHYcUXaE8pNmE6Njv-CWleicNZTHBgNz3UcC7bQfy81QldjZNnDv5Q/exec';
+const GDRIVE_WEBHOOK_URL = process.env.GDRIVE_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycbzHD74T61yvqwmYXReiDoO74vIQ_bRMuxylQy_QhGO37whehtCmzDAGHFvx1Nuf1RCyzA/exec';
 
 /**
  * Upload a file buffer to Google Drive with structured subfolder path support
