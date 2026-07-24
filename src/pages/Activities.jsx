@@ -11,10 +11,15 @@ import MediaSlot from '../components/MediaSlot';
 
 /* خريطة صور المسابقات (تُملأ لاحقاً من MEDIA_MANIFEST) */
 const COMP_MEDIA = {
-  1: { slot: 'comp-two-truths', label: 'غلاف مسابقة حقيقتان وكذبة', desc: 'ميّز العبارة الكاذبة وسط حقيقتين كشفيتين — سرعة وتركيز.', tone: 'violet' },
-  2: { slot: 'comp-genius', label: 'غلاف مسابقة عبقرينو', desc: 'أسئلة ذكاء ومعلومات عامة بسرعة البرق — للعقول المتوقدة.', tone: 'ember' },
-  3: { slot: 'comp-geography', label: 'غلاف مسابقة الجغرافيا', desc: 'عواصم وعملات وأعلام ١٠ دول — رحلة حول العالم من مكانك.', tone: 'fern' },
-  4: { slot: 'comp-video-ai', label: 'غلاف مسابقة تصميم الفيديو', desc: 'اصنع فيديو بالذكاء الاصطناعي من برومبت إبداعي — ٣ محاولات.', tone: 'violet' },
+  1: { slot: 'comp-genius', label: 'غلاف مسابقة عبقرينو', desc: 'خمسون سؤالاً متوازناً في ربع ساعة - الذكاء الاصطناعي والثقافة الكشفية والعامة.', tone: 'ember', code: '1001' },
+  2: { slot: 'comp-geography', label: 'غلاف مسابقة الجغرافيا', desc: 'التعرف على الأعلام والعواصم والعملات والتقسيم الإداري ونظام الحكم للـ 22 دولة عربية.', tone: 'fern', code: '1003' },
+  3: { slot: 'comp-two-truths', label: 'غلاف مسابقة حقيقتان وكذبة', desc: 'اكتشف عبارة الزور من بين الحقائق الكشفية والتاريخية — سرعة وتركيز.', tone: 'violet', code: '1002' },
+  4: { slot: 'comp-video-ai', label: 'غلاف مسابقة تصميم الفيديو الكشفي والتقارير', desc: 'تقييم لجنة التحكيم لمونتاج ومحتوى الفيديو الكشفي والتقارير.', tone: 'violet', code: '1234' },
+  genius: { slot: 'comp-genius', label: 'غلاف مسابقة عبقرينو', desc: 'خمسون سؤالاً متوازناً في ربع ساعة - الذكاء الاصطناعي والثقافة الكشفية والعامة.', tone: 'ember', code: '1001' },
+  geography: { slot: 'comp-geography', label: 'غلاف مسابقة الجغرافيا', desc: 'التعرف على الأعلام والعواصم والعملات والتقسيم الإداري ونظام الحكم للـ 22 دولة عربية.', tone: 'fern', code: '1003' },
+  two_truths: { slot: 'comp-two-truths', label: 'غلاف مسابقة حقيقتان وكذبة', desc: 'اكتشف عبارة الزور من بين الحقائق الكشفية والتاريخية — سرعة وتركيز.', tone: 'violet', code: '1002' },
+  video_design: { slot: 'comp-video-ai', label: 'غلاف مسابقة تصميم الفيديو الكشفي والتقارير', desc: 'تقييم لجنة التحكيم لمونتاج ومحتوى الفيديو الكشفي والتقارير.', tone: 'violet', code: '1234' },
+  video: { slot: 'comp-video-ai', label: 'غلاف مسابقة تصميم الفيديو الكشفي والتقارير', desc: 'تقييم لجنة التحكيم لمونتاج ومحتوى الفيديو الكشفي والتقارير.', tone: 'violet', code: '1234' },
 };
 
 const toneCls = {
@@ -25,8 +30,9 @@ const toneCls = {
 
 /* ═══ كرت مسابقة كبير (Showcase Card) ═══ */
 const CompetitionShowcase = ({ comp, completed, onEnter, index }) => {
-  const media = COMP_MEDIA[comp.id] || { slot: `comp-${comp.id}`, label: `غلاف ${comp.name}`, desc: '', tone: 'violet' };
+  const media = COMP_MEDIA[comp.type] || COMP_MEDIA[comp.slug] || COMP_MEDIA[comp.id] || { slot: `comp-${comp.id}`, label: `غلاف ${comp.name}`, desc: '', tone: 'violet', code: comp.passcode || '----' };
   const tone = toneCls[media.tone];
+  const compCode = comp.passcode || media.code;
 
   return (
     <motion.article
@@ -75,7 +81,12 @@ const CompetitionShowcase = ({ comp, completed, onEnter, index }) => {
 
       {/* المحتوى */}
       <div className="p-6 text-right sm:p-7">
-        <h3 className="mb-2 text-xl font-black text-white sm:text-2xl">{comp.name}</h3>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <span className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 font-mono text-xs font-black text-amber-300">
+            الكود: {compCode}
+          </span>
+          <h3 className="text-xl font-black text-white sm:text-2xl">{comp.name}</h3>
+        </div>
         <p className="mb-6 text-sm leading-7 text-[#a9a3c2]">{media.desc}</p>
 
         <div className="flex items-center justify-between">

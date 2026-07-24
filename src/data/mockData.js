@@ -25,10 +25,10 @@ export const MOCK_TEAMS = [
 ];
 
 export const MOCK_COMPETITIONS = [
-  { id: 1, name: 'حقيقتين وكذبة', type: 'two_truths', duration: 300, qrCode: 'comp_1', isOpen: false, startTime: null, password: '123' },
-  { id: 2, name: 'عبقرينو', type: 'genius', duration: 300, qrCode: 'comp_2', isOpen: false, startTime: null, password: '123' },
-  { id: 3, name: 'الجغرافيا', type: 'geography', duration: 1800, qrCode: 'comp_3', isOpen: false, startTime: null, password: '123' },
-  { id: 4, name: 'تصميم الفيديو', type: 'video', duration: null, qrCode: 'comp_4', isOpen: false, startTime: null, password: '123' },
+  { id: 1, name: 'مسابقة عبقرينو', type: 'genius', duration: 900, qrCode: 'comp_1001', isOpen: true, startTime: null, passcode: '1001', password: '1001' },
+  { id: 2, name: 'مسابقة الجغرافيا', type: 'geography', duration: 600, qrCode: 'comp_1003', isOpen: true, startTime: null, passcode: '1003', password: '1003' },
+  { id: 3, name: 'مسابقة حقيقتان وكذبة', type: 'two_truths', duration: 600, qrCode: 'comp_1002', isOpen: true, startTime: null, passcode: '1002', password: '1002' },
+  { id: 4, name: 'مسابقة تصميم الفيديو الكشفي والتقارير', type: 'video', duration: null, qrCode: 'comp_1234', isOpen: true, startTime: null, passcode: '1234', password: '1234' },
 ];
 
 export const GEOGRAPHY_COUNTRIES = [

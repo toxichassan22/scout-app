@@ -1,10 +1,10 @@
 import { ArrowRight, CheckCircle, Clock, Lock, RadioTower, Trophy } from 'lucide-react';
 
 const BADGES = {
-  two_truths: { icon: Trophy, code: 'T2' },
-  genius: { icon: RadioTower, code: 'IQ' },
-  geography: { icon: Trophy, code: 'MAP' },
-  video: { icon: RadioTower, code: 'AI' },
+  genius: { icon: RadioTower, code: '1001' },
+  two_truths: { icon: Trophy, code: '1002' },
+  geography: { icon: Trophy, code: '1003' },
+  video: { icon: RadioTower, code: '1234' },
 };
 
 const CompetitionCard = ({ competition, completed, lockedMessage, onScan }) => {
@@ -30,8 +30,8 @@ const CompetitionCard = ({ competition, completed, lockedMessage, onScan }) => {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-amber-400/15 bg-amber-400/10 text-amber-400">
             <Icon size={20} />
           </div>
-          <span className="absolute -bottom-1.5 -left-1.5 rounded-md bg-black/80 px-1.5 py-0.5 text-[9px] font-bold text-primary ring-1 ring-primary/20">
-            {badge.code}
+          <span className="absolute -bottom-1.5 -left-1.5 rounded-md bg-black/80 px-1.5 py-0.5 font-mono text-[9px] font-bold text-amber-400 ring-1 ring-amber-400/20">
+            {competition.passcode || badge.code}
           </span>
         </div>
       </div>

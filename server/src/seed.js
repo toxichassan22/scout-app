@@ -32,7 +32,7 @@ async function seed() {
 
   for (const t of sampleTeams) {
     const passwordHash = await bcrypt.hash(t.pass, 10);
-    await prisma.team.upsert({
+    const team = await prisma.team.upsert({
       where: { username: t.username },
       update: {},
       create: {
@@ -41,6 +41,20 @@ async function seed() {
         label: t.label
       }
     });
+
+    // Seed 24 default scout members for each team
+    const existingMembersCount = await prisma.teamMember.count({ where: { teamId: team.id } });
+    if (existingMembersCount === 0) {
+      for (let i = 1; i <= 24; i++) {
+        await prisma.teamMember.create({
+          data: {
+            teamId: team.id,
+            name: `عضو كشفي #${i} - ${t.label}`,
+            role: i === 1 ? 'قائد الفريق' : i === 2 ? 'نائب القائد' : 'عضو'
+          }
+        });
+      }
+    }
   }
 
   // 3️⃣ Official Sample Judge

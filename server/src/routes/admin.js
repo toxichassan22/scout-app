@@ -44,10 +44,67 @@ router.get('/leaderboard', async (req, res) => {
 // Teams CRUD
 router.get('/teams', async (req, res) => {
   try {
-    const teams = await prisma.team.findMany({ orderBy: { createdAt: 'desc' } });
+    const teams = await prisma.team.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: { select: { members: true } }
+      }
+    });
     res.json(teams);
   } catch (err) {
     res.status(500).json({ error: 'فشل في جلب الفرق' });
+  }
+});
+
+// Get members of a specific team
+router.get('/teams/:teamId/members', async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const members = await prisma.teamMember.findMany({
+      where: { teamId },
+      orderBy: { createdAt: 'asc' }
+    });
+    res.json(members);
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في جلب أعضاء الفريق' });
+  }
+});
+
+// Add member to a team (Admin can exceed 24 limit!)
+router.post('/teams/:teamId/members', async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const { name, role } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'اسم العضو مطلوب' });
+    }
+
+    const member = await prisma.teamMember.create({
+      data: {
+        teamId,
+        name: name.trim(),
+        role: role ? role.trim() : 'عضو'
+      }
+    });
+
+    res.status(201).json(member);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'فشل في إضافة العضو' });
+  }
+});
+
+// Delete member from team database
+router.delete('/members/:memberId', async (req, res) => {
+  try {
+    const { memberId } = req.params;
+    await prisma.teamMember.delete({
+      where: { id: memberId }
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'فشل في حذف العضو' });
   }
 });
 

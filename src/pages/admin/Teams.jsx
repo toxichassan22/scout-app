@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Trash2, Upload } from 'lucide-react';
-import { getAdminTeams, createTeam, deleteTeam, importTeams } from '../../services/api';
+import { Users, Plus, Trash2, Upload, UserCheck, X, UserPlus, ShieldAlert, Award } from 'lucide-react';
+import {
+  getAdminTeams, createTeam, deleteTeam, importTeams,
+  getTeamMembers, addTeamMember, deleteTeamMember
+} from '../../services/api';
 
 const AdminTeams = () => {
   const [teams, setTeams] = useState([]);
@@ -10,6 +13,14 @@ const AdminTeams = () => {
   const [importText, setImportText] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Selected Team Roster Modal State
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState('عضو');
+  const [memberError, setMemberError] = useState('');
 
   useEffect(() => {
     fetchTeams();
@@ -23,6 +34,53 @@ const AdminTeams = () => {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openTeamRoster = async (team) => {
+    setSelectedTeam(team);
+    setLoadingMembers(true);
+    setMemberError('');
+    try {
+      const data = await getTeamMembers(team.id);
+      setMembers(data);
+    } catch (err) {
+      console.error(err);
+      setMemberError('فشل في جلب أعضاء الفريق');
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
+
+  const handleAddMember = async (e) => {
+    e.preventDefault();
+    if (!newMemberName.trim() || !selectedTeam) return;
+    setMemberError('');
+
+    try {
+      await addTeamMember(selectedTeam.id, {
+        name: newMemberName.trim(),
+        role: newMemberRole
+      });
+      setNewMemberName('');
+      // Refresh members and teams list
+      const updatedMembers = await getTeamMembers(selectedTeam.id);
+      setMembers(updatedMembers);
+      fetchTeams();
+    } catch (err) {
+      setMemberError(err.message || 'فشل إضافة العضو');
+    }
+  };
+
+  const handleDeleteMember = async (memberId) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا العضو من قاعدة البيانات؟')) return;
+    try {
+      await deleteTeamMember(memberId);
+      const updatedMembers = await getTeamMembers(selectedTeam.id);
+      setMembers(updatedMembers);
+      fetchTeams();
+    } catch (err) {
+      alert('فشل حذف العضو');
     }
   };
 
@@ -43,7 +101,6 @@ const AdminTeams = () => {
   const handleBatchImport = async (e) => {
     e.preventDefault();
     setError('');
-    // Format lines: username,password,label OR username label
     const lines = importText.split('\n').map(l => l.trim()).filter(Boolean);
     const parsed = lines.map(line => {
       const parts = line.split(/[,;\t]/).map(p => p.trim());
@@ -64,7 +121,7 @@ const AdminTeams = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا الفريق؟ سيتم حذف درجاته أيضاً.')) return;
+    if (!window.confirm('هل أنت متأكد من حذف هذا الفريق؟ سيتم حذف درجاته وأعضائه أيضاً.')) return;
     try {
       await deleteTeam(id);
       fetchTeams();
@@ -74,14 +131,16 @@ const AdminTeams = () => {
   };
 
   return (
-    <div className="p-6 text-right dir-rtl">
+    <div className="p-6 text-right dir-rtl font-sans">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-black text-white flex items-center gap-2">
-            إدارة الفرق الكشفية المشاركة
+            إدارة الفرق والكشوف الكشفية
             <Users size={24} className="text-emerald-400" />
           </h1>
-          <p className="text-slate-400 text-xs mt-1">إضافة واستيراد وحذف حسابات الفرق واسمائهم الداخلية الخاصة بالأدمن</p>
+          <p className="text-slate-400 text-xs mt-1">
+            إضافة وتعديل الفرق، وعرض وحذف وإضافة أعضاء الفريق فوق الـ 24 شخصاً
+          </p>
         </div>
       </div>
 
@@ -90,12 +149,12 @@ const AdminTeams = () => {
         <div className="card p-6 rounded-2xl border border-slate-800 bg-slate-900/60">
           <h2 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
             <Plus size={16} className="text-emerald-400" />
-            إضافة فريق فردي
+            إضافة فريق جديد
           </h2>
 
           <form onSubmit={handleAddTeam} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-400 mb-1">الاسم الداخلي (خاص بالأدمن فقط)</label>
+              <label className="block text-xs font-bold text-slate-400 mb-1">اسم الفريق الداخلي</label>
               <input
                 type="text"
                 value={label}
@@ -169,22 +228,161 @@ const AdminTeams = () => {
           {loading ? (
             <div className="text-xs text-slate-500 py-4 text-center">جاري تحميل الفرق...</div>
           ) : (
-            <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-              {teams.map((t) => (
-                <div key={t.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-950/40 border border-slate-800">
-                  <button onClick={() => handleDelete(t.id)} className="text-red-400 hover:text-red-300 p-1">
-                    <Trash2 size={15} />
-                  </button>
-                  <div>
-                    <p className="text-xs font-bold text-white">{t.label}</p>
-                    <p className="text-[10px] text-slate-500 font-mono">@{t.username}</p>
+            <div className="space-y-2.5 max-h-[55vh] overflow-y-auto">
+              {teams.map((t) => {
+                const memberCount = t._count?.members || 0;
+                return (
+                  <div
+                    key={t.id}
+                    className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-800 flex items-center justify-between hover:border-slate-700 transition"
+                  >
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleDelete(t.id)}
+                        className="text-red-400 hover:text-red-300 p-1.5 rounded-lg bg-red-500/10 border border-red-500/20"
+                        title="حذف الفريق كاملاً"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+
+                      <button
+                        onClick={() => openTeamRoster(t)}
+                        className="text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg flex items-center gap-1 transition"
+                        title="إدارة أعضاء الفريق"
+                      >
+                        <UserCheck size={13} />
+                        إدارة الأعضاء ({memberCount})
+                      </button>
+                    </div>
+
+                    <div
+                      onClick={() => openTeamRoster(t)}
+                      className="cursor-pointer text-right flex-1 mr-3"
+                    >
+                      <p className="text-xs font-black text-white hover:text-amber-400 transition">{t.label}</p>
+                      <p className="text-[10px] text-slate-500 font-mono">@{t.username}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </div>
+
+      {/* ═══ Team Members Roster Modal ═══ */}
+      {selectedTeam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 dir-rtl">
+          <div className="card p-6 rounded-3xl bg-slate-900 border border-emerald-500/30 max-w-xl w-full text-right shadow-2xl relative max-h-[90vh] flex flex-col">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+              <button
+                onClick={() => setSelectedTeam(null)}
+                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-2">
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs px-3 py-1 rounded-full font-mono font-bold">
+                  {members.length} عضواً مسجلاً
+                </span>
+                <h3 className="text-base font-black text-white">
+                  كشف أعضاء فريق: <span className="text-amber-400">{selectedTeam.label}</span>
+                </h3>
+              </div>
+            </div>
+
+            {/* Add Member Form (Beyond 24) */}
+            <form onSubmit={handleAddMember} className="mb-5 p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 mb-1">
+                <UserPlus size={15} />
+                إضافة شخص جديد لـ {selectedTeam.label} (تجاوز الـ 24 شخصاً):
+              </span>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newMemberName}
+                  onChange={(e) => setNewMemberName(e.target.value)}
+                  placeholder="اسم الشخص بالكامل..."
+                  className="ai-input text-right text-xs flex-1"
+                  required
+                />
+
+                <select
+                  value={newMemberRole}
+                  onChange={(e) => setNewMemberRole(e.target.value)}
+                  className="ai-input text-xs text-right bg-slate-900 w-32"
+                >
+                  <option value="عضو">عضو كشفي</option>
+                  <option value="قائد الفريق">قائد الفريق</option>
+                  <option value="نائب القائد">نائب القائد</option>
+                  <option value="مسؤول">مسؤول إداري</option>
+                </select>
+
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shrink-0"
+                >
+                  إضافة
+                </button>
+              </div>
+
+              {memberError && <p className="text-xs text-red-400 font-bold">{memberError}</p>}
+            </form>
+
+            {/* Members List */}
+            <div className="overflow-y-auto flex-1 space-y-2 pr-1">
+              <h4 className="text-xs font-bold text-slate-400 mb-2">قائمة الكشف المسجل ({members.length}):</h4>
+
+              {loadingMembers ? (
+                <div className="py-8 text-center text-xs text-slate-500">جاري تحميل أعضاء الكشف...</div>
+              ) : members.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-500 bg-slate-950/40 rounded-xl border border-slate-800">
+                  لا يوجد أعضاء مضافين في كشف هذا الفريق بعد. أضف أول شخص بالأعلى!
+                </div>
+              ) : (
+                members.map((m, idx) => (
+                  <div
+                    key={m.id}
+                    className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between text-xs"
+                  >
+                    <button
+                      onClick={() => handleDeleteMember(m.id)}
+                      className="text-red-400 hover:text-red-300 p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition"
+                      title="حذف هذا الشخص من قاعدة البيانات"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+
+                    <div className="flex items-center gap-3">
+                      <span className="bg-slate-800 text-slate-300 font-mono text-[10px] px-2 py-0.5 rounded-md">
+                        {m.role}
+                      </span>
+                      <span className="font-bold text-white">{m.name}</span>
+                      <span className="text-[10px] font-mono text-slate-500">#{idx + 1}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="pt-4 border-t border-slate-800 mt-4 flex justify-between items-center text-[11px] text-slate-500">
+              <span>يمكنك إضافة أي عدد من الكشافين بحرية بدون تقييد بـ 24</span>
+              <button
+                onClick={() => setSelectedTeam(null)}
+                className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition"
+              >
+                إغلاق
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -16,6 +16,16 @@ model Team {
 
   scores  Score[]
   reports Report[]
+  members TeamMember[]
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  name      String
+  role      String   @default("عضو")
+  createdAt DateTime @default(now())
 }
 
 model Admin {

@@ -83,14 +83,23 @@ export const getAdminLeaderboard = () =>
 export const getAdminTeams = () => 
   apiFetch('/admin/teams');
 
-export const createTeam = (data) => 
-  apiFetch('/admin/teams', { method: 'POST', body: JSON.stringify(data) });
+export const createTeam = (teamData) => 
+  apiFetch('/admin/teams', { method: 'POST', body: JSON.stringify(teamData) });
 
 export const importTeams = (teams) => 
   apiFetch('/admin/teams/import', { method: 'POST', body: JSON.stringify({ teams }) });
 
 export const deleteTeam = (id) => 
   apiFetch(`/admin/teams/${id}`, { method: 'DELETE' });
+
+export const getTeamMembers = (teamId) =>
+  apiFetch(`/admin/teams/${teamId}/members`);
+
+export const addTeamMember = (teamId, memberData) =>
+  apiFetch(`/admin/teams/${teamId}/members`, { method: 'POST', body: JSON.stringify(memberData) });
+
+export const deleteTeamMember = (memberId) =>
+  apiFetch(`/admin/members/${memberId}`, { method: 'DELETE' });
 
 export const getAdminJudges = () => 
   apiFetch('/admin/judges');
