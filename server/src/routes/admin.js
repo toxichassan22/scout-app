@@ -668,15 +668,20 @@ router.post('/seed-agenda', async (req, res) => {
     const existing = await prisma.agendaItem.findMany();
     const existingTitles = new Set(existing.map(e => e.title));
 
-    const competitions = [
-      { title: 'مسابقة عبقرينو', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '12:00', description: 'مسابقة رقمية ذكية - أسئلة سريعة وتحديات عبقرينو' },
-      { title: 'مسابقة الجغرافيا', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'مسابقة جغرافيا رقمية - اختبر معلوماتك الجغرافية' },
-      { title: 'مسابقة حقيقتان وكذبة', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'تحدي الذكاء - اكتشف الحقيقة من بين الأكاذيب' },
-      { title: 'مسابقة تصميم الفيديو الكشفي', type: 'competition', zoneId: zoneMap['٤'], startTime: '11:30', endTime: '01:00', description: 'تصميم فيديو كشفي إبداعي - أظهر مهاراتك في المونتاج' },
+    const items = [
+      { title: 'تجمع واستقبال الوفود', type: 'ceremony', zoneId: zoneMap['١'], startTime: '08:00', endTime: '09:00', description: 'استقبال جميع الفرق والوفود المشاركة وتوزيع التعليمات التنظيمية' },
+      { title: 'تحية العلم وافتتاح المهرجان', type: 'ceremony', zoneId: zoneMap['٥'], startTime: '09:00', endTime: '10:00', description: 'مراسم رفع العلم الكشفي وافتتاح فعاليات المهرجان رسمياً' },
+      { title: 'اجتماع القادة وتسليم الأعمال الجاهزة', type: 'workshop', zoneId: zoneMap['١'], startTime: '10:00', endTime: '10:30', description: 'اجتماع فرق القادة وتسليم الأبحاث والعروض الكشفية الجاهزة' },
+      { title: 'تسميع القرآن والأحاديث والأنشطة الفنية والرياضية', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'تسميع القرآن - تسميع الأحاديث - المجال الرياضي - الموسيقى الفني - عقد وربطات - تصميم فيديو دقيقتين - عواصم وعملات الدول العربية' },
+      { title: 'تكمية المجال الرياضي والورش والنموذج الكشفي', type: 'workshop', zoneId: zoneMap['٢'], startTime: '11:30', endTime: '01:00', description: 'تكمية المجال الرياضي - الورشة الفنية - النموذج الكشفي - بحث ثلاث أفكار لمبتكرات علمية - ورقة عمل على خطي الأبجية' },
+      { title: 'صلاة الجمعة', type: 'ceremony', zoneId: zoneMap['٣'], startTime: '01:00', endTime: '02:00', description: 'صلاة الجمعة الجماعية' },
+      { title: 'العروض الميدانية والمعرض والمسابقات الكشفية', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'عرض تنظير الطائرات - الكرنفال - كينج الشفرات - عرض تقديمي عن أحد الموديلات - حقيقتين وكذبة - نصب المجلة الأرضية - الكاشف الذكي' },
+      { title: 'الخدمة العامة والعروض التقديمية ومهرجان التلاوة', type: 'workshop', zoneId: zoneMap['٥'], startTime: '04:00', endTime: '05:30', description: 'الخدمة العامة - عرض تقديمي كوميدي عن مهارة من سيربح الكود - الاستعداد للختام - مهرجان التلاوة' },
+      { title: 'حفل الختام والسمر', type: 'ceremony', zoneId: zoneMap['٦'], startTime: '05:30', endTime: '08:30', description: 'حفل الختام والسمر الكشفي - التكريمات والجوائز' },
     ];
 
     let added = 0;
-    for (const item of competitions) {
+    for (const item of items) {
       if (!item.zoneId || existingTitles.has(item.title)) continue;
       await prisma.agendaItem.create({ data: item });
       added++;
