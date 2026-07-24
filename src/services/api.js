@@ -1,5 +1,41 @@
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
+// ─── Server Health Tracker ───
+let serverDown = false;
+let serverDownCallbacks = [];
+const SERVER_CHECK_INTERVAL = 5000;
+
+export const isServerDown = () => serverDown;
+
+const markServerDown = () => {
+  if (!serverDown) {
+    serverDown = true;
+    window.dispatchEvent(new Event('server:down'));
+  }
+};
+
+const markServerUp = () => {
+  if (serverDown) {
+    serverDown = false;
+    window.dispatchEvent(new Event('server:up'));
+  }
+};
+
+// Background server health checker
+const checkServerHealth = async () => {
+  if (!serverDown) return;
+  try {
+    const res = await fetch(`${API_URL}/auth/me`, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+    if (res.ok || res.status === 401) {
+      markServerUp();
+    }
+  } catch {
+    // still down
+  }
+};
+
+setInterval(checkServerHealth, SERVER_CHECK_INTERVAL);
+
 export const getAuthToken = () => {
   return localStorage.getItem('dsc_token');
 };
@@ -35,41 +71,61 @@ export const apiFetch = async (endpoint, options = {}) => {
     ...options.headers
   };
 
-  let response;
-  try {
-    response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers
-    });
-  } catch (networkErr) {
-    const err = new Error('السيرفر غير متاح حالياً');
-    err.isNetworkError = true;
-    throw err;
-  }
+  const isAuthEndpoint = endpoint.includes('/auth/');
+  const maxAttempts = isAuthEndpoint ? 1 : 3;
+  const retryDelay = 2000;
 
-  const data = await response.json().catch(() => ({}));
-
-  if (response.status === 401 || data.forceLogout) {
-    const isDeviceRevoked = !!data.deviceRevoked;
-    if (isDeviceRevoked) {
-      localStorage.removeItem('dsc_token');
-      localStorage.removeItem('dsc_auth_user');
-      window.location.href = '/login?revoked=1';
-      const err = new Error(data.error || 'تم إلغاء اعتماد هذا الجهاز');
-      err.deviceRevoked = true;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let response;
+    try {
+      response = await fetch(`${API_URL}${endpoint}`, {
+        ...options,
+        headers
+      });
+      markServerUp();
+    } catch (networkErr) {
+      markServerDown();
+      if (attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, retryDelay));
+        continue;
+      }
+      const err = new Error('السيرفر غير متاح حالياً');
+      err.isNetworkError = true;
       throw err;
     }
-    const err = new Error(data.error || 'جلسة الدخول غير صالحة');
-    err.status = 401;
-    err.forceLogout = !!data.forceLogout;
-    throw err;
-  }
 
-  if (!response.ok) {
-    throw new Error(data.error || 'حدث خطأ في الاتصال بالسيرفر');
-  }
+    const data = await response.json().catch(() => ({}));
 
-  return data;
+    if (response.status === 401 || data.forceLogout) {
+      const isDeviceRevoked = !!data.deviceRevoked;
+      if (isDeviceRevoked) {
+        localStorage.removeItem('dsc_token');
+        localStorage.removeItem('dsc_auth_user');
+        window.location.href = '/login?revoked=1';
+        const err = new Error(data.error || 'تم إلغاء اعتماد هذا الجهاز');
+        err.deviceRevoked = true;
+        throw err;
+      }
+      if (attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, retryDelay));
+        continue;
+      }
+      const err = new Error(data.error || 'جلسة الدخول غير صالحة');
+      err.status = 401;
+      err.forceLogout = !!data.forceLogout;
+      throw err;
+    }
+
+    if (!response.ok) {
+      if (attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, retryDelay));
+        continue;
+      }
+      throw new Error(data.error || 'حدث خطأ في الاتصال بالسيرفر');
+    }
+
+    return data;
+  }
 };
 
 // Auth API calls

@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  loginTeam as apiLoginTeam, 
-  loginJudge as apiLoginJudge, 
+import {
+  loginTeam as apiLoginTeam,
+  loginJudge as apiLoginJudge,
   loginAdmin as apiLoginAdmin,
   getCurrentUser,
   setAuthToken,
-  getAuthToken
+  getAuthToken,
+  isServerDown
 } from '../services/api';
 import { useSocket } from './SocketContext';
 
@@ -89,13 +90,14 @@ export const AuthProvider = ({ children }) => {
   }, [socket, user]);
 
   // Fallback heartbeat: poll /api/auth/me every 30s to verify device is still registered.
-  // Also checks on visibility change (user returns to tab) for instant detection.
+  // Pauses when server is down to avoid false logouts during restart.
   useEffect(() => {
     if (!user || user.role !== 'team') return;
 
     let consecutiveFailures = 0;
 
     const verifyDevice = async () => {
+      if (isServerDown()) return;
       try {
         await getCurrentUser();
         consecutiveFailures = 0;
@@ -110,8 +112,8 @@ export const AuthProvider = ({ children }) => {
         }
         if (err.status === 401 || err.forceLogout) {
           consecutiveFailures++;
-          if (consecutiveFailures >= 3) {
-            forceLogout('token expired (3 consecutive failures)');
+          if (consecutiveFailures >= 5) {
+            forceLogout('token expired (5 consecutive failures)');
           }
           return;
         }
