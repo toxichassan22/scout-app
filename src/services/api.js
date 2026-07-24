@@ -35,28 +35,33 @@ export const apiFetch = async (endpoint, options = {}) => {
     ...options.headers
   };
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers
-  });
+  let response;
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers
+    });
+  } catch (networkErr) {
+    const err = new Error('السيرفر غير متاح حالياً');
+    err.isNetworkError = true;
+    throw err;
+  }
 
   const data = await response.json().catch(() => ({}));
 
   if (response.status === 401 || data.forceLogout) {
     const isDeviceRevoked = !!data.deviceRevoked;
-    localStorage.removeItem('dsc_token');
-    localStorage.removeItem('dsc_auth_user');
     if (isDeviceRevoked) {
+      localStorage.removeItem('dsc_token');
+      localStorage.removeItem('dsc_auth_user');
       window.location.href = '/login?revoked=1';
-    } else if (endpoint.startsWith('/admin') && !endpoint.includes('/auth/admin/login')) {
-      window.location.href = '/admin/login?expired=1';
-    } else if (endpoint.startsWith('/judge')) {
-      window.location.href = '/judge/login?expired=1';
-    } else {
-      window.location.href = '/login?expired=1';
+      const err = new Error(data.error || 'تم إلغاء اعتماد هذا الجهاز');
+      err.deviceRevoked = true;
+      throw err;
     }
-    const err = new Error(data.error || 'جلسة الدخول غير صالحة أو تم حذف الحساب');
-    err.deviceRevoked = isDeviceRevoked;
+    const err = new Error(data.error || 'جلسة الدخول غير صالحة');
+    err.status = 401;
+    err.forceLogout = !!data.forceLogout;
     throw err;
   }
 

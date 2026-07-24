@@ -25,6 +25,10 @@ export const AuthProvider = ({ children }) => {
           const res = await getCurrentUser();
           setUser(res.user);
         } catch (err) {
+          if (err.isNetworkError) {
+            setLoading(false);
+            return;
+          }
           console.error('[Auth] Token verification failed:', err);
           setAuthToken(null);
           setUser(null);
@@ -84,22 +88,38 @@ export const AuthProvider = ({ children }) => {
     };
   }, [socket, user]);
 
-  // Fallback heartbeat: poll /api/auth/me every 15s to verify device is still registered.
+  // Fallback heartbeat: poll /api/auth/me every 30s to verify device is still registered.
   // Also checks on visibility change (user returns to tab) for instant detection.
   useEffect(() => {
     if (!user || user.role !== 'team') return;
 
+    let consecutiveFailures = 0;
+
     const verifyDevice = async () => {
       try {
         await getCurrentUser();
+        consecutiveFailures = 0;
       } catch (err) {
-        if (err.message && (err.message.includes('إلغاء اعتماد') || err.message.includes('revoked') || err.deviceRevoked)) {
-          forceLogout('device revoked (detected by heartbeat)');
+        if (err.isNetworkError) {
+          consecutiveFailures++;
+          return;
         }
+        if (err.deviceRevoked) {
+          forceLogout('device revoked (detected by heartbeat)');
+          return;
+        }
+        if (err.status === 401 || err.forceLogout) {
+          consecutiveFailures++;
+          if (consecutiveFailures >= 3) {
+            forceLogout('token expired (3 consecutive failures)');
+          }
+          return;
+        }
+        consecutiveFailures++;
       }
     };
 
-    const interval = setInterval(verifyDevice, 15000);
+    const interval = setInterval(verifyDevice, 30000);
 
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
