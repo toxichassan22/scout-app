@@ -8,9 +8,14 @@ import { CompetitionProvider } from './context/CompetitionContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+// Automatically unregister stale service workers to ensure fresh API connections
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (let registration of registrations) {
+        registration.unregister();
+      }
+    }).catch(() => {});
   });
 }
 

@@ -27,6 +27,15 @@ export const apiFetch = async (endpoint, options = {}) => {
 
   const data = await response.json().catch(() => ({}));
 
+  if (response.status === 401 || response.status === 403) {
+    if (endpoint.startsWith('/admin') && !endpoint.includes('/auth/admin/login')) {
+      localStorage.removeItem('dsc_token');
+      localStorage.removeItem('dsc_auth_user');
+      window.location.href = '/admin/login?expired=1';
+      return;
+    }
+  }
+
   if (!response.ok) {
     throw new Error(data.error || 'حدث خطأ في الاتصال بالسيرفر');
   }
