@@ -239,35 +239,33 @@ const Program = () => {
                       onClick={() => setSelectedItem(item)}
                       initial={{ opacity: 0, y: 15 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className={`cursor-pointer relative rounded-2xl border p-5 transition-all duration-300 ${
+                      className={`cursor-pointer relative rounded-2xl border px-4 py-3 transition-all duration-300 ${
                         isSelected
                           ? 'border-cyan-400 bg-gradient-to-r from-cyan-950/80 via-slate-900/90 to-slate-900/90 shadow-[0_0_25px_rgba(56,189,248,0.25)] scale-[1.01]'
                           : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
                       }`}>
-                      <span className={`absolute -right-3.5 top-6 h-3.5 w-3.5 rounded-full border-2 border-slate-950 transition-all ${
+                      <span className={`absolute -right-3.5 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full border-2 border-slate-950 transition-all ${
                         isSelected ? 'bg-cyan-400 shadow-[0_0_12px_#38bdf8] scale-125' : 'bg-slate-700'
                       }`} />
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                          <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-black ${meta.cls}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className={`inline-flex items-center gap-1 shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-black ${meta.cls}`}>
                             {meta.label}
                           </span>
-                          <h3 className="text-base sm:text-lg font-black text-white">{item.title}</h3>
+                          <h3 className="text-sm sm:text-base font-black text-white truncate">{item.title}</h3>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-mono font-black text-amber-300">
-                          <Clock size={13} />
-                          <span dir="ltr">{item.startTime} — {item.endTime}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {item.zone && (
+                            <span className="hidden sm:flex items-center gap-1 text-[11px] font-bold text-cyan-300">
+                              <MapPin size={12} /> {item.zone.numberLabel}
+                            </span>
+                          )}
+                          <div className="flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-mono font-black text-amber-300">
+                            <Clock size={12} />
+                            <span dir="ltr">{item.startTime}</span>
+                          </div>
                         </div>
                       </div>
-                      {item.description && <p className="text-xs leading-6 text-slate-300 mb-3">{item.description}</p>}
-                      {item.zone && (
-                        <div className="flex items-center justify-between border-t border-slate-800/80 pt-3 text-xs font-bold text-slate-400">
-                          <span className="flex items-center gap-1.5 text-cyan-300">
-                            <MapPin size={14} /> منطقة {item.zone.name} ({item.zone.numberLabel})
-                          </span>
-                          <span className="text-[10px] font-mono text-slate-500">انقر لإظهار الموقع 📍</span>
-                        </div>
-                      )}
                     </motion.article>
                   );
                 })}
