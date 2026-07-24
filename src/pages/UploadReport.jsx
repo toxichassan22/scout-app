@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
+import { uploadTeamReport } from '../services/api';
 
 const UploadReport = () => {
   const { user } = useAuth();
@@ -21,6 +22,7 @@ const UploadReport = () => {
   const [reportContent, setReportContent] = useState('');
   const [fileInput, setFileInput] = useState(null);
   const [dragging, setDragging] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -36,7 +38,7 @@ const UploadReport = () => {
   const currentReportNumber = Math.min(reportCount + 1, MAX_REPORTS);
   const progressPercent = Math.round((reportCount / MAX_REPORTS) * 100);
 
-  const activeComp = competitions.find((c) => c.id === Number(selectedCompId));
+  const activeComp = competitions.find((c) => c.id === Number(selectedCompId) || c.id === selectedCompId);
 
   const getDeadlineText = (comp) => {
     if (!comp) return '';
@@ -73,7 +75,7 @@ const UploadReport = () => {
     setFileInput(file);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
     setError('');
@@ -83,7 +85,7 @@ const UploadReport = () => {
       return;
     }
 
-    const comp = competitions.find((c) => c.id === Number(selectedCompId));
+    const comp = competitions.find((c) => c.id === Number(selectedCompId) || c.id === selectedCompId);
     if (!comp) {
       setError('المسابقة غير موجودة');
       return;
@@ -95,10 +97,32 @@ const UploadReport = () => {
       if (Date.now() > end) isLate = true;
     }
 
+    setSubmitting(true);
+
     try {
+      let fileBase64 = null;
+      if (fileInput) {
+        fileBase64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = (err) => reject(err);
+          reader.readAsDataURL(fileInput);
+        });
+      }
+
+      // 1️⃣ Real Backend API call (saves to SQLite & uploads directly to Google Drive)
+      await uploadTeamReport({
+        title: reportTitle || comp.name,
+        content: reportContent || `تقرير مسابقة ${comp.name} لفرقة ${teamName}`,
+        competitionId: String(comp.id),
+        fileName: fileInput ? fileInput.name : '',
+        fileBase64,
+      });
+
+      // 2️⃣ Local state persistence
       submitEntry(comp.id, teamName, {
-        title: reportTitle,
-        content: reportContent,
+        title: reportTitle || comp.name,
+        content: reportContent || `تقرير مسابقة ${comp.name} لفرقة ${teamName}`,
         fileName: fileInput ? fileInput.name : '',
         reportIndex: currentReportNumber,
         isLate,
@@ -106,13 +130,15 @@ const UploadReport = () => {
         type: 'report',
       });
 
-      setMessage(`تم رفع التقرير رقم #${currentReportNumber} بنجاح وأُرسل للجنة التحكيم!`);
+      setMessage(`تم رفع التقرير رقم #${currentReportNumber} بنجاح وأُرسل للجنة التحكيم ولـ Google Drive!`);
       setReportTitle('');
       setReportContent('');
       setFileInput(null);
       setSelectedCompId('');
     } catch (err) {
-      setError(err.message || 'حدث خطأ أثناء رفع التقرير');
+      setError(err.message || 'حدث خطأ أثناء رفع التقرير للسيرفر');
+    } finally {
+      setSubmitting(false);
     }
   };
 

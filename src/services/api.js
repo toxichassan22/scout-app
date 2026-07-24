@@ -131,6 +131,12 @@ export const updateAgendaItem = (id, data) =>
 export const getAdminReports = () => 
   apiFetch('/admin/reports');
 
+export const uploadTeamReport = (data) =>
+  apiFetch('/reports', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
 // Device ID Generator / Helper
 export const getDeviceId = () => {
   let id = localStorage.getItem('dsc_device_id');
