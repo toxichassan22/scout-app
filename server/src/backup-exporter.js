@@ -30,6 +30,25 @@ export async function uploadToGoogleDrive(fileName, mimeType, fileBuffer, folder
 }
 
 /**
+ * Delete / Trash a file or team folder from Google Drive via Webhook
+ */
+export async function deleteFromGoogleDrive(fileName = '', folderPath = '', action = 'delete_file') {
+  try {
+    const response = await fetch(GDRIVE_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, fileName, folderPath })
+    });
+    const result = await response.json().catch(() => ({}));
+    console.log(`[Google Drive Delete Sync] ${action} ${folderPath ? folderPath + '/' : ''}${fileName}:`, result.result);
+    return result;
+  } catch (err) {
+    console.error(`[Google Drive Delete Error] Failed to delete ${fileName}:`, err.message);
+    return null;
+  }
+}
+
+/**
  * Main Export & Backup Generator
  * Creates organized backup directory with:
  * 1. 01_DATABASE: Living SQLite database copy

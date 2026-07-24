@@ -1,9 +1,11 @@
+import fs from 'fs';
+import path from 'path';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { getAnonymousLeaderboard } from './leaderboard.js';
-import { generateFullBackup } from '../backup-exporter.js';
+import { generateFullBackup, deleteFromGoogleDrive } from '../backup-exporter.js';
 
 const router = Router();
 
@@ -174,7 +176,32 @@ router.post('/teams/import', async (req, res) => {
 router.delete('/teams/:id', async (req, res) => {
   try {
     const deletedId = req.params.id;
-    await prisma.team.delete({ where: { id: deletedId } });
+    const team = await prisma.team.findUnique({
+      where: { id: deletedId },
+      include: { reports: true }
+    });
+
+    if (team) {
+      // 1. Clean local report files for this team
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      for (const report of team.reports) {
+        if (report.fileUrl) {
+          const fileName = path.basename(report.fileUrl);
+          const fp = path.join(uploadsDir, fileName);
+          if (fs.existsSync(fp)) {
+            try { fs.unlinkSync(fp); } catch (_) {}
+          }
+        }
+      }
+
+      // 2. Sync deletion to Google Drive (trash team folder)
+      const safeFolderName = `Team_${team.username}_${team.label.replace(/[/\\?%*:|"<>]/g, '_')}`;
+      deleteFromGoogleDrive('', `03_TEAMS_DATA/${safeFolderName}`, 'delete_folder').catch(() => {});
+
+      // 3. Delete team from DB
+      await prisma.team.delete({ where: { id: deletedId } });
+    }
+
     if (req.io) {
       req.io.emit('team:deleted', { teamId: deletedId });
     }
@@ -454,6 +481,39 @@ router.get('/reports', async (req, res) => {
   } catch (err) {
     console.error('[Admin Reports Error]:', err);
     res.status(500).json({ error: 'فشل في جلب التقارير: ' + (err.message || '') });
+  }
+});
+
+router.delete('/reports/:id', async (req, res) => {
+  try {
+    const reportId = req.params.id;
+    const report = await prisma.report.findUnique({
+      where: { id: reportId },
+      include: { team: true }
+    });
+
+    if (report) {
+      if (report.fileUrl) {
+        const fileName = path.basename(report.fileUrl);
+        const uploadsDir = path.join(process.cwd(), 'uploads');
+        const fp = path.join(uploadsDir, fileName);
+        if (fs.existsSync(fp)) {
+          try { fs.unlinkSync(fp); } catch (_) {}
+        }
+
+        if (report.team) {
+          const safeFolderName = `Team_${report.team.username}_${report.team.label.replace(/[/\\?%*:|"<>]/g, '_')}`;
+          deleteFromGoogleDrive(fileName, `03_TEAMS_DATA/${safeFolderName}/reports`, 'delete_file').catch(() => {});
+        }
+      }
+
+      await prisma.report.delete({ where: { id: reportId } });
+    }
+
+    res.json({ success: true, message: 'تم حذف التقرير والملف بنجاح' });
+  } catch (err) {
+    console.error('[Delete Report Error]:', err);
+    res.status(500).json({ error: 'فشل في حذف التقرير' });
   }
 });
 
