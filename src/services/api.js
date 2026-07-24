@@ -27,13 +27,17 @@ export const apiFetch = async (endpoint, options = {}) => {
 
   const data = await response.json().catch(() => ({}));
 
-  if (response.status === 401 || response.status === 403) {
+  if (response.status === 401 || data.forceLogout) {
+    localStorage.removeItem('dsc_token');
+    localStorage.removeItem('dsc_auth_user');
     if (endpoint.startsWith('/admin') && !endpoint.includes('/auth/admin/login')) {
-      localStorage.removeItem('dsc_token');
-      localStorage.removeItem('dsc_auth_user');
       window.location.href = '/admin/login?expired=1';
-      return;
+    } else if (endpoint.startsWith('/judge')) {
+      window.location.href = '/judge/login?expired=1';
+    } else {
+      window.location.href = '/login?expired=1';
     }
+    throw new Error(data.error || 'جلسة الدخول غير صالحة أو تم حذف الحساب');
   }
 
   if (!response.ok) {

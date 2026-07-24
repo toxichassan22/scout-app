@@ -173,9 +173,14 @@ router.post('/teams/import', async (req, res) => {
 
 router.delete('/teams/:id', async (req, res) => {
   try {
-    await prisma.team.delete({ where: { id: req.params.id } });
+    const deletedId = req.params.id;
+    await prisma.team.delete({ where: { id: deletedId } });
+    if (req.io) {
+      req.io.emit('team:deleted', { teamId: deletedId });
+    }
     res.json({ success: true });
   } catch (err) {
+    console.error('[Delete Team Error]:', err);
     res.status(500).json({ error: 'فشل في حذف الفريق' });
   }
 });

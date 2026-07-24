@@ -7,12 +7,14 @@ import {
   setAuthToken,
   getAuthToken
 } from '../services/api';
+import { useSocket } from './SocketContext';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { socket } = useSocket();
 
   // Initialize user from stored token on load
   useEffect(() => {
@@ -33,6 +35,27 @@ export const AuthProvider = ({ children }) => {
 
     initAuth();
   }, []);
+
+  // Listen for real-time team deletion event from admin -> instant force logout on mobile
+  useEffect(() => {
+    if (!socket || !user) return;
+
+    const handleTeamDeleted = (data) => {
+      if (user.role === 'team' && (data.teamId === user.id || data.teamId === user.username)) {
+        console.warn('[Auth] Current team was deleted by admin. Executing instant logout...');
+        setAuthToken(null);
+        setUser(null);
+        localStorage.removeItem('dsc_token');
+        localStorage.removeItem('dsc_auth_user');
+        window.location.href = '/login?deleted=1';
+      }
+    };
+
+    socket.on('team:deleted', handleTeamDeleted);
+    return () => {
+      socket.off('team:deleted', handleTeamDeleted);
+    };
+  }, [socket, user]);
 
   // Team login with username and password
   const loginTeam = async (username, password) => {
