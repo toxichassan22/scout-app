@@ -658,4 +658,36 @@ router.post('/deploy/git-pull', async (req, res) => {
   }
 });
 
+// Seed missing competition agenda items
+router.post('/seed-agenda', async (req, res) => {
+  try {
+    const zones = await prisma.zone.findMany();
+    const zoneMap = {};
+    zones.forEach(z => { zoneMap[z.numberLabel] = z.id; });
+
+    const existing = await prisma.agendaItem.findMany();
+    const existingTitles = new Set(existing.map(e => e.title));
+
+    const competitions = [
+      { title: 'مسابقة عبقرينو', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '12:00', description: 'مسابقة رقمية ذكية - أسئلة سريعة وتحديات عبقرينو' },
+      { title: 'مسابقة الجغرافيا', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'مسابقة جغرافيا رقمية - اختبر معلوماتك الجغرافية' },
+      { title: 'مسابقة حقيقتان وكذبة', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'تحدي الذكاء - اكتشف الحقيقة من بين الأكاذيب' },
+      { title: 'مسابقة تصميم الفيديو الكشفي', type: 'competition', zoneId: zoneMap['٤'], startTime: '11:30', endTime: '01:00', description: 'تصميم فيديو كشفي إبداعي - أظهر مهاراتك في المونتاج' },
+    ];
+
+    let added = 0;
+    for (const item of competitions) {
+      if (!item.zoneId || existingTitles.has(item.title)) continue;
+      await prisma.agendaItem.create({ data: item });
+      added++;
+    }
+
+    if (req.io) req.io.emit('agenda:update');
+    res.json({ success: true, added, total: existing.length + added });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'فشل في إضافة الفعاليات' });
+  }
+});
+
 export default router;
