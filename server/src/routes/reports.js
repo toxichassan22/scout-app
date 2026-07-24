@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
+import { uploadToGoogleDrive } from '../backup-exporter.js';
 
 const router = Router();
 
@@ -57,6 +58,33 @@ router.post('/', authenticateToken, requireRole(['team']), async (req, res) => {
         fileName: fileName || storedName,
       },
     });
+
+    // 🚀 Instant Google Drive Cloud Upload for Submitted Team Report
+    (async () => {
+      try {
+        const team = await prisma.team.findUnique({ where: { id: req.user.id } });
+        const teamLabel = team ? team.label : req.user.username;
+        const safeFolderName = `Team_${req.user.username}_${teamLabel.replace(/[/\\?%*:|"<>]/g, '_')}`;
+        const folderPath = `03_TEAMS_DATA/${safeFolderName}/reports`;
+        
+        const diskPath = path.join(uploadsDir, storedName);
+        if (fs.existsSync(diskPath)) {
+          const fileBuffer = fs.readFileSync(diskPath);
+          const ext = path.extname(storedName).toLowerCase();
+          let mimeType = 'application/pdf';
+          if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+          else if (ext === '.png') mimeType = 'image/png';
+          else if (ext === '.mp4') mimeType = 'video/mp4';
+          else if (ext === '.zip') mimeType = 'application/zip';
+          else if (ext === '.txt') mimeType = 'text/plain';
+
+          const uploadRes = await uploadToGoogleDrive(storedName, mimeType, fileBuffer, folderPath);
+          console.log(`[Instant Drive Upload] Report ${storedName} uploaded to Google Drive folder: ${folderPath}`, uploadRes?.result);
+        }
+      } catch (driveErr) {
+        console.error('[Instant Drive Upload Error]:', driveErr.message);
+      }
+    })();
 
     if (req.io) {
       req.io.to('admin').emit('admin:report:new', { reportId: report.id });

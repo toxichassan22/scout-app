@@ -12,7 +12,7 @@ const GDRIVE_WEBHOOK_URL = process.env.GDRIVE_WEBHOOK_URL || 'https://script.goo
 /**
  * Upload a file buffer to Google Drive with structured subfolder path support
  */
-async function uploadToGoogleDrive(fileName, mimeType, fileBuffer, folderPath = '') {
+export async function uploadToGoogleDrive(fileName, mimeType, fileBuffer, folderPath = '') {
   try {
     const fileData = fileBuffer.toString('base64');
     const response = await fetch(GDRIVE_WEBHOOK_URL, {
