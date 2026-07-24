@@ -20,6 +20,8 @@ const parseJson = (value, fallback) => {
   }
 };
 
+const isVideoCompetition = (c) => c.slug === 'video' || c.slug === 'video_design';
+
 const publicCompetition = (comp, myScore = null) => ({
   id: comp.id,
   name: comp.name,
@@ -90,7 +92,7 @@ router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), async 
     });
 
     // Video allows multiple attempts; others are one-shot
-    if (existing && competition.slug !== 'video') {
+    if (existing && !isVideoCompetition(competition)) {
       return res.status(400).json({
         error: 'تم تسجيل إجابتك مسبقاً في هذه المسابقة',
         completed: true,
@@ -133,7 +135,7 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), async (r
       },
     });
 
-    if (existing && competition.slug !== 'video') {
+    if (existing && !isVideoCompetition(competition)) {
       return res.status(400).json({
         error: 'تم تسجيل إجابتك مسبقاً',
         completed: true,
@@ -158,7 +160,7 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), async (r
       });
     }
 
-    if (competition.slug === 'video') {
+    if (isVideoCompetition(competition)) {
       const values = existing ? parseJson(existing.values, {}) : {};
       return res.json({
         competition: publicCompetition(competition, existing),
@@ -316,7 +318,7 @@ router.post('/:idOrSlug/video-attempt', authenticateToken, requireRole(['team'])
       where: { OR: [{ id: key }, { slug: key }] },
     });
 
-    if (!competition || competition.slug !== 'video') {
+    if (!competition || !isVideoCompetition(competition)) {
       return res.status(404).json({ error: 'مسابقة الفيديو غير موجودة' });
     }
     if (!competition.isOpen) {
@@ -380,7 +382,7 @@ router.patch('/:idOrSlug/video-attempt/:attemptId', authenticateToken, requireRo
     const competition = await prisma.competition.findFirst({
       where: { OR: [{ id: key }, { slug: key }] },
     });
-    if (!competition || competition.slug !== 'video') {
+    if (!competition || !isVideoCompetition(competition)) {
       return res.status(404).json({ error: 'مسابقة الفيديو غير موجودة' });
     }
 

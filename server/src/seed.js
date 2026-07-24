@@ -4,33 +4,7 @@ import bcrypt from 'bcryptjs';
 import prisma from './db.js';
 
 async function seed() {
-  console.log('[Seed] Integrity check and seeding official competitions...');
-
-  // Auto-heal if database file is corrupted/malformed
-  try {
-    await prisma.$queryRawUnsafe('PRAGMA integrity_check;');
-  } catch (dbErr) {
-    if (dbErr.message && (dbErr.message.includes('malformed') || dbErr.message.includes('corrupt'))) {
-      console.error('[DB Auto-Heal] SQLite database is malformed. Cleaning corrupt DB files for fresh build...');
-      await prisma.$disconnect();
-      const baseDir = path.resolve('prisma');
-      const files = ['dev.db', 'dev.db-wal', 'dev.db-shm'];
-      files.forEach(f => {
-        const fp = path.join(baseDir, f);
-        if (fs.existsSync(fp)) {
-          try { fs.unlinkSync(fp); } catch (_) {}
-        }
-      });
-    }
-  }
-
-  // Delete old extra competitions and orphaned reports/scores to leave a clean slate
-  try {
-    await prisma.report.deleteMany({});
-    await prisma.score.deleteMany({});
-    await prisma.question.deleteMany({});
-    await prisma.competition.deleteMany({});
-  } catch (_) {}
+  console.log('[Seed] Idempotent seed: ensuring core accounts, competitions and base data exist...');
 
   // 1️⃣ Admin Account
   const adminPassword = await bcrypt.hash('admin123', 10);
@@ -139,11 +113,86 @@ async function seed() {
         { key: 'editing', label: 'جودة المونتاج والإخراج', maxScore: 40 },
         { key: 'sound', label: 'الهندسة الصوتية والمؤثرات', maxScore: 30 }
       ])
+    },
+    // 5️⃣ Additional manual-judged competitions enabled for team reports
+    {
+      id: 'comp-manual-2',
+      name: 'تقرير المخيم الرقمي',
+      slug: 'report_camp',
+      type: 'manual_judged',
+      description: 'توثيق يوميات المخيم الكشفي والأنشطة الميدانية',
+      isOpen: true,
+      passcode: '2001',
+      criteria: JSON.stringify([
+        { key: 'documentation', label: 'جودة التوثيق والمتابعة', maxScore: 40 },
+        { key: 'creativity', label: 'الإبداع في العرض', maxScore: 30 },
+        { key: 'content', label: 'محتوى ودقة المعلومات', maxScore: 30 }
+      ])
+    },
+    {
+      id: 'comp-manual-3',
+      name: 'تقرير الخدمة العامة',
+      slug: 'report_service',
+      type: 'manual_judged',
+      description: 'تقرير المبادرات الخدمية والمشاريع المجتمعية للفريق',
+      isOpen: true,
+      passcode: '2002',
+      criteria: JSON.stringify([
+        { key: 'impact', label: 'التأثير المجتمعي', maxScore: 40 },
+        { key: 'planning', label: 'التخطيط والتنظيم', maxScore: 30 },
+        { key: 'presentation', label: 'جودة العرض', maxScore: 30 }
+      ])
+    },
+    {
+      id: 'comp-manual-4',
+      name: 'معرض المشاريع الرقمية',
+      slug: 'report_projects',
+      type: 'manual_judged',
+      description: 'عرض ومناقشة المشاريع التقنية والإبداعية للفرق',
+      isOpen: true,
+      passcode: '2003',
+      criteria: JSON.stringify([
+        { key: 'innovation', label: 'الابتكار والفكرة', maxScore: 40 },
+        { key: 'execution', label: 'التنفيذ والجودة', maxScore: 30 },
+        { key: 'presentation', label: 'جودة العرض', maxScore: 30 }
+      ])
+    },
+    {
+      id: 'comp-manual-5',
+      name: 'مسابقة الإنشاد والفنون',
+      slug: 'report_arts',
+      type: 'manual_judged',
+      description: 'تقرير أداء الفريق في الأنشاد والفنون الكشفية',
+      isOpen: true,
+      passcode: '2004',
+      criteria: JSON.stringify([
+        { key: 'performance', label: 'جودة الأداء', maxScore: 40 },
+        { key: 'content', label: 'المحتوى والقيمة', maxScore: 30 },
+        { key: 'teamwork', label: 'التناسق الجماعي', maxScore: 30 }
+      ])
+    },
+    {
+      id: 'comp-manual-6',
+      name: 'مسابقة المعارف والمهارات',
+      slug: 'report_skills',
+      type: 'manual_judged',
+      description: 'تقرير المهارات الكشفية والمعارف العامة للفريق',
+      isOpen: true,
+      passcode: '2005',
+      criteria: JSON.stringify([
+        { key: 'knowledge', label: 'المعارف والمعلومات', maxScore: 40 },
+        { key: 'application', label: 'التطبيق العملي', maxScore: 30 },
+        { key: 'documentation', label: 'جودة التوثيق', maxScore: 30 }
+      ])
     }
   ];
 
   for (const comp of competitions) {
-    await prisma.competition.create({ data: comp });
+    await prisma.competition.upsert({
+      where: { id: comp.id },
+      update: {},
+      create: comp
+    });
   }
 
   // 5️⃣ 50 Balanced Genius Questions
@@ -205,17 +254,21 @@ async function seed() {
 
   for (let idx = 0; idx < balanced50Questions.length; idx++) {
     const q = balanced50Questions[idx];
-    await prisma.question.create({
-      data: {
-        id: `g_q_${idx + 1}`,
-        competitionId: 'comp-digital-1',
-        text: q.text,
-        options: JSON.stringify(q.options),
-        correctOption: q.correctOption,
-        points: 2,
-        sortOrder: idx + 1
-      }
-    });
+    const questionId = `g_q_${idx + 1}`;
+    const existing = await prisma.question.findUnique({ where: { id: questionId } });
+    if (!existing) {
+      await prisma.question.create({
+        data: {
+          id: questionId,
+          competitionId: 'comp-digital-1',
+          text: q.text,
+          options: JSON.stringify(q.options),
+          correctOption: q.correctOption,
+          points: 2,
+          sortOrder: idx + 1
+        }
+      });
+    }
   }
 
   // 6️⃣ Seed Official 22 Arab Geography Countries
@@ -272,7 +325,7 @@ async function seed() {
     });
   }
 
-  console.log('[Seed] Database cleaned and set to the 3 main competitions + Video Design!');
+  console.log('[Seed] Core data verified: admin, sample teams, 9 competitions (6 reportable), 50 genius questions, 22 geography countries, 8 zones.');
 }
 
 seed()

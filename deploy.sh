@@ -12,7 +12,7 @@ export PATH="$PATH:/usr/local/bin:/usr/bin:/bin:$HOME/.nvm/versions/node/$(ls $H
 cd /var/www/scout-app || exit 1
 
 echo "📥 تنزيل آخر تحديثات من GitHub..."
-git pull origin main || git fetch --all && git reset --hard origin/main
+git fetch origin main && git reset --hard origin/main
 
 echo "📦 تثبيت الـ Packages..."
 npm install --production=false || true
@@ -27,10 +27,9 @@ if command -v sudo >/dev/null 2>&1; then
   sudo nginx -t && sudo systemctl reload nginx 2>/dev/null || true
 fi
 
-echo "🔄 إعادة تشغيل الباك إند وتطبيق الـ Seed..."
+echo "🔄 مزامنة الـ Schema وإعادة تشغيل الباك إند..."
 cd server
 npx prisma db push --accept-data-loss || true
-node src/seed.js || true
 pm2 restart ecosystem.config.cjs --env production || pm2 start ecosystem.config.cjs --env production || pm2 restart all || true
 cd ..
 

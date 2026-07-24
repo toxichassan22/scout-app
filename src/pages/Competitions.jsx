@@ -43,14 +43,17 @@ const Competitions = () => {
       {message && <div className="mb-5 rounded-lg border border-accent/25 bg-accent/10 p-4 text-center font-bold text-accent">{message}</div>}
 
       <div className="grid gap-4 md:grid-cols-2">
-        {competitions.map((competition) => (
-          <CompetitionCard
-            key={competition.id}
-            competition={competition}
-            completed={competition.id !== 4 && isCompleted(competition.id, user.name)}
-            onScan={() => enterCompetition(competition)}
-          />
-        ))}
+        {competitions.map((competition) => {
+          const isVideoComp = competition.slug === 'video' || competition.slug === 'video_design' || competition.type === 'video' || competition.id === 4;
+          return (
+            <CompetitionCard
+              key={competition.id}
+              competition={competition}
+              completed={!isVideoComp && isCompleted(competition.id, user.name)}
+              onScan={() => enterCompetition(competition)}
+            />
+          );
+        })}
       </div>
     </main>
   );

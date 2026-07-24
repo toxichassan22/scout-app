@@ -182,7 +182,7 @@ const Activities = () => {
               transition={{ delay: 0.5, duration: 0.6 }}
               className="max-w-md text-sm leading-7 text-[#d5d0e8]"
             >
-              أربع تحديات رسمية بينك وبين منصة التتويج — كل نقطة تقرّبك من لقب المخيم.
+              {competitions.length} تحديات رسمية بينك وبين منصة التتويج — كل نقطة تقرّبك من لقب المخيم.
             </motion.p>
           </div>
         </MediaSlot>
@@ -190,15 +190,18 @@ const Activities = () => {
 
       {/* ═══ شبكة المسابقات ═══ */}
       <section className="mb-6 grid gap-6 md:grid-cols-2">
-        {competitions.map((comp, i) => (
-          <CompetitionShowcase
-            key={comp.id}
-            comp={comp}
-            completed={comp.id !== 4 && isCompleted(comp.id, user.name)}
-            onEnter={handleEnterCompetition}
-            index={i}
-          />
-        ))}
+        {competitions.map((comp, i) => {
+          const isVideoComp = comp.slug === 'video' || comp.slug === 'video_design' || comp.type === 'video' || comp.id === 4;
+          return (
+            <CompetitionShowcase
+              key={comp.id}
+              comp={comp}
+              completed={!isVideoComp && isCompleted(comp.id, user.name)}
+              onEnter={handleEnterCompetition}
+              index={i}
+            />
+          );
+        })}
       </section>
 
       {/* ═══ ركن الألعاب الترفيهية ═══ */}

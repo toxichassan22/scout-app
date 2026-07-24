@@ -27,9 +27,9 @@ const UploadReport = () => {
     fetchComps();
   }, []);
 
-  // Dynamic MAX_REPORTS based on manual report competitions (16)
+  // Dynamic MAX_REPORTS based on manual report competitions
   const reportCompetitions = competitions.filter((c) => c.type === 'manual_judged' || !c.type || c.type === 'video');
-  const MAX_REPORTS = reportCompetitions.length || 16;
+  const MAX_REPORTS = reportCompetitions.length || 1;
 
   // Selected state
   const [selectedCompId, setSelectedCompId] = useState('');
@@ -182,10 +182,10 @@ const UploadReport = () => {
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <span className="badge-ember flex items-center gap-1.5 px-4 py-1.5 text-xs">
                 <Sparkles size={15} />
-                المنظومة الرقمية للتقارير (24 تقرير لكل فريق)
+                المنظومة الرقمية للتقارير ({MAX_REPORTS} تقرير لكل فريق)
               </span>
               <span className="font-mono text-xs font-black text-[#a78bfa] bg-[rgba(139,92,246,0.15)] px-3 py-1 rounded-full border border-[rgba(139,92,246,0.3)]" dir="ltr">
-                REPORTS SYSTEM • 24 SLOTS
+                REPORTS SYSTEM • {MAX_REPORTS} SLOTS
               </span>
             </div>
 
@@ -193,13 +193,13 @@ const UploadReport = () => {
               منصة رفع التقارير <span className="text-fire">الرقمية</span>
             </h1>
             <p className="mt-2 max-w-xl text-sm leading-7 text-[#d5d0e8]">
-              يُمكّن فريقك من توثيق حتى 16 تقريراً كشفياً وتقنياً خلال فترة المهرجان. يتم التوليد والأرشفة التلقائية باسم الفريق.
+              يُمكّن فريقك من توثيق حتى {MAX_REPORTS} تقريراً كشفياً وتقنياً خلال فترة المهرجان. يتم التوليد والأرشفة التلقائية باسم الفريق.
             </p>
           </div>
         </div>
       </motion.section>
 
-      {/* ═══ بطاقات الحالة: اسم الفريق المكتشف + عداد التقارير (24) ═══ */}
+      {/* ═══ بطاقات الحالة: اسم الفريق المكتشف + عداد التقارير ═══ */}
       <div className="grid gap-4 sm:grid-cols-2 mb-8">
         {/* بطاقة الفريق المتصل — تلقائي */}
         <motion.div
@@ -221,7 +221,7 @@ const UploadReport = () => {
           </div>
         </motion.div>
 
-        {/* بطاقة عداد الـ 24 تقرير */}
+        {/* بطاقة عداد التقارير */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -246,12 +246,12 @@ const UploadReport = () => {
           </div>
 
           <p className="mt-2 text-[11px] text-[#a9a3c2] text-right font-bold">
-            التقرير التالي القادم هو: <span className="text-[#fcd34d] font-black font-mono" dir="ltr">#{currentReportNumber}</span> من أصل 24 تقريراً.
+            التقرير التالي القادم هو: <span className="text-[#fcd34d] font-black font-mono" dir="ltr">#{currentReportNumber}</span> من أصل {MAX_REPORTS} تقريراً.
           </p>
         </motion.div>
       </div>
 
-      {/* ═══ شبكة الـ 24 slot للتقارير (Visualizer) ═══ */}
+      {/* ═══ شبكة خانات التقارير (Visualizer) ═══ */}
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -261,7 +261,7 @@ const UploadReport = () => {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-black text-white flex items-center gap-2">
             <FolderPlus size={20} className="text-[#fcd34d]" />
-            سجل الخانات الرقمية (24 تقرير)
+            سجل الخانات الرقمية ({MAX_REPORTS} تقرير)
           </h3>
           <span className="text-xs font-mono text-[#a9a3c2]">مرفوع: {reportCount} | المتبقي: {MAX_REPORTS - reportCount}</span>
         </div>
@@ -321,7 +321,7 @@ const UploadReport = () => {
             نموذج تقديم التقرير رقم <span className="text-[#fcd34d] font-mono" dir="ltr">#{currentReportNumber}</span>
           </h2>
           <span className="badge-violet font-mono text-[11px]" dir="ltr">
-            SLOT #{currentReportNumber} OF 24
+            SLOT #{currentReportNumber} OF {MAX_REPORTS}
           </span>
         </div>
 

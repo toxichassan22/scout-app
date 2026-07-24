@@ -3,9 +3,12 @@ import { ChevronLeft, Star, Video, ExternalLink } from 'lucide-react';
 import { useCompetitions } from '../../context/CompetitionContext';
 
 const AdminVideoJudging = () => {
-  const { submissions, updateSubmissionScore, getLeaderboard } = useCompetitions();
-  const videoSubmissions = submissions.filter((submission) => submission.compId === 4);
-  const leaderboard = getLeaderboard(4);
+  const { competitions, submissions, updateSubmissionScore, getLeaderboard } = useCompetitions();
+  const videoComp = competitions.find((c) => c.slug === 'video' || c.slug === 'video_design' || c.type === 'video' || c.id === 4);
+  const videoCompId = videoComp?.id;
+  const sameId = (a, b) => String(a) === String(b);
+  const videoSubmissions = submissions.filter((submission) => sameId(submission.compId, videoCompId));
+  const leaderboard = videoCompId ? getLeaderboard(videoCompId) : [];
 
   return (
     <main className="app-shell p-4 sm:p-6">

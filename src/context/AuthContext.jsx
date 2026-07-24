@@ -26,13 +26,18 @@ export const AuthProvider = ({ children }) => {
           const res = await getCurrentUser();
           setUser(res.user);
         } catch (err) {
-          if (err.isNetworkError) {
+          // Server restart / 5xx / network errors should not log the user out.
+          if (err.isNetworkError || err.status >= 500 || !err.status) {
+            console.warn('[Auth] Server/transient error during init, keeping token:', err.message);
             setLoading(false);
             return;
           }
-          console.error('[Auth] Token verification failed:', err);
-          setAuthToken(null);
-          setUser(null);
+          // Only clear on confirmed device revocation or persistent client/auth errors.
+          if (err.deviceRevoked || err.forceLogout || err.status === 401) {
+            console.error('[Auth] Token verification failed:', err);
+            setAuthToken(null);
+            setUser(null);
+          }
         }
       }
       setLoading(false);

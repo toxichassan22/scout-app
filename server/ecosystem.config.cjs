@@ -3,8 +3,8 @@ module.exports = {
     {
       name: 'scout-backend',
       script: './src/index.js',
-      instances: 'max',        // استخدم كل الـ CPU Cores
-      exec_mode: 'cluster',    // Cluster Mode للـ load balancing
+      instances: 1,            // SQLite requires a single Node process to avoid WAL lock/corruption
+      exec_mode: 'fork',
       watch: false,
       max_memory_restart: '500M',
       env: {

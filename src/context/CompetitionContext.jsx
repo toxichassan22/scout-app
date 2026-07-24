@@ -7,6 +7,7 @@ import {
   MOCK_TEAMS,
   STORAGE_KEYS,
 } from '../data/mockData';
+import { getCompetitions } from '../services/api';
 import { getDeviceId } from '../utils/security';
 
 const CompetitionContext = createContext(null);
@@ -38,6 +39,19 @@ export const CompetitionProvider = ({ children }) => {
   const [colabUrl, setColabUrl] = useState(() => localStorage.getItem(COLAB_URL_KEY) || '');
   const [delegations, setDelegations] = useState(() => readJson('dsc_delegations', []));
   const [scannedQRs, setScannedQRs] = useState(() => readJson('dsc_scanned_qrs', []));
+
+  // Sync competitions from backend when a token is available so the UI reflects server data.
+  useEffect(() => {
+    const token = localStorage.getItem('dsc_token');
+    if (!token) return;
+    getCompetitions()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setCompetitions(data);
+        }
+      })
+      .catch((err) => console.warn('[CompetitionContext] Failed to sync competitions:', err));
+  }, []);
 
   useEffect(() => persist(STORAGE_KEYS.competitions, competitions), [competitions]);
   useEffect(() => persist(STORAGE_KEYS.submissions, submissions), [submissions]);
@@ -76,7 +90,10 @@ export const CompetitionProvider = ({ children }) => {
     return () => window.clearInterval(interval);
   }, [closeExpiredCompetitions]);
 
-  const getCompetition = (id) => competitions.find((competition) => competition.id === Number(id));
+  const sameId = (a, b) => String(a) === String(b);
+  const isVideoComp = (comp) => comp?.slug === 'video' || comp?.slug === 'video_design' || comp?.type === 'video' || String(comp?.id) === '4';
+
+  const getCompetition = (id) => competitions.find((competition) => sameId(competition.id, id));
 
   const getRemainingSeconds = (competition) => {
     if (!competition?.duration) return null;
@@ -88,7 +105,7 @@ export const CompetitionProvider = ({ children }) => {
   const openCompetition = (id) => {
     setCompetitions((prev) =>
       prev.map((competition) =>
-        competition.id === Number(id)
+        sameId(competition.id, id)
           ? { ...competition, isOpen: true, startTime: new Date().toISOString() }
           : competition,
       ),
@@ -98,25 +115,25 @@ export const CompetitionProvider = ({ children }) => {
   const closeCompetition = (id) => {
     setCompetitions((prev) =>
       prev.map((competition) =>
-        competition.id === Number(id) ? { ...competition, isOpen: false, startTime: null } : competition,
+        sameId(competition.id, id) ? { ...competition, isOpen: false, startTime: null } : competition,
       ),
     );
   };
 
   const updateCompetition = (id, changes) => {
     setCompetitions((prev) =>
-      prev.map((competition) => (competition.id === Number(id) ? { ...competition, ...changes } : competition)),
+      prev.map((competition) => (sameId(competition.id, id) ? { ...competition, ...changes } : competition)),
     );
   };
 
   const isCompleted = (compId, teamName) =>
-    submissions.some((submission) => submission.compId === Number(compId) && submission.teamName === teamName && submission.final !== false);
+    submissions.some((submission) => sameId(submission.compId, compId) && submission.teamName === teamName && submission.final !== false);
 
   const getTeamSubmission = (compId, teamName) =>
-    submissions.find((submission) => submission.compId === Number(compId) && submission.teamName === teamName && submission.final !== false);
+    submissions.find((submission) => sameId(submission.compId, compId) && submission.teamName === teamName && submission.final !== false);
 
   const getVideoAttempts = (teamName) =>
-    submissions.filter((submission) => submission.compId === 4 && submission.teamName === teamName);
+    submissions.filter((submission) => isVideoComp(getCompetition(submission.compId)) && submission.teamName === teamName);
 
   const validateCompetitionEntry = (compId, teamName, qrCode) => {
     const competition = getCompetition(compId);
@@ -125,7 +142,7 @@ export const CompetitionProvider = ({ children }) => {
     if (!competition.isOpen || hasExpired(competition)) return { ok: false, message: 'المسابقة مغلقة حالياً' };
     // QR Code check temporarily disabled for testing
     // if (qrCode && qrCode !== competition.qrCode) return { ok: false, message: 'الكود غير متوافق مع هذه المسابقة' };
-    if (competition.id !== 4 && isCompleted(competition.id, teamName)) return { ok: false, message: 'تم تسجيل إجابتك' };
+    if (!isVideoComp(competition) && isCompleted(competition.id, teamName)) return { ok: false, message: 'تم تسجيل إجابتك' };
 
     // Device lock temporarily disabled for testing
     // const lock = deviceLocks.find((entry) => entry.compId === competition.id && entry.teamName === teamName);
@@ -142,7 +159,7 @@ export const CompetitionProvider = ({ children }) => {
     if (!validation.ok) return validation;
 
     setDeviceLocks((prev) => {
-      const exists = prev.some((entry) => entry.compId === competition.id && entry.teamName === teamName);
+      const exists = prev.some((entry) => sameId(entry.compId, competition.id) && entry.teamName === teamName);
       if (exists) return prev;
       return [
         { compId: competition.id, teamName, deviceId, timestamp: new Date().toISOString() },
@@ -160,7 +177,7 @@ export const CompetitionProvider = ({ children }) => {
     // Device lock check temporarily disabled for testing
     // const lock = deviceLocks.find((entry) => entry.compId === competition.id && entry.teamName === teamName);
     // if (lock && lock.deviceId !== deviceId) throw new Error('تم تسجيل جهاز آخر لفريقك في هذه المسابقة');
-    if (competition.id !== 4 && isCompleted(competition.id, teamName)) throw new Error('تم تسجيل إجابتك');
+    if (!isVideoComp(competition) && isCompleted(competition.id, teamName)) throw new Error('تم تسجيل إجابتك');
 
     const submission = {
       id: crypto.randomUUID(),
@@ -176,7 +193,7 @@ export const CompetitionProvider = ({ children }) => {
 
     setSubmissions((prev) => [submission, ...prev]);
     setDeviceLocks((prev) => {
-      const exists = prev.some((entry) => entry.compId === competition.id && entry.teamName === teamName);
+      const exists = prev.some((entry) => sameId(entry.compId, competition.id) && entry.teamName === teamName);
       if (exists) return prev;
       return [{ compId: competition.id, teamName, deviceId, timestamp: submission.timestamp }, ...prev];
     });
@@ -279,7 +296,7 @@ export const CompetitionProvider = ({ children }) => {
   const getLeaderboard = (compId) => {
     const bestByTeam = new Map();
     submissions
-      .filter((submission) => submission.compId === Number(compId))
+      .filter((submission) => sameId(submission.compId, compId))
       .forEach((submission) => {
         const current = bestByTeam.get(submission.teamName);
         if (!current || Number(submission.score || 0) > Number(current.score || 0)) {
