@@ -12,11 +12,26 @@ export const setAuthToken = (token) => {
   }
 };
 
+// ─── Device ID Management ───
+const DEVICE_ID_KEY = 'dsc_device_id';
+
+export const getOrCreateDeviceId = () => {
+  let deviceId = localStorage.getItem(DEVICE_ID_KEY);
+  if (!deviceId) {
+    // Generate a persistent unique fingerprint for this browser/device
+    deviceId = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 11)}_${navigator.userAgent.length}`;
+    localStorage.setItem(DEVICE_ID_KEY, deviceId);
+  }
+  return deviceId;
+};
+
 export const apiFetch = async (endpoint, options = {}) => {
   const token = getAuthToken();
+  const deviceId = localStorage.getItem(DEVICE_ID_KEY);
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...(deviceId ? { 'X-Device-Id': deviceId } : {}),
     ...options.headers
   };
 
@@ -48,8 +63,11 @@ export const apiFetch = async (endpoint, options = {}) => {
 };
 
 // Auth API calls
-export const loginTeam = (username, password) => 
-  apiFetch('/auth/team/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+export const loginTeam = (username, password) => {
+  const deviceId = getOrCreateDeviceId();
+  const userAgent = navigator.userAgent;
+  return apiFetch('/auth/team/login', { method: 'POST', body: JSON.stringify({ username, password, deviceId, userAgent }) });
+};
 
 export const loginJudge = (username, password) => 
   apiFetch('/auth/judge/login', { method: 'POST', body: JSON.stringify({ username, password }) });
@@ -104,6 +122,13 @@ export const addTeamMember = (teamId, memberData) =>
 
 export const deleteTeamMember = (memberId) =>
   apiFetch(`/admin/members/${memberId}`, { method: 'DELETE' });
+
+// Team Devices API
+export const getTeamDevices = (teamId) =>
+  apiFetch(`/admin/teams/${teamId}/devices`);
+
+export const revokeTeamDevice = (deviceId) =>
+  apiFetch(`/admin/devices/${deviceId}`, { method: 'DELETE' });
 
 export const getAdminJudges = () => 
   apiFetch('/admin/judges');

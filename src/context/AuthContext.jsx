@@ -51,9 +51,27 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
+    // Force logout when this specific device is revoked by admin
+    const handleDeviceRevoked = (data) => {
+      const myDeviceId = localStorage.getItem('dsc_device_id');
+      if (user.role === 'team' && data.deviceId && myDeviceId) {
+        // The event carries the TeamDevice row id OR the deviceId fingerprint — check both
+        if (data.deviceId === myDeviceId || data.fingerprint === myDeviceId) {
+          console.warn('[Auth] This device was revoked by admin. Executing instant logout...');
+          setAuthToken(null);
+          setUser(null);
+          localStorage.removeItem('dsc_token');
+          localStorage.removeItem('dsc_auth_user');
+          window.location.href = '/login?revoked=1';
+        }
+      }
+    };
+
     socket.on('team:deleted', handleTeamDeleted);
+    socket.on('device:revoked', handleDeviceRevoked);
     return () => {
       socket.off('team:deleted', handleTeamDeleted);
+      socket.off('device:revoked', handleDeviceRevoked);
     };
   }, [socket, user]);
 

@@ -51,7 +51,7 @@ router.get('/teams', async (req, res) => {
       teams = await prisma.team.findMany({
         orderBy: { createdAt: 'desc' },
         include: {
-          _count: { select: { members: true } }
+          _count: { select: { members: true, devices: true } }
         }
       });
     } catch (countErr) {
@@ -59,7 +59,7 @@ router.get('/teams', async (req, res) => {
       teams = await prisma.team.findMany({
         orderBy: { createdAt: 'desc' }
       });
-      teams = teams.map(t => ({ ...t, _count: { members: 0 } }));
+      teams = teams.map(t => ({ ...t, _count: { members: 0, devices: 0 } }));
     }
     res.json(teams);
   } catch (err) {
@@ -123,6 +123,57 @@ router.delete('/members/:memberId', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'فشل في حذف العضو' });
+  }
+});
+
+// ─── Team Devices Management ───
+
+// Get registered devices for a team
+router.get('/teams/:teamId/devices', async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const devices = await prisma.teamDevice.findMany({
+      where: { teamId },
+      orderBy: { lastLoginAt: 'desc' }
+    });
+    res.json(devices);
+  } catch (err) {
+    console.error('[Admin Team Devices Error]:', err);
+    res.status(500).json({ error: 'فشل في جلب أجهزة الفريق' });
+  }
+});
+
+// Revoke (delete) a device — frees a slot for a new device
+router.delete('/devices/:deviceId', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const device = await prisma.teamDevice.findUnique({ where: { id: deviceId } });
+    await prisma.teamDevice.delete({
+      where: { id: deviceId }
+    });
+
+    // Emit real-time event so the revoked device gets force-logged out
+    if (req.io && device) {
+      req.io.emit('device:revoked', { deviceId: device.id, fingerprint: device.deviceId, teamId: device.teamId });
+    }
+
+    res.json({ success: true, message: 'تم إلغاء اعتماد الجهاز بنجاح' });
+  } catch (err) {
+    console.error('[Revoke Device Error]:', err);
+    res.status(500).json({ error: 'فشل في إلغاء اعتماد الجهاز' });
+  }
+});
+
+// Update device limit for a specific team (Admin can raise/lower from default 24)
+router.patch('/teams/:teamId/device-limit', async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const { maxDevices } = req.body;
+    // Note: This requires adding a maxDevices field to Team model in a future migration.
+    // For now, the global 24-device limit is enforced in auth.js.
+    res.json({ success: true, message: 'حد الأجهزة الافتراضي هو 24 لكل فريق. لتعديله تواصل مع المطور.' });
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في تحديث حد الأجهزة' });
   }
 });
 

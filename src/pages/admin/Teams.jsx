@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Users, Plus, Trash2, Upload, UserCheck, X, UserPlus, ShieldAlert, Award } from 'lucide-react';
 import {
   getAdminTeams, createTeam, deleteTeam, importTeams,
-  getTeamMembers, addTeamMember, deleteTeamMember
+  getTeamMembers, addTeamMember, deleteTeamMember,
+  getTeamDevices, revokeTeamDevice
 } from '../../services/api';
 
 const AdminTeams = () => {
@@ -21,6 +22,12 @@ const AdminTeams = () => {
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberRole, setNewMemberRole] = useState('عضو');
   const [memberError, setMemberError] = useState('');
+
+  // Selected Team Devices Modal State
+  const [selectedTeamDevices, setSelectedTeamDevices] = useState(null);
+  const [devices, setDevices] = useState([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  const [deviceError, setDeviceError] = useState('');
 
   useEffect(() => {
     fetchTeams();
@@ -49,6 +56,33 @@ const AdminTeams = () => {
       setMemberError('فشل في جلب أعضاء الفريق');
     } finally {
       setLoadingMembers(false);
+    }
+  };
+
+  const openTeamDevices = async (team) => {
+    setSelectedTeamDevices(team);
+    setLoadingDevices(true);
+    setDeviceError('');
+    try {
+      const data = await getTeamDevices(team.id);
+      setDevices(data);
+    } catch (err) {
+      console.error(err);
+      setDeviceError('فشل في جلب أجهزة الفريق');
+    } finally {
+      setLoadingDevices(false);
+    }
+  };
+
+  const handleRevokeDevice = async (deviceId) => {
+    if (!window.confirm('هل أنت متأكد من إلغاء اعتماد هذا الجهاز؟ سيتم تسجيل خروجه فوراً.')) return;
+    try {
+      await revokeTeamDevice(deviceId);
+      const updatedDevices = await getTeamDevices(selectedTeamDevices.id);
+      setDevices(updatedDevices);
+      fetchTeams();
+    } catch (err) {
+      alert('فشل إلغاء اعتماد الجهاز');
     }
   };
 
@@ -251,7 +285,16 @@ const AdminTeams = () => {
                         title="إدارة أعضاء الفريق"
                       >
                         <UserCheck size={13} />
-                        إدارة الأعضاء ({memberCount})
+                        الأعضاء ({memberCount})
+                      </button>
+
+                      <button
+                        onClick={() => openTeamDevices(t)}
+                        className="text-xs font-bold text-sky-400 hover:text-sky-300 bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-lg flex items-center gap-1 transition"
+                        title="الأجهزة المسجلة للفريق"
+                      >
+                        <ShieldAlert size={13} />
+                        الأجهزة ({t._count?.devices || 0}/24)
                       </button>
                     </div>
 
@@ -374,6 +417,93 @@ const AdminTeams = () => {
               <span>يمكنك إضافة أي عدد من الكشافين بحرية بدون تقييد بـ 24</span>
               <button
                 onClick={() => setSelectedTeam(null)}
+                className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition"
+              >
+                إغلاق
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Team Registered Devices Modal ═══ */}
+      {selectedTeamDevices && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 dir-rtl">
+          <div className="card p-6 rounded-3xl bg-slate-900 border border-sky-500/30 max-w-xl w-full text-right shadow-2xl relative max-h-[90vh] flex flex-col">
+
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+              <button
+                onClick={() => setSelectedTeamDevices(null)}
+                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-2">
+                <span className={`text-xs px-3 py-1 rounded-full font-mono font-bold border ${
+                  devices.length >= 24
+                    ? 'bg-red-500/20 text-red-300 border-red-500/30'
+                    : 'bg-sky-500/20 text-sky-300 border-sky-500/30'
+                }`}>
+                  {devices.length} / 24 جهاز مسجل
+                </span>
+                <h3 className="text-base font-black text-white">
+                  أجهزة فريق: <span className="text-amber-400">{selectedTeamDevices.label}</span>
+                </h3>
+              </div>
+            </div>
+
+            {/* Info Banner */}
+            <div className="mb-4 p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-[11px] text-sky-300 leading-5">
+              📱 كل جهاز يسجل دخول الفريق من موبايل يُحسب هنا تلقائياً. الحد الأقصى <strong>24 جهاز</strong> لكل فريق.
+              إلغاء اعتماد أي جهاز سيؤدي لتسجيل خروجه فوراً وتفريغ مكان لجهاز جديد.
+            </div>
+
+            {/* Devices List */}
+            <div className="overflow-y-auto flex-1 space-y-2 pr-1">
+              {loadingDevices ? (
+                <div className="py-8 text-center text-xs text-slate-500">جاري تحميل الأجهزة...</div>
+              ) : deviceError ? (
+                <div className="py-8 text-center text-xs text-red-400">{deviceError}</div>
+              ) : devices.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-500 bg-slate-950/40 rounded-xl border border-slate-800">
+                  لا يوجد أجهزة مسجلة لهذا الفريق بعد. أول ما حد يسجل دخول من موبايل هيظهر هنا.
+                </div>
+              ) : (
+                devices.map((d, idx) => (
+                  <div
+                    key={d.id}
+                    className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between text-xs"
+                  >
+                    <button
+                      onClick={() => handleRevokeDevice(d.id)}
+                      className="text-red-400 hover:text-red-300 p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition"
+                      title="إلغاء اعتماد الجهاز — تسجيل خروج فوري"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+
+                    <div className="flex-1 mr-3">
+                      <p className="font-mono text-[10px] text-sky-300 break-all" dir="ltr">{d.deviceId}</p>
+                      <p className="text-[10px] text-slate-500 mt-1 truncate" dir="ltr">{d.userAgent}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        آخر دخول: {new Date(d.lastLoginAt).toLocaleString('ar-EG')}
+                      </p>
+                    </div>
+
+                    <span className="text-[10px] font-mono text-slate-500 shrink-0">#{idx + 1}</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="pt-4 border-t border-slate-800 mt-4 flex justify-between items-center text-[11px] text-slate-500">
+              <span>الحد الأقصى التلقائي: 24 جهاز لكل فريق</span>
+              <button
+                onClick={() => setSelectedTeamDevices(null)}
                 className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition"
               >
                 إغلاق

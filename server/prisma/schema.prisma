@@ -17,6 +17,7 @@ model Team {
   scores  Score[]
   reports Report[]
   members TeamMember[]
+  devices TeamDevice[]
 }
 
 model TeamMember {
@@ -26,6 +27,18 @@ model TeamMember {
   name      String
   role      String   @default("عضو")
   createdAt DateTime @default(now())
+}
+
+model TeamDevice {
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  deviceId  String   // Unique browser/device fingerprint from localStorage
+  userAgent String   @default("")
+  lastLoginAt DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@unique([teamId, deviceId])
 }
 
 model Admin {

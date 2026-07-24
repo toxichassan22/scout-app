@@ -10,7 +10,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'digital_scout_camp_secret_key_2026
 // Team Login
 router.post('/team/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, deviceId, userAgent } = req.body;
     if (!username || !password) {
       return res.status(400).json({ error: 'اسم المستخدم وكلمة السر مطلوبان' });
     }
@@ -23,6 +23,43 @@ router.post('/team/login', async (req, res) => {
     const validPassword = await bcrypt.compare(password, team.passwordHash);
     if (!validPassword) {
       return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
+    }
+
+    // ─── Device Registration & 24-Device Limit Enforcement ───
+    const finalDeviceId = deviceId || `unknown_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const finalUserAgent = userAgent || req.headers['user-agent'] || 'Unknown Device';
+
+    // Check if this device is already registered for this team
+    let deviceRecord = await prisma.teamDevice.findUnique({
+      where: { teamId_deviceId: { teamId: team.id, deviceId: finalDeviceId } }
+    });
+
+    if (!deviceRecord) {
+      // New device — check if team already has 24 registered devices
+      const deviceCount = await prisma.teamDevice.count({ where: { teamId: team.id } });
+      if (deviceCount >= 24) {
+        return res.status(403).json({
+          error: 'عفواً، وصل الفريق للحد الأقصى للأجهزة المسموح بها (24 جهازاً). يرجى مراجعة إدارة المهرجان.',
+          maxDevicesReached: true
+        });
+      }
+
+      // Register the new device
+      deviceRecord = await prisma.teamDevice.create({
+        data: {
+          teamId: team.id,
+          deviceId: finalDeviceId,
+          userAgent: finalUserAgent,
+          lastLoginAt: new Date()
+        }
+      });
+      console.log(`[Device Registered] Team ${team.username} — Device ${finalDeviceId} (${deviceCount + 1}/24)`);
+    } else {
+      // Existing device — update last login timestamp
+      await prisma.teamDevice.update({
+        where: { id: deviceRecord.id },
+        data: { lastLoginAt: new Date(), userAgent: finalUserAgent }
+      });
     }
 
     const token = jwt.sign(
@@ -111,6 +148,18 @@ router.post('/admin/login', async (req, res) => {
 
 // Current User Info
 router.get('/me', authenticateToken, async (req, res) => {
+  // If team role, verify device is still registered (not revoked)
+  if (req.user.role === 'team') {
+    const deviceId = req.headers['x-device-id'];
+    if (deviceId) {
+      const device = await prisma.teamDevice.findUnique({
+        where: { teamId_deviceId: { teamId: req.user.id, deviceId } }
+      });
+      if (!device) {
+        return res.status(401).json({ error: 'تم إلغاء اعتماد هذا الجهاز من قبل الإدارة', forceLogout: true, deviceRevoked: true });
+      }
+    }
+  }
   res.json({ user: req.user });
 });
 
