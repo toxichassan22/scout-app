@@ -65,7 +65,231 @@ async function seed() {
     }
   });
 
-  // 4️⃣ The 3 Main Official Competitions (+ Video Design)
+  // 4️⃣ Official report competitions (manual_judged) — one report per team per competition
+  const reportCompetitions = [
+    {
+      id: 'comp-report-5',
+      name: 'تسميع القرآن الكريم',
+      slug: 'report_quran',
+      type: 'manual_judged',
+      description: 'حفظ وتسميع آيات وأجزاء من القرآن الكريم',
+      isOpen: true,
+      passcode: '1005',
+      criteria: JSON.stringify([
+        { key: 'memorization', label: 'حسن الحفظ والتثبت', maxScore: 50 },
+        { key: 'tajweed', label: 'التجويد والأداء الصوتي', maxScore: 30 },
+        { key: 'confidence', label: 'الثقة والأداء أمام اللجنة', maxScore: 20 }
+      ])
+    },
+    {
+      id: 'comp-report-6',
+      name: 'تسميع الأحاديث النبوية',
+      slug: 'report_hadith',
+      type: 'manual_judged',
+      description: 'حفظ وتسميع أحاديث نبوية مختارة مع الفهم والتطبيق',
+      isOpen: true,
+      passcode: '1006',
+      criteria: JSON.stringify([
+        { key: 'memorization', label: 'حسن الحفظ', maxScore: 50 },
+        { key: 'understanding', label: 'فهم المعنى والشرح', maxScore: 30 },
+        { key: 'presentation', label: 'الأداء والثقة', maxScore: 20 }
+      ])
+    },
+    {
+      id: 'comp-report-8',
+      name: 'الملصق الفني الكشفي',
+      slug: 'report_poster',
+      type: 'manual_judged',
+      description: 'تصميم ملصق فني يعبر عن قيمة أو موضوع كشفي',
+      isOpen: true,
+      passcode: '1008',
+      criteria: JSON.stringify([
+        { key: 'design', label: 'التصميم والجاذبية البصرية', maxScore: 40 },
+        { key: 'message', label: 'وضوح الرسالة والفكرة', maxScore: 30 },
+        { key: 'creativity', label: 'الإبداع والتنفيذ', maxScore: 30 }
+      ])
+    },
+    {
+      id: 'comp-report-9',
+      name: 'العقد والربطات الكشفية',
+      slug: 'report_knots',
+      type: 'manual_judged',
+      description: 'إتقان عقد وربطات كشفية مفيدة في المخيم والخدمة',
+      isOpen: true,
+      passcode: '1009',
+      criteria: JSON.stringify([
+        { key: 'mastery', label: 'إتقان العقد بشكل صحيح', maxScore: 50 },
+        { key: 'speed', label: 'السرعة والمهارة', maxScore: 25 },
+        { key: 'usage', label: 'معرفة الاستخدامات العملية', maxScore: 25 }
+      ])
+    },
+    {
+      id: 'comp-report-10',
+      name: 'الورشة الفنية',
+      slug: 'report_art_workshop',
+      type: 'manual_judged',
+      description: 'تقرير ومخرجات ورشة فنية تنفذها الفرقة',
+      isOpen: true,
+      passcode: '1010',
+      criteria: JSON.stringify([
+        { key: 'output', label: 'جودة المخرج الفني', maxScore: 40 },
+        { key: 'teamwork', label: 'التعاون الجماعي', maxScore: 30 },
+        { key: 'documentation', label: 'توثيق خطوات الورشة', maxScore: 30 }
+      ])
+    },
+    {
+      id: 'comp-report-11',
+      name: 'النموذج الكشفي',
+      slug: 'report_scout_model',
+      type: 'manual_judged',
+      description: 'تصميم وعرض نموذج كشفي تعليمي أو وظيفي',
+      isOpen: true,
+      passcode: '1011',
+      criteria: JSON.stringify([
+        { key: 'model', label: 'جودة النموذج والتنفيذ', maxScore: 40 },
+        { key: 'idea', label: 'فكرة النموذج والفائدة', maxScore: 30 },
+        { key: 'presentation', label: 'جودة العرض والشرح', maxScore: 30 }
+      ])
+    },
+    {
+      id: 'comp-report-12',
+      name: 'بحث ثلاث أفكار لمبتكرات علمية',
+      slug: 'report_science_ideas',
+      type: 'manual_judged',
+      description: 'بحث وتقديم ثلاث أفكار لمبتكرات علمية قابلة للتطبيق',
+      isOpen: true,
+      passcode: '1012',
+      criteria: JSON.stringify([
+        { key: 'ideas', label: 'جودة الأفكار والإبداع', maxScore: 40 },
+        { key: 'research', label: 'عمق البحث والمصادر', maxScore: 30 },
+        { key: 'presentation', label: 'جودة العرض والتنفيذ', maxScore: 30 }
+      ])
+    },
+    {
+      id: 'comp-report-13',
+      name: 'ورقة عمل على خطى الأنبياء',
+      slug: 'report_prophets',
+      type: 'manual_judged',
+      description: 'إعداد ورقة عمل تربوية مستوحاة من سير الأنبياء',
+      isOpen: true,
+      passcode: '1013',
+      criteria: JSON.stringify([
+        { key: 'content', label: 'محتوى الورقة والقيمة التربوية', maxScore: 40 },
+        { key: 'design', label: 'تصميم الورقة وتنظيمها', maxScore: 30 },
+        { key: 'applicability', label: 'قابلية التطبيق في الفترة الكشفية', maxScore: 30 }
+      ])
+    },
+    {
+      id: 'comp-report-15',
+      name: 'الكرنفال الكشفي',
+      slug: 'report_carnival',
+      type: 'manual_judged',
+      description: 'تقرير مشاركة الفرقة في الكرنفال الكشفي والأنشطة المصاحبة',
+      isOpen: true,
+      passcode: '1015',
+      criteria: JSON.stringify([
+        { key: 'participation', label: 'مستوى المشاركة والتنظيم', maxScore: 40 },
+        { key: 'creativity', label: 'الإبداع في العرض', maxScore: 30 },
+        { key: 'impact', label: 'التأثير والتفاعل', maxScore: 30 }
+      ])
+    },
+    {
+      id: 'comp-report-17',
+      name: 'عرض تقديمي عن أحد الموديلات الكشفية',
+      slug: 'report_model_presentation',
+      type: 'manual_judged',
+      description: 'عرض تقديمي يشرح أحد الموديلات أو المهارات الكشفية',
+      isOpen: true,
+      passcode: '1017',
+      criteria: JSON.stringify([
+        { key: 'content', label: 'جودة المحتوى والشرح', maxScore: 40 },
+        { key: 'presentation', label: 'جودة العرض التقديمي', maxScore: 30 },
+        { key: 'engagement', label: 'التفاعل وإيصال الفكرة', maxScore: 30 }
+      ])
+    },
+    {
+      id: 'comp-report-18',
+      name: 'المجلة الأرضية المعرض الكشفي',
+      slug: 'report_scout_magazine',
+      type: 'manual_judged',
+      description: 'إعداد مجلة أرضية أو معرض كشفي يوثق أنشطة الفرقة',
+      isOpen: true,
+      passcode: '1018',
+      criteria: JSON.stringify([
+        { key: 'content', label: 'تنوع وجودة المحتوى', maxScore: 40 },
+        { key: 'design', label: 'التصميم والتنسيق', maxScore: 30 },
+        { key: 'creativity', label: 'الإبداع في العرض', maxScore: 30 }
+      ])
+    },
+    {
+      id: 'comp-report-19',
+      name: 'الكاشف الذكي (Smart Scout Detector)',
+      slug: 'report_smart_detector',
+      type: 'manual_judged',
+      description: 'ابتكار أو برمجة كاشف ذكي يخدم فكرة كشفية أو علمية',
+      isOpen: true,
+      passcode: '1019',
+      criteria: JSON.stringify([
+        { key: 'innovation', label: 'الفكرة والابتكار', maxScore: 40 },
+        { key: 'execution', label: 'التنفيذ والعملية', maxScore: 30 },
+        { key: 'presentation', label: 'جودة العرض والشرح', maxScore: 30 }
+      ])
+    },
+    {
+      id: 'comp-report-21',
+      name: 'عرض تقديمي كوميدي عن مهارة كشفية',
+      slug: 'report_comedy_scout',
+      type: 'manual_judged',
+      description: 'عرض كوميدي قصير يوضح مهارة أو قيمة كشفية',
+      isOpen: true,
+      passcode: '1021',
+      criteria: JSON.stringify([
+        { key: 'humor', label: 'الفكاهة والإبداع', maxScore: 40 },
+        { key: 'message', label: 'وضوح الرسالة الكشفية', maxScore: 30 },
+        { key: 'performance', label: 'الأداء والتمثيل', maxScore: 30 }
+      ])
+    },
+    {
+      id: 'comp-report-23',
+      name: 'مهرجان التلاوة',
+      slug: 'report_tilawa_festival',
+      type: 'manual_judged',
+      description: 'مشاركة الفرقة في مهرجان التلاوة وتقرير الأداء',
+      isOpen: true,
+      passcode: '1023',
+      criteria: JSON.stringify([
+        { key: 'recitation', label: 'جودة التلاوة والتجويد', maxScore: 50 },
+        { key: 'voice', label: 'الأداء الصوتي والخشوع', maxScore: 30 },
+        { key: 'presence', label: 'الحضور والثقة', maxScore: 20 }
+      ])
+    },
+    {
+      id: 'comp-report-24',
+      name: 'سهرة السمر والختام',
+      slug: 'report_closing_night',
+      type: 'manual_judged',
+      description: 'تقرير مشاركة الفرقة في سهرة السمر والختام',
+      isOpen: true,
+      passcode: '1024',
+      criteria: JSON.stringify([
+        { key: 'participation', label: 'مستوى المشاركة', maxScore: 40 },
+        { key: 'performance', label: 'جودة الأداء الفني', maxScore: 30 },
+        { key: 'teamwork', label: 'التعاون والروح الجماعية', maxScore: 30 }
+      ])
+    }
+  ];
+
+  // Clean up old placeholder report competitions that were replaced by official list
+  const staleReportIds = ['comp-manual-2', 'comp-manual-3', 'comp-manual-4', 'comp-manual-5', 'comp-manual-6'];
+  try {
+    await prisma.report.deleteMany({ where: { competitionId: { in: staleReportIds } } });
+    await prisma.score.deleteMany({ where: { competitionId: { in: staleReportIds } } });
+    await prisma.competition.deleteMany({ where: { id: { in: staleReportIds } } });
+  } catch (err) {
+    console.warn('[Seed] Could not remove stale placeholder competitions:', err.message);
+  }
+
+  // 5️⃣ The 3 Main Official Competitions (+ Video Design) + Report Competitions
   const competitions = [
     {
       id: 'comp-digital-1',
@@ -114,77 +338,8 @@ async function seed() {
         { key: 'sound', label: 'الهندسة الصوتية والمؤثرات', maxScore: 30 }
       ])
     },
-    // 5️⃣ Additional manual-judged competitions enabled for team reports
-    {
-      id: 'comp-manual-2',
-      name: 'تقرير المخيم الرقمي',
-      slug: 'report_camp',
-      type: 'manual_judged',
-      description: 'توثيق يوميات المخيم الكشفي والأنشطة الميدانية',
-      isOpen: true,
-      passcode: '2001',
-      criteria: JSON.stringify([
-        { key: 'documentation', label: 'جودة التوثيق والمتابعة', maxScore: 40 },
-        { key: 'creativity', label: 'الإبداع في العرض', maxScore: 30 },
-        { key: 'content', label: 'محتوى ودقة المعلومات', maxScore: 30 }
-      ])
-    },
-    {
-      id: 'comp-manual-3',
-      name: 'تقرير الخدمة العامة',
-      slug: 'report_service',
-      type: 'manual_judged',
-      description: 'تقرير المبادرات الخدمية والمشاريع المجتمعية للفريق',
-      isOpen: true,
-      passcode: '2002',
-      criteria: JSON.stringify([
-        { key: 'impact', label: 'التأثير المجتمعي', maxScore: 40 },
-        { key: 'planning', label: 'التخطيط والتنظيم', maxScore: 30 },
-        { key: 'presentation', label: 'جودة العرض', maxScore: 30 }
-      ])
-    },
-    {
-      id: 'comp-manual-4',
-      name: 'معرض المشاريع الرقمية',
-      slug: 'report_projects',
-      type: 'manual_judged',
-      description: 'عرض ومناقشة المشاريع التقنية والإبداعية للفرق',
-      isOpen: true,
-      passcode: '2003',
-      criteria: JSON.stringify([
-        { key: 'innovation', label: 'الابتكار والفكرة', maxScore: 40 },
-        { key: 'execution', label: 'التنفيذ والجودة', maxScore: 30 },
-        { key: 'presentation', label: 'جودة العرض', maxScore: 30 }
-      ])
-    },
-    {
-      id: 'comp-manual-5',
-      name: 'مسابقة الإنشاد والفنون',
-      slug: 'report_arts',
-      type: 'manual_judged',
-      description: 'تقرير أداء الفريق في الأنشاد والفنون الكشفية',
-      isOpen: true,
-      passcode: '2004',
-      criteria: JSON.stringify([
-        { key: 'performance', label: 'جودة الأداء', maxScore: 40 },
-        { key: 'content', label: 'المحتوى والقيمة', maxScore: 30 },
-        { key: 'teamwork', label: 'التناسق الجماعي', maxScore: 30 }
-      ])
-    },
-    {
-      id: 'comp-manual-6',
-      name: 'مسابقة المعارف والمهارات',
-      slug: 'report_skills',
-      type: 'manual_judged',
-      description: 'تقرير المهارات الكشفية والمعارف العامة للفريق',
-      isOpen: true,
-      passcode: '2005',
-      criteria: JSON.stringify([
-        { key: 'knowledge', label: 'المعارف والمعلومات', maxScore: 40 },
-        { key: 'application', label: 'التطبيق العملي', maxScore: 30 },
-        { key: 'documentation', label: 'جودة التوثيق', maxScore: 30 }
-      ])
-    }
+    // 5️⃣ Official report competitions (manual_judged) — each accepts one team report
+    ...reportCompetitions
   ];
 
   for (const comp of competitions) {
@@ -325,7 +480,7 @@ async function seed() {
     });
   }
 
-  console.log('[Seed] Core data verified: admin, sample teams, 9 competitions (6 reportable), 50 genius questions, 22 geography countries, 8 zones.');
+  console.log('[Seed] Core data verified: admin, sample teams, 21 competitions (17 reportable), 50 genius questions, 22 geography countries, 8 zones.');
 }
 
 seed()
