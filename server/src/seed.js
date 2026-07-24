@@ -1,14 +1,36 @@
+import fs from 'fs';
+import path from 'path';
 import bcrypt from 'bcryptjs';
 import prisma from './db.js';
 
 async function seed() {
-  console.log('[Seed] Cleaning database and setting the 3 official competitions (عبقرينو، الجغرافيا، حقيقتين وكذبة)...');
+  console.log('[Seed] Integrity check and seeding official competitions...');
+
+  // Auto-heal if database file is corrupted/malformed
+  try {
+    await prisma.$queryRawUnsafe('PRAGMA integrity_check;');
+  } catch (dbErr) {
+    if (dbErr.message && (dbErr.message.includes('malformed') || dbErr.message.includes('corrupt'))) {
+      console.error('[DB Auto-Heal] SQLite database is malformed. Cleaning corrupt DB files for fresh build...');
+      await prisma.$disconnect();
+      const baseDir = path.resolve('prisma');
+      const files = ['dev.db', 'dev.db-wal', 'dev.db-shm'];
+      files.forEach(f => {
+        const fp = path.join(baseDir, f);
+        if (fs.existsSync(fp)) {
+          try { fs.unlinkSync(fp); } catch (_) {}
+        }
+      });
+    }
+  }
 
   // Delete old extra competitions and orphaned reports/scores to leave a clean slate
-  await prisma.report.deleteMany({});
-  await prisma.score.deleteMany({});
-  await prisma.question.deleteMany({});
-  await prisma.competition.deleteMany({});
+  try {
+    await prisma.report.deleteMany({});
+    await prisma.score.deleteMany({});
+    await prisma.question.deleteMany({});
+    await prisma.competition.deleteMany({});
+  } catch (_) {}
 
   // 1️⃣ Admin Account
   const adminPassword = await bcrypt.hash('admin123', 10);

@@ -29,6 +29,7 @@ fi
 
 echo "🔄 إعادة تشغيل الباك إند وتطبيق الـ Seed..."
 cd server
+npx prisma db push --accept-data-loss || true
 node src/seed.js || true
 pm2 restart ecosystem.config.cjs --env production || pm2 start ecosystem.config.cjs --env production || pm2 restart all || true
 cd ..
