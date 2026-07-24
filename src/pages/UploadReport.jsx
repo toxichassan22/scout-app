@@ -7,11 +7,13 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
 
-const MAX_REPORTS = 24;
-
 const UploadReport = () => {
   const { user } = useAuth();
   const { competitions, submitEntry, submissions } = useCompetitions();
+
+  // Dynamic MAX_REPORTS based on manual report competitions (16)
+  const reportCompetitions = competitions.filter((c) => c.type === 'manual_judged' || !c.type || c.type === 'video');
+  const MAX_REPORTS = reportCompetitions.length || 16;
 
   // Selected state
   const [selectedCompId, setSelectedCompId] = useState('');
