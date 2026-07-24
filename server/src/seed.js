@@ -2,7 +2,13 @@ import bcrypt from 'bcryptjs';
 import prisma from './db.js';
 
 async function seed() {
-  console.log('[Seed] Starting database seed with official 15 Report Competitions + Digital Quizzes...');
+  console.log('[Seed] Cleaning database and setting the 3 official competitions (عبقرينو، الجغرافيا، حقيقتين وكذبة)...');
+
+  // Delete old extra competitions and orphaned reports/scores to leave a clean slate
+  await prisma.report.deleteMany({});
+  await prisma.score.deleteMany({});
+  await prisma.question.deleteMany({});
+  await prisma.competition.deleteMany({});
 
   // 1️⃣ Admin Account
   const adminPassword = await bcrypt.hash('admin123', 10);
@@ -15,7 +21,7 @@ async function seed() {
     }
   });
 
-  // 2️⃣ Sample Teams
+  // 2️⃣ Official Sample Teams
   const sampleTeams = [
     { username: 'team1', label: 'الكتيبة الأولى', pass: 'team123' },
     { username: 'team2', label: 'فريق الصقور', pass: 'team123' },
@@ -37,7 +43,7 @@ async function seed() {
     });
   }
 
-  // 3️⃣ Sample Judge
+  // 3️⃣ Official Sample Judge
   const judgePassword = await bcrypt.hash('judge123', 10);
   await prisma.judge.upsert({
     where: { username: 'judge1' },
@@ -49,18 +55,18 @@ async function seed() {
     }
   });
 
-  // 4️⃣ Official Competitions (Digital Quizzes + 15 Report Competitions Selected by User)
+  // 4️⃣ The 3 Main Official Competitions (+ Video Design)
   const competitions = [
-    // Digital Interactive Quizzes
     {
       id: 'comp-digital-1',
-      name: 'مسابقة عبقرينو (50 سؤالاً: 25 تقني + 25 كشفي)',
+      name: 'مسابقة عبقرينو',
       slug: 'genius',
       type: 'auto_digital',
       description: 'خمسون سؤالاً متوازناً في ربع ساعة - الذكاء الاصطناعي والثقافة الكشفية والعامة',
       isOpen: true,
-      duration: 900,
-      criteria: JSON.stringify([])
+      passcode: '1001',
+      duration: 900, // 15 mins
+      criteria: JSON.stringify([{ key: 'score', label: 'درجة الأسئلة الإلكترونية', maxScore: 100 }])
     },
     {
       id: 'comp-digital-2',
@@ -69,25 +75,27 @@ async function seed() {
       type: 'auto_digital',
       description: 'اكتشف عبارة الزور من بين الحقائق الكشفية والتاريخية',
       isOpen: true,
+      passcode: '1002',
       duration: 600,
-      criteria: JSON.stringify([])
+      criteria: JSON.stringify([{ key: 'score', label: 'درجة الأسئلة الإلكترونية', maxScore: 100 }])
     },
     {
       id: 'comp-digital-3',
-      name: 'مسابقة الجغرافيا وتضاريس الوطن العربي',
+      name: 'مسابقة الجغرافيا',
       slug: 'geography',
       type: 'auto_digital',
       description: 'التعرف على الأعلام والعواصم والعملات والتقسيم الإداري ونظام الحكم للـ 22 دولة عربية',
       isOpen: true,
+      passcode: '1003',
       duration: 600,
-      criteria: JSON.stringify([])
+      criteria: JSON.stringify([{ key: 'score', label: 'درجة الأعلام والعواصم', maxScore: 100 }])
     },
     {
       id: 'comp-video-1',
-      name: 'مسابقة تصميم الفيديو الكشفي (دقيقتين)',
+      name: 'مسابقة تصميم الفيديو الكشفي',
       slug: 'video_design',
       type: 'manual_judged',
-      description: 'تقييم لجنة التحكيم لمونتاج ومحتوى الفيديو الكشفي',
+      description: 'تقييم لجنة التحكيم لمونتاج ومحتوى الفيديو الكشفي والتقارير',
       isOpen: true,
       passcode: '1234',
       criteria: JSON.stringify([
@@ -95,34 +103,12 @@ async function seed() {
         { key: 'editing', label: 'جودة المونتاج والإخراج', maxScore: 40 },
         { key: 'sound', label: 'الهندسة الصوتية والمؤثرات', maxScore: 30 }
       ])
-    },
-
-    // 15 Official Report Competitions Selected by User
-    { id: 'comp-quran', name: 'تسميع القرآن الكريم', slug: 'quran', type: 'manual_judged', isOpen: true, passcode: '1001', criteria: JSON.stringify([{ key: 'tajweed', label: 'التجويد والحفظ', maxScore: 100 }]) },
-    { id: 'comp-hadith', name: 'تسميع الأحاديث النبوية', slug: 'hadith', type: 'manual_judged', isOpen: true, passcode: '1002', criteria: JSON.stringify([{ key: 'recitation', label: 'الحفظ والفهم', maxScore: 100 }]) },
-    { id: 'comp-sports', name: 'المجال الرياضي (التحديات الرياضية)', slug: 'sports', type: 'manual_judged', isOpen: true, passcode: '1003', criteria: JSON.stringify([{ key: 'performance', label: 'الأداء والرياضة', maxScore: 100 }]) },
-    { id: 'comp-art-poster', name: 'الملصق الفني الكشفي', slug: 'art_poster', type: 'manual_judged', isOpen: true, passcode: '1004', criteria: JSON.stringify([{ key: 'design', label: 'جودة الملصق والإبداع', maxScore: 100 }]) },
-    { id: 'comp-knots', name: 'العقد والربطات الكشفية', slug: 'knots', type: 'manual_judged', isOpen: true, passcode: '1005', criteria: JSON.stringify([{ key: 'precision', label: 'دقة العقد السرعة', maxScore: 100 }]) },
-    { id: 'comp-art-workshop', name: 'الورشة الفنية', slug: 'art_workshop', type: 'manual_judged', isOpen: true, passcode: '1006', criteria: JSON.stringify([{ key: 'art', label: 'الأعمال الفنية والتنفيذ', maxScore: 100 }]) },
-    { id: 'comp-scout-model', name: 'النموذج الكشفي', slug: 'scout_model', type: 'manual_judged', isOpen: true, passcode: '1007', criteria: JSON.stringify([{ key: 'model', label: 'جودة وشكل النموذج الكشفي', maxScore: 100 }]) },
-    { id: 'comp-innovations', name: 'بحث ثلاث أفكار لمبتكرات علمية', slug: 'innovations', type: 'manual_judged', isOpen: true, passcode: '1008', criteria: JSON.stringify([{ key: 'research', label: 'ابتكار الأفكار العلمية والبحث', maxScore: 100 }]) },
-    { id: 'comp-carnival', name: 'الكرنفال الكشفي', slug: 'carnival', type: 'manual_judged', isOpen: true, passcode: '1009', criteria: JSON.stringify([{ key: 'show', label: 'العرض الكرنفالي والروح', maxScore: 100 }]) },
-    { id: 'comp-ciphers', name: 'كينج الشفرات (King of Ciphers)', slug: 'ciphers', type: 'manual_judged', isOpen: true, passcode: '1010', criteria: JSON.stringify([{ key: 'decoding', label: 'سرعة حل الشفرات والدقة', maxScore: 100 }]) },
-    { id: 'comp-models-pres', name: 'عرض تقديمي عن أحد الموديلات الكشفية', slug: 'models_presentation', type: 'manual_judged', isOpen: true, passcode: '1011', criteria: JSON.stringify([{ key: 'presentation', label: 'الإلقاء والعرض الميداني', maxScore: 100 }]) },
-    { id: 'comp-ground-mag', name: 'المجلة الأرضية المعرض الكشفي', slug: 'ground_magazine', type: 'manual_judged', isOpen: true, passcode: '1012', criteria: JSON.stringify([{ key: 'magazine', label: 'تنسيق المجلة والمحتوى', maxScore: 100 }]) },
-    { id: 'comp-comedy-pres', name: 'عرض تقديمي كوميدي عن مهارة كشفية', slug: 'comedy_presentation', type: 'manual_judged', isOpen: true, passcode: '1013', criteria: JSON.stringify([{ key: 'humor', label: 'الإبداع والكوميديا والمهارة', maxScore: 100 }]) },
-    { id: 'comp-code-winner', name: 'من سيربح الكود (Code Winner)', slug: 'code_winner', type: 'manual_judged', isOpen: true, passcode: '1014', criteria: JSON.stringify([{ key: 'code', label: 'حل الأكواد والبرمجة', maxScore: 100 }]) },
-    { id: 'comp-camp-night', name: 'سهرة السمر والختام', slug: 'camp_night', type: 'manual_judged', isOpen: true, passcode: '1015', criteria: JSON.stringify([{ key: 'samar', label: 'فقرة السمر والالتزام', maxScore: 100 }]) }
+    }
   ];
 
   for (const comp of competitions) {
-    await prisma.competition.upsert({
-      where: { id: comp.id },
-      update: comp,
-      create: comp
-    });
+    await prisma.competition.create({ data: comp });
   }
-  console.log('[Seed] 15 Selected Report Competitions + Digital Quizzes created successfully!');
 
   // 5️⃣ 50 Balanced Genius Questions
   const balanced50Questions = [
@@ -180,8 +166,6 @@ async function seed() {
     { text: 'من هو أول من اكتشف وحدة قياس الفيمتو ثانية ( Femto - Second ) ؟', options: ['د/أحمد زويل', 'الحسن بن الهيثم', 'جابر بن حيان'], correctOption: 0 },
     { text: 'من هو مخترع قانون الجاذبية ؟', options: ['آينشتين', 'أرشميدس', 'إسحاق نيوتن'], correctOption: 2 }
   ];
-
-  await prisma.question.deleteMany({ where: { competitionId: 'comp-digital-1' } });
 
   for (let idx = 0; idx < balanced50Questions.length; idx++) {
     const q = balanced50Questions[idx];
@@ -252,100 +236,7 @@ async function seed() {
     });
   }
 
-  // 8️⃣ Official Agenda Items
-  const officialAgenda = [
-    {
-      id: 'agenda-1',
-      title: 'تجمع واستقبال الوفود',
-      type: 'ceremony',
-      zoneId: 'zone-1',
-      startTime: '08:00',
-      endTime: '09:00',
-      description: 'استقبال جميع الفرق والوفود الكشفية المشاركة وتوزيع التعليمات التنظيمية'
-    },
-    {
-      id: 'agenda-2',
-      title: 'تحية العلم وافتتاح المهرجان',
-      type: 'ceremony',
-      zoneId: 'zone-5',
-      startTime: '09:00',
-      endTime: '10:00',
-      description: 'مراسم رفع العلم الكشفي وافتتاح فعاليات المهرجان رسمياً'
-    },
-    {
-      id: 'agenda-3',
-      title: 'اجتماع القادة وتسليم الأعمال الجاهزة',
-      type: 'workshop',
-      zoneId: 'zone-1',
-      startTime: '10:00',
-      endTime: '10:30',
-      description: 'اجتماع قادة الفرق وتسليم الأبحاث والأعمال الكشفية المجهزة مسبقاً'
-    },
-    {
-      id: 'agenda-4',
-      title: 'تسميع القرآن والأحاديث والأنشطة الفنية والرياضية',
-      type: 'competition',
-      zoneId: 'zone-2',
-      startTime: '10:30',
-      endTime: '11:30',
-      description: 'تسميع القرآن - تسميع الأحاديث - المجال الرياضي - الملصق الفني - عقد وربطات - تصميم فيديو دقيقتين - عواصم وعملات الدول العربية'
-    },
-    {
-      id: 'agenda-5',
-      title: 'الورش الفنية والمبتكرات العلمية والنموذج الكشفي',
-      type: 'workshop',
-      zoneId: 'zone-2',
-      startTime: '11:30',
-      endTime: '01:00',
-      description: 'تكملة المجال الرياضي - الورشة الفنية - النموذج الكشفي - بحث ثلاث أفكار لمبتكرات علمية - ورقة عمل على خطي الأنبياء'
-    },
-    {
-      id: 'agenda-6',
-      title: 'صلاة الجمعة',
-      type: 'ceremony',
-      zoneId: 'zone-3',
-      startTime: '01:00',
-      endTime: '02:00',
-      description: 'أداء صلاة الجمعة بالمصلى الرئيسي للمخيم'
-    },
-    {
-      id: 'agenda-7',
-      title: 'العروض الميدانية والمعرض والمسابقات الكشفية',
-      type: 'competition',
-      zoneId: 'zone-6',
-      startTime: '02:00',
-      endTime: '04:00',
-      description: 'عرض تطير الطائرات - الكرنفال - كينج الشفرات - عرض تقديمي عن أحد الموديلات - حقيقتين وكذبة - نصب المجلة الأرضية والمعرض الساعة 3 العصر - الكاشف الذكي'
-    },
-    {
-      id: 'agenda-8',
-      title: 'الخدمة العامة والعروض التقديمية ومهرجان التلاوة',
-      type: 'workshop',
-      zoneId: 'zone-5',
-      startTime: '04:00',
-      endTime: '05:30',
-      description: 'الخدمة العامة - عرض تقديمي كوميدي عن مهارة - من سيربح الكود - الاستعداد للختام - مهرجان التلاوة'
-    },
-    {
-      id: 'agenda-9',
-      title: 'حفل الختام والسمر الكشفي',
-      type: 'ceremony',
-      zoneId: 'zone-6',
-      startTime: '05:30',
-      endTime: '08:30',
-      description: 'حفل الختام الرسمي، إعلان النتائج وتوزيع الجوائز وسهرة السمر الكشفي'
-    }
-  ];
-
-  for (const item of officialAgenda) {
-    await prisma.agendaItem.upsert({
-      where: { id: item.id },
-      update: item,
-      create: item
-    });
-  }
-
-  console.log('[Seed] Completed seeding 15 selected report competitions successfully!');
+  console.log('[Seed] Database cleaned and set to the 3 main competitions + Video Design!');
 }
 
 seed()
