@@ -44,15 +44,25 @@ router.get('/leaderboard', async (req, res) => {
 // Teams CRUD
 router.get('/teams', async (req, res) => {
   try {
-    const teams = await prisma.team.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: {
-        _count: { select: { members: true } }
-      }
-    });
+    let teams;
+    try {
+      teams = await prisma.team.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: { select: { members: true } }
+        }
+      });
+    } catch (countErr) {
+      console.warn('[Admin Teams] Member count relation failed, falling back:', countErr.message);
+      teams = await prisma.team.findMany({
+        orderBy: { createdAt: 'desc' }
+      });
+      teams = teams.map(t => ({ ...t, _count: { members: 0 } }));
+    }
     res.json(teams);
   } catch (err) {
-    res.status(500).json({ error: 'فشل في جلب الفرق' });
+    console.error('[Admin Teams Error]:', err);
+    res.status(500).json({ error: 'فشل في جلب الفرق: ' + (err.message || '') });
   }
 });
 
@@ -60,13 +70,19 @@ router.get('/teams', async (req, res) => {
 router.get('/teams/:teamId/members', async (req, res) => {
   try {
     const { teamId } = req.params;
-    const members = await prisma.teamMember.findMany({
-      where: { teamId },
-      orderBy: { createdAt: 'asc' }
-    });
+    let members = [];
+    try {
+      members = await prisma.teamMember.findMany({
+        where: { teamId },
+        orderBy: { createdAt: 'asc' }
+      });
+    } catch (mErr) {
+      console.warn('[Admin Team Members] Table missing or query failed:', mErr.message);
+    }
     res.json(members);
   } catch (err) {
-    res.status(500).json({ error: 'فشل في جلب أعضاء الفريق' });
+    console.error('[Admin Team Members Error]:', err);
+    res.status(500).json({ error: 'فشل في جلب أعضاء الفريق: ' + (err.message || '') });
   }
 });
 
@@ -167,10 +183,17 @@ router.delete('/teams/:id', async (req, res) => {
 // Judges CRUD
 router.get('/judges', async (req, res) => {
   try {
-    const judges = await prisma.judge.findMany({ orderBy: { createdAt: 'desc' } });
+    let judges = [];
+    try {
+      judges = await prisma.judge.findMany({ orderBy: { createdAt: 'desc' } });
+    } catch (jErr) {
+      console.warn('[Admin Judges] Query failed, falling back:', jErr.message);
+      judges = await prisma.judge.findMany();
+    }
     res.json(judges);
   } catch (err) {
-    res.status(500).json({ error: 'فشل في جلب المحكمين' });
+    console.error('[Admin Judges Error]:', err);
+    res.status(500).json({ error: 'فشل في جلب المحكمين: ' + (err.message || '') });
   }
 });
 
@@ -412,13 +435,20 @@ router.put('/agenda/:id', async (req, res) => {
 // Reports Management
 router.get('/reports', async (req, res) => {
   try {
-    const reports = await prisma.report.findMany({
-      include: { team: true },
-      orderBy: { uploadedAt: 'desc' }
-    });
+    let reports = [];
+    try {
+      reports = await prisma.report.findMany({
+        include: { team: true },
+        orderBy: { uploadedAt: 'desc' }
+      });
+    } catch (rErr) {
+      console.warn('[Admin Reports] Relation or orderBy failed, falling back:', rErr.message);
+      reports = await prisma.report.findMany();
+    }
     res.json(reports);
   } catch (err) {
-    res.status(500).json({ error: 'فشل في جلب التقارير' });
+    console.error('[Admin Reports Error]:', err);
+    res.status(500).json({ error: 'فشل في جلب التقارير: ' + (err.message || '') });
   }
 });
 
