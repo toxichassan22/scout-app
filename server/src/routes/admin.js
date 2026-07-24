@@ -687,11 +687,48 @@ router.post('/seed-agenda', async (req, res) => {
       added++;
     }
 
+    // Seed competitions
+    const existingComps = await prisma.competition.findMany();
+    const existingCompSlugs = new Set(existingComps.map(e => e.slug));
+
+    const competitions = [
+      { name: 'مسابقة عبقرينو (من سيربح الكود)', slug: 'genius', type: 'auto_digital', description: 'مسابقة رقمية ذكية', passcode: '1001', duration: 900 },
+      { name: 'مسابقة حقيقتان وكذبة', slug: 'two_truths', type: 'auto_digital', description: 'تحدي الذكاء', passcode: '1002', duration: 600 },
+      { name: 'مسابقة الجغرافيا', slug: 'geography', type: 'auto_digital', description: 'مسابقة جغرافيا رقمية', passcode: '1003', duration: 600 },
+      { name: 'مسابقة تصميم الفيديو الكشفي', slug: 'video', type: 'manual_judged', description: 'تصميم فيديو كشفي', passcode: '1234' },
+      { name: 'تسميع القرآن الكريم', slug: 'quran', type: 'manual_judged', description: 'تسميع القرآن الكريم' },
+      { name: 'تسميع الأحاديث النبوية', slug: 'hadith', type: 'manual_judged', description: 'تسميع الأحاديث النبوية' },
+      { name: 'المجال الرياضي', slug: 'sports', type: 'manual_judged', description: 'تحديات رياضية ميدانية' },
+      { name: 'الموسيقى الفني', slug: 'music', type: 'manual_judged', description: 'الموسيقى والإلقاء الفني' },
+      { name: 'عقد وربطات الكشفية', slug: 'knots', type: 'manual_judged', description: 'عقد وربطات الكشفية' },
+      { name: 'الورشة الفنية', slug: 'art_workshop', type: 'manual_judged', description: 'الورشة الفنية' },
+      { name: 'النموذج الكشفي', slug: 'scout_model', type: 'manual_judged', description: 'النموذج الكشفي' },
+      { name: 'بحث ثلاث أفكار لمبتكرات علمية', slug: 'innovation', type: 'manual_judged', description: 'مبتكرات علمية' },
+      { name: 'ورقة عمل على خطي الأبجية', slug: 'calligraphy', type: 'manual_judged', description: 'خطي الأبجية' },
+      { name: 'عرض تنظير الطائرات', slug: 'planes', type: 'manual_judged', description: 'طائرات ورقية' },
+      { name: 'الكرنفال الكشفي', slug: 'carnival', type: 'manual_judged', description: 'الكرنفال الاستعراضي' },
+      { name: 'كينج الشفرات', slug: 'ciphers', type: 'manual_judged', description: 'فك الشفرات' },
+      { name: 'عرض تقديمي عن الموديلات الكشفية', slug: 'model_presentation', type: 'manual_judged', description: 'الموديلات الكشفية' },
+      { name: 'المجلة الأرضية', slug: 'magazine', type: 'manual_judged', description: 'المجلة الأرضية والمعرض' },
+      { name: 'الكاشف الذكي', slug: 'detector', type: 'manual_judged', description: 'الكاشف الذكي' },
+      { name: 'الخدمة العامة', slug: 'service', type: 'manual_judged', description: 'مشروع الخدمة العامة' },
+      { name: 'عرض تقديمي كوميدي', slug: 'comedy', type: 'manual_judged', description: 'عرض كوميدي عن مهارة كشفية' },
+      { name: 'مهرجان التلاوة', slug: 'tilawa', type: 'manual_judged', description: 'مهرجان التلاوة' },
+      { name: 'سهرة السمر والختام', slug: 'closing_night', type: 'manual_judged', description: 'سهرة السمر والختام' },
+    ];
+
+    let compsAdded = 0;
+    for (const comp of competitions) {
+      if (existingCompSlugs.has(comp.slug)) continue;
+      await prisma.competition.create({ data: { ...comp, isOpen: true } });
+      compsAdded++;
+    }
+
     if (req.io) req.io.emit('agenda:update');
-    res.json({ success: true, added, total: existing.length + added });
+    res.json({ success: true, agendaAdded: added, compsAdded, totalAgenda: existing.length + added, totalComps: existingComps.length + compsAdded });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'فشل في إضافة الفعاليات' });
+    res.status(500).json({ error: 'فشل في إضافة البيانات' });
   }
 });
 
