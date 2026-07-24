@@ -36,33 +36,42 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
-  // Listen for real-time team deletion event from admin -> instant force logout on mobile
+  // Join team room on socket connect so revocation events are received
+  useEffect(() => {
+    if (!socket || !user) return;
+    if (user.role === 'team') {
+      socket.emit('join:room', `team:${user.id}`);
+    }
+    if (user.role === 'admin') {
+      socket.emit('join:room', 'admin');
+    }
+  }, [socket, user]);
+
+  // Force logout helper — clears auth state and redirects
+  const forceLogout = (reason) => {
+    console.warn(`[Auth] Force logout: ${reason}`);
+    setAuthToken(null);
+    setUser(null);
+    localStorage.removeItem('dsc_token');
+    localStorage.removeItem('dsc_auth_user');
+    window.location.href = `/login?revoked=1`;
+  };
+
+  // Listen for real-time team deletion / device revocation events via Socket.IO
   useEffect(() => {
     if (!socket || !user) return;
 
     const handleTeamDeleted = (data) => {
       if (user.role === 'team' && (data.teamId === user.id || data.teamId === user.username)) {
-        console.warn('[Auth] Current team was deleted by admin. Executing instant logout...');
-        setAuthToken(null);
-        setUser(null);
-        localStorage.removeItem('dsc_token');
-        localStorage.removeItem('dsc_auth_user');
-        window.location.href = '/login?deleted=1';
+        forceLogout('team deleted by admin');
       }
     };
 
-    // Force logout when this specific device is revoked by admin
     const handleDeviceRevoked = (data) => {
       const myDeviceId = localStorage.getItem('dsc_device_id');
-      if (user.role === 'team' && data.deviceId && myDeviceId) {
-        // The event carries the TeamDevice row id OR the deviceId fingerprint — check both
-        if (data.deviceId === myDeviceId || data.fingerprint === myDeviceId) {
-          console.warn('[Auth] This device was revoked by admin. Executing instant logout...');
-          setAuthToken(null);
-          setUser(null);
-          localStorage.removeItem('dsc_token');
-          localStorage.removeItem('dsc_auth_user');
-          window.location.href = '/login?revoked=1';
+      if (user.role === 'team' && myDeviceId) {
+        if (data.fingerprint === myDeviceId || data.teamId === user.id) {
+          forceLogout('device revoked by admin');
         }
       }
     };
@@ -74,6 +83,36 @@ export const AuthProvider = ({ children }) => {
       socket.off('device:revoked', handleDeviceRevoked);
     };
   }, [socket, user]);
+
+  // Fallback heartbeat: poll /api/auth/me every 15s to verify device is still registered.
+  // Also checks on visibility change (user returns to tab) for instant detection.
+  useEffect(() => {
+    if (!user || user.role !== 'team') return;
+
+    const verifyDevice = async () => {
+      try {
+        await getCurrentUser();
+      } catch (err) {
+        if (err.message && (err.message.includes('إلغاء اعتماد') || err.message.includes('revoked') || err.deviceRevoked)) {
+          forceLogout('device revoked (detected by heartbeat)');
+        }
+      }
+    };
+
+    const interval = setInterval(verifyDevice, 15000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        verifyDevice();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [user]);
 
   // Team login with username and password
   const loginTeam = async (username, password) => {

@@ -154,6 +154,7 @@ router.delete('/devices/:deviceId', async (req, res) => {
 
     // Emit real-time event so the revoked device gets force-logged out
     if (req.io && device) {
+      req.io.to(`team:${device.teamId}`).emit('device:revoked', { deviceId: device.id, fingerprint: device.deviceId, teamId: device.teamId });
       req.io.emit('device:revoked', { deviceId: device.id, fingerprint: device.deviceId, teamId: device.teamId });
     }
 
@@ -189,6 +190,10 @@ router.post('/teams', async (req, res) => {
       data: { username, passwordHash, label }
     });
 
+    if (req.io) {
+      req.io.emit('team:created', { teamId: team.id, username: team.username });
+    }
+
     res.status(201).json(team);
   } catch (err) {
     console.error(err);
@@ -219,6 +224,9 @@ router.post('/teams/import', async (req, res) => {
     }
 
     res.json({ success: true, count: created.length });
+    if (req.io && created.length > 0) {
+      req.io.emit('team:created', { count: created.length });
+    }
   } catch (err) {
     res.status(500).json({ error: 'فشل في استيراد الفرق' });
   }

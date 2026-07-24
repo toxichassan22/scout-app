@@ -54,6 +54,11 @@ router.post('/team/login', async (req, res) => {
         }
       });
       console.log(`[Device Registered] Team ${team.username} — Device ${finalDeviceId} (${deviceCount + 1}/24)`);
+
+      // Emit real-time event so admin panel updates live
+      if (req.io) {
+        req.io.emit('device:registered', { teamId: team.id, username: team.username });
+      }
     } else {
       // Existing device — update last login timestamp
       await prisma.teamDevice.update({

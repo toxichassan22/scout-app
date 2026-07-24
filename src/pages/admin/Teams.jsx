@@ -5,6 +5,7 @@ import {
   getTeamMembers, addTeamMember, deleteTeamMember,
   getTeamDevices, revokeTeamDevice
 } from '../../services/api';
+import { useSocket } from '../../context/SocketContext';
 
 const AdminTeams = () => {
   const [teams, setTeams] = useState([]);
@@ -14,6 +15,7 @@ const AdminTeams = () => {
   const [importText, setImportText] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { socket } = useSocket();
 
   // Selected Team Roster Modal State
   const [selectedTeam, setSelectedTeam] = useState(null);
@@ -32,6 +34,24 @@ const AdminTeams = () => {
   useEffect(() => {
     fetchTeams();
   }, []);
+
+  // Listen for real-time device events so admin panel updates without refresh
+  useEffect(() => {
+    if (!socket) return;
+
+    const refreshTeams = () => fetchTeams();
+
+    socket.on('device:registered', refreshTeams);
+    socket.on('device:revoked', refreshTeams);
+    socket.on('team:created', refreshTeams);
+    socket.on('team:deleted', refreshTeams);
+    return () => {
+      socket.off('device:registered', refreshTeams);
+      socket.off('device:revoked', refreshTeams);
+      socket.off('team:created', refreshTeams);
+      socket.off('team:deleted', refreshTeams);
+    };
+  }, [socket]);
 
   const fetchTeams = async () => {
     try {
@@ -57,6 +77,16 @@ const AdminTeams = () => {
     } finally {
       setLoadingMembers(false);
     }
+  };
+
+  const closeDevicesModal = () => {
+    setSelectedTeamDevices(null);
+    fetchTeams();
+  };
+
+  const closeMembersModal = () => {
+    setSelectedTeam(null);
+    fetchTeams();
   };
 
   const openTeamDevices = async (team) => {
@@ -321,7 +351,7 @@ const AdminTeams = () => {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <button
-                onClick={() => setSelectedTeam(null)}
+                onClick={closeMembersModal}
                 className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
               >
                 <X size={18} />
@@ -416,7 +446,7 @@ const AdminTeams = () => {
             <div className="pt-4 border-t border-slate-800 mt-4 flex justify-between items-center text-[11px] text-slate-500">
               <span>يمكنك إضافة أي عدد من الكشافين بحرية بدون تقييد بـ 24</span>
               <button
-                onClick={() => setSelectedTeam(null)}
+                onClick={closeMembersModal}
                 className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition"
               >
                 إغلاق
@@ -435,7 +465,7 @@ const AdminTeams = () => {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <button
-                onClick={() => setSelectedTeamDevices(null)}
+                onClick={closeDevicesModal}
                 className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
               >
                 <X size={18} />
@@ -503,7 +533,7 @@ const AdminTeams = () => {
             <div className="pt-4 border-t border-slate-800 mt-4 flex justify-between items-center text-[11px] text-slate-500">
               <span>الحد الأقصى التلقائي: 24 جهاز لكل فريق</span>
               <button
-                onClick={() => setSelectedTeamDevices(null)}
+                onClick={closeDevicesModal}
                 className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition"
               >
                 إغلاق
