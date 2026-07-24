@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2, AlertCircle, Save, ArrowRight, ShieldCheck, Award } from 'lucide-react';
+import {
+  CheckCircle2, AlertCircle, Save, ArrowRight, ShieldCheck, Award,
+  FileText, ExternalLink, Eye, X, FileCheck, Layers
+} from 'lucide-react';
 import { getJudgeTeams, submitJudgeScore } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
 
@@ -17,6 +20,7 @@ const JudgingSheet = () => {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     if (!competition) {
@@ -56,7 +60,7 @@ const JudgingSheet = () => {
 
   const selectTeam = (team) => {
     setSelectedTeam(team);
-    // Reset or populate scores based on criteria
+    // Populate existing or initial scores
     const initialScores = {};
     (competition.criteria || []).forEach(c => {
       initialScores[c.key] = 0;
@@ -100,7 +104,7 @@ const JudgingSheet = () => {
   if (!competition) return null;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-4 sm:p-6 dir-rtl">
+    <div className="min-h-screen bg-slate-950 text-white p-4 sm:p-6 dir-rtl font-sans">
       {/* Header */}
       <div className="max-w-4xl mx-auto mb-6 card p-4 sm:p-6 rounded-2xl border border-slate-800 bg-slate-900/60 flex items-center justify-between">
         <div>
@@ -140,7 +144,7 @@ const JudgingSheet = () => {
                       : 'border-slate-800 bg-slate-900/50 text-slate-300 hover:border-slate-700'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 truncate">
                     {t.hasSubmitted ? (
                       <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
                     ) : (
@@ -148,9 +152,17 @@ const JudgingSheet = () => {
                     )}
                     <span className="truncate">{t.label}</span>
                   </div>
-                  {t.hasSubmitted && (
-                    <span className="text-[10px] font-mono text-emerald-400 font-bold">{t.existingScore} ن</span>
-                  )}
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {t.report && (
+                      <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] px-1.5 py-0.5 rounded font-mono">
+                        📄 تقرير
+                      </span>
+                    )}
+                    {t.hasSubmitted && (
+                      <span className="text-[10px] font-mono text-emerald-400 font-bold">{t.existingScore} ن</span>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>
@@ -161,10 +173,29 @@ const JudgingSheet = () => {
         <div className="md:col-span-2 card p-6 rounded-2xl border border-slate-800 bg-slate-900/60 text-right">
           {selectedTeam ? (
             <div>
+              {/* Header with Report View Button */}
               <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-800">
-                <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                  {selectedTeam.hasSubmitted ? 'تم تقييمه سابقاً' : 'في انتظار التقييم'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                    {selectedTeam.hasSubmitted ? 'تم تقييمه سابقاً' : 'في انتظار التقييم'}
+                  </span>
+
+                  {/* 📄 Report View Action Button for Judge */}
+                  {selectedTeam.report ? (
+                    <button
+                      onClick={() => setShowReportModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-bold transition shadow-sm"
+                    >
+                      <Eye size={14} className="text-purple-400" />
+                      عرض تقرير الفريق
+                    </button>
+                  ) : (
+                    <span className="text-[11px] text-slate-500 bg-slate-800/60 px-2.5 py-1 rounded-full border border-slate-700">
+                      لا يوجد تقرير مرفوع
+                    </span>
+                  )}
+                </div>
+
                 <h2 className="text-lg font-black text-white">{selectedTeam.label}</h2>
               </div>
 
@@ -223,6 +254,94 @@ const JudgingSheet = () => {
           )}
         </div>
       </div>
+
+      {/* ═══ Team Report Viewer Modal for Judge ═══ */}
+      {showReportModal && selectedTeam?.report && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 dir-rtl">
+          <div className="card p-6 rounded-3xl bg-slate-900 border border-purple-500/30 max-w-2xl w-full text-right shadow-2xl relative max-h-[90vh] flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-2">
+                <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs px-3 py-1 rounded-full font-mono font-bold">
+                  ID: #{selectedTeam.report.id?.slice(-6) || 'RPT'}
+                </span>
+                <h3 className="text-base font-black text-white">
+                  تقرير فريق: <span className="text-amber-400">{selectedTeam.label}</span>
+                </h3>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1 text-right">
+              <div>
+                <span className="text-xs text-slate-400 font-bold block mb-1">اسم المسابقة المعنية:</span>
+                <p className="text-sm font-black text-purple-300 bg-purple-500/10 p-2.5 rounded-xl border border-purple-500/20">
+                  {selectedTeam.report.title}
+                </p>
+              </div>
+
+              {selectedTeam.report.content && (
+                <div>
+                  <span className="text-xs text-slate-400 font-bold block mb-1">محتوى وملخص التقرير:</span>
+                  <div className="text-xs leading-relaxed text-slate-300 bg-slate-950 p-4 rounded-xl border border-slate-800 whitespace-pre-wrap">
+                    {selectedTeam.report.content}
+                  </div>
+                </div>
+              )}
+
+              {/* Embedded Document / File Attachment */}
+              {selectedTeam.report.fileUrl && (
+                <div>
+                  <span className="text-xs text-slate-400 font-bold block mb-2">الملف المرفق من الفريق:</span>
+                  
+                  {/* PDF or Image Viewer Embed */}
+                  {selectedTeam.report.fileUrl.endsWith('.pdf') ? (
+                    <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950 h-80">
+                      <iframe
+                        src={selectedTeam.report.fileUrl}
+                        title="PDF Viewer"
+                        className="w-full h-full border-0"
+                      />
+                    </div>
+                  ) : (
+                    <a
+                      href={selectedTeam.report.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-black transition w-full justify-center"
+                    >
+                      <ExternalLink size={16} />
+                      فتح وتنزيل الملف المرفق ({selectedTeam.report.fileUrl.split('.').pop()?.toUpperCase()})
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-4 border-t border-slate-800 mt-4 flex justify-between items-center">
+              <span className="text-[11px] text-slate-500">
+                تاريخ الرفع: {new Date(selectedTeam.report.createdAt).toLocaleString('ar-EG')}
+              </span>
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition"
+              >
+                إغلاق والعودة للدرجات
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal */}
       {showConfirm && (

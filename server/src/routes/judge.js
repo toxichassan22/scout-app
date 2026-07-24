@@ -68,31 +68,53 @@ router.post('/unlock', async (req, res) => {
   }
 });
 
-// Get teams for evaluation
+// Get teams for evaluation (including submitted report for this competition)
 router.get('/teams/:competitionId', async (req, res) => {
   try {
     const { competitionId } = req.params;
+
+    const competition = await prisma.competition.findUnique({
+      where: { id: competitionId }
+    });
+
     const teams = await prisma.team.findMany({
       orderBy: { label: 'asc' },
       include: {
         scores: {
           where: { competitionId }
+        },
+        reports: {
+          orderBy: { createdAt: 'desc' }
         }
       }
     });
 
-    // Format list with submission status
-    const formattedTeams = teams.map(t => ({
-      id: t.id,
-      label: t.label,
-      hasSubmitted: t.scores.length > 0,
-      existingScore: t.scores[0] ? t.scores[0].total : null
-    }));
+    // Format list with submission status and matched competition report
+    const formattedTeams = teams.map(t => {
+      // Find report specifically for this competition ID or by matching title
+      const compReport = (t.reports || []).find(
+        r => r.competitionId === competitionId || (competition && r.title === competition.name)
+      );
+
+      return {
+        id: t.id,
+        label: t.label,
+        hasSubmitted: t.scores.length > 0,
+        existingScore: t.scores[0] ? t.scores[0].total : null,
+        report: compReport ? {
+          id: compReport.id,
+          title: compReport.title,
+          content: compReport.content,
+          fileUrl: compReport.fileUrl,
+          createdAt: compReport.createdAt
+        } : null
+      };
+    });
 
     res.json(formattedTeams);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'فشل في جلب قائمة الفرق' });
+    res.status(500).json({ error: 'فشل في جلب قائمة الفرق والتقارير' });
   }
 });
 
