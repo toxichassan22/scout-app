@@ -39,7 +39,14 @@ const AdminTeams = () => {
   useEffect(() => {
     if (!socket) return;
 
-    const refreshTeams = () => fetchTeams();
+    const refreshTeams = async () => {
+      try {
+        const data = await getAdminTeams();
+        setTeams(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
 
     socket.on('device:registered', refreshTeams);
     socket.on('device:revoked', refreshTeams);
@@ -52,6 +59,14 @@ const AdminTeams = () => {
       socket.off('team:deleted', refreshTeams);
     };
   }, [socket]);
+
+  // Fallback polling: refresh every 10s in case socket events are missed
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchTeams();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchTeams = async () => {
     try {
