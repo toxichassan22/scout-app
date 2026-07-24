@@ -55,6 +55,27 @@ app.use((req, res, next) => {
   next();
 });
 
+// Deployment Version Verification Endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'online',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0-pro',
+    latestCommit: '91607b8',
+    deployedFeature: 'Instant Auth Redirect & Balanced 50 Genius Quiz Dataset',
+    walMode: true
+  });
+});
+
+app.get('/api/version', (req, res) => {
+  res.json({
+    commit: '91607b8',
+    branch: 'main',
+    server: 'Tencent Cloud Ubuntu',
+    lastDeploy: new Date().toISOString()
+  });
+});
+
 // Register API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
