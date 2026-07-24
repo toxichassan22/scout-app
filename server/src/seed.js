@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import prisma from './db.js';
 
 async function seed() {
-  console.log('[Seed] Starting database seed with balanced 50 Genius Quiz Questions (25 AI & Tech + 25 Scout & Culture)...');
+  console.log('[Seed] Starting database seed with official 15 Report Competitions + Digital Quizzes...');
 
   // 1️⃣ Admin Account
   const adminPassword = await bcrypt.hash('admin123', 10);
@@ -49,8 +49,9 @@ async function seed() {
     }
   });
 
-  // 4️⃣ Official Competitions
+  // 4️⃣ Official Competitions (Digital Quizzes + 15 Report Competitions Selected by User)
   const competitions = [
+    // Digital Interactive Quizzes
     {
       id: 'comp-digital-1',
       name: 'مسابقة عبقرينو (50 سؤالاً: 25 تقني + 25 كشفي)',
@@ -58,7 +59,7 @@ async function seed() {
       type: 'auto_digital',
       description: 'خمسون سؤالاً متوازناً في ربع ساعة - الذكاء الاصطناعي والثقافة الكشفية والعامة',
       isOpen: true,
-      duration: 900, // 15 mins
+      duration: 900,
       criteria: JSON.stringify([])
     },
     {
@@ -94,7 +95,24 @@ async function seed() {
         { key: 'editing', label: 'جودة المونتاج والإخراج', maxScore: 40 },
         { key: 'sound', label: 'الهندسة الصوتية والمؤثرات', maxScore: 30 }
       ])
-    }
+    },
+
+    // 15 Official Report Competitions Selected by User
+    { id: 'comp-quran', name: 'تسميع القرآن الكريم', slug: 'quran', type: 'manual_judged', isOpen: true, passcode: '1001', criteria: JSON.stringify([{ key: 'tajweed', label: 'التجويد والحفظ', maxScore: 100 }]) },
+    { id: 'comp-hadith', name: 'تسميع الأحاديث النبوية', slug: 'hadith', type: 'manual_judged', isOpen: true, passcode: '1002', criteria: JSON.stringify([{ key: 'recitation', label: 'الحفظ والفهم', maxScore: 100 }]) },
+    { id: 'comp-sports', name: 'المجال الرياضي (التحديات الرياضية)', slug: 'sports', type: 'manual_judged', isOpen: true, passcode: '1003', criteria: JSON.stringify([{ key: 'performance', label: 'الأداء والرياضة', maxScore: 100 }]) },
+    { id: 'comp-art-poster', name: 'الملصق الفني الكشفي', slug: 'art_poster', type: 'manual_judged', isOpen: true, passcode: '1004', criteria: JSON.stringify([{ key: 'design', label: 'جودة الملصق والإبداع', maxScore: 100 }]) },
+    { id: 'comp-knots', name: 'العقد والربطات الكشفية', slug: 'knots', type: 'manual_judged', isOpen: true, passcode: '1005', criteria: JSON.stringify([{ key: 'precision', label: 'دقة العقد السرعة', maxScore: 100 }]) },
+    { id: 'comp-art-workshop', name: 'الورشة الفنية', slug: 'art_workshop', type: 'manual_judged', isOpen: true, passcode: '1006', criteria: JSON.stringify([{ key: 'art', label: 'الأعمال الفنية والتنفيذ', maxScore: 100 }]) },
+    { id: 'comp-scout-model', name: 'النموذج الكشفي', slug: 'scout_model', type: 'manual_judged', isOpen: true, passcode: '1007', criteria: JSON.stringify([{ key: 'model', label: 'جودة وشكل النموذج الكشفي', maxScore: 100 }]) },
+    { id: 'comp-innovations', name: 'بحث ثلاث أفكار لمبتكرات علمية', slug: 'innovations', type: 'manual_judged', isOpen: true, passcode: '1008', criteria: JSON.stringify([{ key: 'research', label: 'ابتكار الأفكار العلمية والبحث', maxScore: 100 }]) },
+    { id: 'comp-carnival', name: 'الكرنفال الكشفي', slug: 'carnival', type: 'manual_judged', isOpen: true, passcode: '1009', criteria: JSON.stringify([{ key: 'show', label: 'العرض الكرنفالي والروح', maxScore: 100 }]) },
+    { id: 'comp-ciphers', name: 'كينج الشفرات (King of Ciphers)', slug: 'ciphers', type: 'manual_judged', isOpen: true, passcode: '1010', criteria: JSON.stringify([{ key: 'decoding', label: 'سرعة حل الشفرات والدقة', maxScore: 100 }]) },
+    { id: 'comp-models-pres', name: 'عرض تقديمي عن أحد الموديلات الكشفية', slug: 'models_presentation', type: 'manual_judged', isOpen: true, passcode: '1011', criteria: JSON.stringify([{ key: 'presentation', label: 'الإلقاء والعرض الميداني', maxScore: 100 }]) },
+    { id: 'comp-ground-mag', name: 'المجلة الأرضية المعرض الكشفي', slug: 'ground_magazine', type: 'manual_judged', isOpen: true, passcode: '1012', criteria: JSON.stringify([{ key: 'magazine', label: 'تنسيق المجلة والمحتوى', maxScore: 100 }]) },
+    { id: 'comp-comedy-pres', name: 'عرض تقديمي كوميدي عن مهارة كشفية', slug: 'comedy_presentation', type: 'manual_judged', isOpen: true, passcode: '1013', criteria: JSON.stringify([{ key: 'humor', label: 'الإبداع والكوميديا والمهارة', maxScore: 100 }]) },
+    { id: 'comp-code-winner', name: 'من سيربح الكود (Code Winner)', slug: 'code_winner', type: 'manual_judged', isOpen: true, passcode: '1014', criteria: JSON.stringify([{ key: 'code', label: 'حل الأكواد والبرمجة', maxScore: 100 }]) },
+    { id: 'comp-camp-night', name: 'سهرة السمر والختام', slug: 'camp_night', type: 'manual_judged', isOpen: true, passcode: '1015', criteria: JSON.stringify([{ key: 'samar', label: 'فقرة السمر والالتزام', maxScore: 100 }]) }
   ];
 
   for (const comp of competitions) {
@@ -104,8 +122,9 @@ async function seed() {
       create: comp
     });
   }
+  console.log('[Seed] 15 Selected Report Competitions + Digital Quizzes created successfully!');
 
-  // 5️⃣ 50 Balanced Genius Questions (25 AI/Tech + 25 Scout/Culture)
+  // 5️⃣ 50 Balanced Genius Questions
   const balanced50Questions = [
     // 🧠 25 AI & Tech Questions
     { text: 'ما الميزة الأساسية لمعمارية الـ Transformer مقارنة بنماذج الـ RNN التقليدية؟', options: ['الاعتماد الكلي على القواعد المكتوبة يدوياً', 'معالجة البيانات بالتوازي (Parallel Processing)', 'عدم الحاجة لوجود معالجات رسومية (GPUs)'], correctOption: 1 },
@@ -162,7 +181,6 @@ async function seed() {
     { text: 'من هو مخترع قانون الجاذبية ؟', options: ['آينشتين', 'أرشميدس', 'إسحاق نيوتن'], correctOption: 2 }
   ];
 
-  // Wipe old questions for comp-digital-1
   await prisma.question.deleteMany({ where: { competitionId: 'comp-digital-1' } });
 
   for (let idx = 0; idx < balanced50Questions.length; idx++) {
@@ -174,12 +192,11 @@ async function seed() {
         text: q.text,
         options: JSON.stringify(q.options),
         correctOption: q.correctOption,
-        points: 2, // 50 * 2 = 100 points
+        points: 2,
         sortOrder: idx + 1
       }
     });
   }
-  console.log('[Seed] All 50 Balanced Genius Questions (25 AI & Tech + 25 Scout & Culture) seeded successfully!');
 
   // 6️⃣ Seed Official 22 Arab Geography Countries
   const arabCountries = [
@@ -328,7 +345,7 @@ async function seed() {
     });
   }
 
-  console.log('[Seed] Balanced 50 Genius Questions (25 AI/Tech + 25 Scout) populated successfully!');
+  console.log('[Seed] Completed seeding 15 selected report competitions successfully!');
 }
 
 seed()
