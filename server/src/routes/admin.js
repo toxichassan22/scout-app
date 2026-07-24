@@ -668,21 +668,44 @@ router.post('/seed-agenda', async (req, res) => {
     const existing = await prisma.agendaItem.findMany();
     const existingTitles = new Set(existing.map(e => e.title));
 
+    // Clear old agenda items to re-seed with expanded list
+    if (existing.length > 0) {
+      await prisma.agendaItem.deleteMany();
+    }
+
     const items = [
-      { title: 'تجمع واستقبال الوفود', type: 'ceremony', zoneId: zoneMap['١'], startTime: '08:00', endTime: '09:00', description: 'استقبال جميع الفرق والوفود المشاركة وتوزيع التعليمات التنظيمية' },
-      { title: 'تحية العلم وافتتاح المهرجان', type: 'ceremony', zoneId: zoneMap['٥'], startTime: '09:00', endTime: '10:00', description: 'مراسم رفع العلم الكشفي وافتتاح فعاليات المهرجان رسمياً' },
-      { title: 'اجتماع القادة وتسليم الأعمال الجاهزة', type: 'workshop', zoneId: zoneMap['١'], startTime: '10:00', endTime: '10:30', description: 'اجتماع فرق القادة وتسليم الأبحاث والعروض الكشفية الجاهزة' },
-      { title: 'تسميع القرآن والأحاديث والأنشطة الفنية والرياضية', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'تسميع القرآن - تسميع الأحاديث - المجال الرياضي - الموسيقى الفني - عقد وربطات - تصميم فيديو دقيقتين - عواصم وعملات الدول العربية' },
-      { title: 'تكمية المجال الرياضي والورش والنموذج الكشفي', type: 'workshop', zoneId: zoneMap['٢'], startTime: '11:30', endTime: '01:00', description: 'تكمية المجال الرياضي - الورشة الفنية - النموذج الكشفي - بحث ثلاث أفكار لمبتكرات علمية - ورقة عمل على خطي الأبجية' },
-      { title: 'صلاة الجمعة', type: 'ceremony', zoneId: zoneMap['٣'], startTime: '01:00', endTime: '02:00', description: 'صلاة الجمعة الجماعية' },
-      { title: 'العروض الميدانية والمعرض والمسابقات الكشفية', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'عرض تنظير الطائرات - الكرنفال - كينج الشفرات - عرض تقديمي عن أحد الموديلات - حقيقتين وكذبة - نصب المجلة الأرضية - الكاشف الذكي' },
-      { title: 'الخدمة العامة والعروض التقديمية ومهرجان التلاوة', type: 'workshop', zoneId: zoneMap['٥'], startTime: '04:00', endTime: '05:30', description: 'الخدمة العامة - عرض تقديمي كوميدي عن مهارة من سيربح الكود - الاستعداد للختام - مهرجان التلاوة' },
-      { title: 'حفل الختام والسمر', type: 'ceremony', zoneId: zoneMap['٦'], startTime: '05:30', endTime: '08:30', description: 'حفل الختام والسمر الكشفي - التكريمات والجوائز' },
+      { title: 'تجمع واستقبال الوفود', type: 'ceremony', zoneId: zoneMap['١'], startTime: '08:00', endTime: '09:00', description: 'استقبال جميع الفرق والوفود المشاركة وتوزيع التعليمات التنظيمية', order: 1 },
+      { title: 'تحية العلم وافتتاح المهرجان', type: 'ceremony', zoneId: zoneMap['٥'], startTime: '09:00', endTime: '10:00', description: 'مراسم رفع العلم الكشفي وافتتاح فعاليات المهرجان رسمياً', order: 2 },
+      { title: 'اجتماع القادة وتسليم الأعمال الجاهزة', type: 'workshop', zoneId: zoneMap['١'], startTime: '10:00', endTime: '10:30', description: 'اجتماع فرق القادة وتسليم الأبحاث والعروض الكشفية الجاهزة', order: 3 },
+      { title: 'تسميع القرآن الكريم', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'مسابقة تسميع القرآن الكريم', order: 4 },
+      { title: 'تسميع الأحاديث النبوية', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'مسابقة تسميع الأحاديث النبوية', order: 5 },
+      { title: 'المجال الرياضي', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'تحديات رياضية ميدانية', order: 6 },
+      { title: 'الموسيقى الفني', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'الموسيقى والإلقاء الفني', order: 7 },
+      { title: 'عقد وربطات الكشفية', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'عقد وربطات الكشفية', order: 8 },
+      { title: 'تصميم فيديو كشفي', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'تصميم فيديو دقيقتين', order: 9 },
+      { title: 'عواصم وعملات الدول العربية', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'مسابقة عواصم وعملات الدول العربية', order: 10 },
+      { title: 'تكمية المجال الرياضي', type: 'workshop', zoneId: zoneMap['٢'], startTime: '11:30', endTime: '01:00', description: 'تكمية المجال الرياضي', order: 11 },
+      { title: 'الورشة الفنية', type: 'workshop', zoneId: zoneMap['٢'], startTime: '11:30', endTime: '01:00', description: 'الورشة الفنية', order: 12 },
+      { title: 'النموذج الكشفي', type: 'workshop', zoneId: zoneMap['٢'], startTime: '11:30', endTime: '01:00', description: 'النموذج الكشفي', order: 13 },
+      { title: 'بحث ثلاث أفكار لمبتكرات علمية', type: 'workshop', zoneId: zoneMap['٢'], startTime: '11:30', endTime: '01:00', description: 'بحث ثلاث أفكار لمبتكرات علمية', order: 14 },
+      { title: 'ورقة عمل على خطي الأبجية', type: 'workshop', zoneId: zoneMap['٢'], startTime: '11:30', endTime: '01:00', description: 'ورقة عمل على خطي الأبجية', order: 15 },
+      { title: 'صلاة الجمعة', type: 'ceremony', zoneId: zoneMap['٣'], startTime: '01:00', endTime: '02:00', description: 'صلاة الجمعة الجماعية', order: 16 },
+      { title: 'عرض تنظير الطائرات', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'طائرات ورقية', order: 17 },
+      { title: 'الكرنفال الكشفي', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'الكرنفال الاستعراضي', order: 18 },
+      { title: 'كينج الشفرات', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'فك الشفرات', order: 19 },
+      { title: 'عرض تقديمي عن الموديلات الكشفية', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'الموديلات الكشفية', order: 20 },
+      { title: 'حقيقتان وكذبة', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'تحدي الذكاء', order: 21 },
+      { title: 'المجلة الأرضية', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'المجلة الأرضية والمعرض', order: 22 },
+      { title: 'الكاشف الذكي', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'الكاشف الذكي', order: 23 },
+      { title: 'الخدمة العامة', type: 'workshop', zoneId: zoneMap['٥'], startTime: '04:00', endTime: '05:30', description: 'مشروع الخدمة العامة', order: 24 },
+      { title: 'عرض تقديمي كوميدي', type: 'competition', zoneId: zoneMap['٥'], startTime: '04:00', endTime: '05:30', description: 'عرض كوميدي عن مهارة كشفية', order: 25 },
+      { title: 'مهرجان التلاوة', type: 'competition', zoneId: zoneMap['٥'], startTime: '04:00', endTime: '05:30', description: 'مهرجان التلاوة', order: 26 },
+      { title: 'حفل الختام والسمر', type: 'ceremony', zoneId: zoneMap['٦'], startTime: '05:30', endTime: '08:30', description: 'حفل الختام والسمر الكشفي - التكريمات والجوائز', order: 27 },
     ];
 
     let added = 0;
     for (const item of items) {
-      if (!item.zoneId || existingTitles.has(item.title)) continue;
+      if (!item.zoneId) continue;
       await prisma.agendaItem.create({ data: item });
       added++;
     }

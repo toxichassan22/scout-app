@@ -95,15 +95,24 @@ export const AuthProvider = ({ children }) => {
     if (!user || user.role !== 'team') return;
 
     let consecutiveFailures = 0;
+    let serverWasDown = false;
 
     const verifyDevice = async () => {
-      if (isServerDown()) return;
+      if (isServerDown()) {
+        serverWasDown = true;
+        return;
+      }
+      // After server recovers from being down, reset failures and give it time
+      if (serverWasDown) {
+        serverWasDown = false;
+        consecutiveFailures = 0;
+        return;
+      }
       try {
         await getCurrentUser();
         consecutiveFailures = 0;
       } catch (err) {
         if (err.isNetworkError) {
-          consecutiveFailures++;
           return;
         }
         if (err.deviceRevoked) {
@@ -112,12 +121,11 @@ export const AuthProvider = ({ children }) => {
         }
         if (err.status === 401 || err.forceLogout) {
           consecutiveFailures++;
-          if (consecutiveFailures >= 5) {
-            forceLogout('token expired (5 consecutive failures)');
+          if (consecutiveFailures >= 10) {
+            forceLogout('token expired (10 consecutive failures)');
           }
           return;
         }
-        consecutiveFailures++;
       }
     };
 

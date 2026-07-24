@@ -12,6 +12,7 @@ import judgeRoutes from './routes/judge.js';
 import adminRoutes from './routes/admin.js';
 import quizRoutes from './routes/quiz.js';
 import reportsRoutes from './routes/reports.js';
+import competitionsRoutes from './routes/competitions.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -96,6 +97,7 @@ app.use('/api/judge', judgeRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/quiz', quizRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/competitions', competitionsRoutes);
 
 // Health check endpoint for Render monitoring
 app.get('/api/health', (req, res) => {
