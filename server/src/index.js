@@ -11,6 +11,13 @@ import agendaRoutes from './routes/agenda.js';
 import judgeRoutes from './routes/judge.js';
 import adminRoutes from './routes/admin.js';
 import quizRoutes from './routes/quiz.js';
+import reportsRoutes from './routes/reports.js';
+
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -76,6 +83,9 @@ app.get('/api/version', (req, res) => {
   });
 });
 
+// Serve static uploads for reports and media
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Register API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
@@ -84,6 +94,7 @@ app.use('/api/agenda', agendaRoutes);
 app.use('/api/judge', judgeRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/quiz', quizRoutes);
+app.use('/api/reports', reportsRoutes);
 
 // Health check endpoint for Render monitoring
 app.get('/api/health', (req, res) => {
