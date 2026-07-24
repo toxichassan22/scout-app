@@ -120,90 +120,92 @@ const Program = () => {
     ? positions[activeZone.id] || { top: 50, left: 50, code: 'ZONE' }
     : { top: 50, left: 50, code: 'ZONE' };
 
-  const MapCanvas = ({ compact }) => (
+  const MapCanvas = () => (
     <div
       ref={mapRef}
-      className={`relative w-full overflow-hidden bg-[#041a10] ${compact ? 'h-[220px] sm:h-[260px]' : 'h-[460px] sm:h-[540px]'} ${calibrating ? 'cursor-crosshair' : ''}`}
+      className={`relative w-full overflow-hidden bg-[#041a10] ${calibrating ? 'cursor-crosshair' : ''}`}
       style={{ userSelect: calibrating ? 'none' : 'auto' }}
     >
-      <img
-        src={mapBgImage}
-        alt="خريطة المخيم الكشفي"
-        className="absolute inset-0 h-full w-full object-contain"
-        style={{ filter: calibrating ? 'brightness(0.95)' : 'brightness(0.85)' }}
-        draggable={false}
-      />
-      <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 50px rgba(2,19,26,0.5)' }} />
-
-      {calibrating && (
-        <div
-          className="absolute inset-0 pointer-events-none opacity-20"
-          style={{
-            backgroundImage: 'linear-gradient(rgba(56,189,248,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.5) 1px, transparent 1px)',
-            backgroundSize: '10% 10%',
-          }}
+      <div className="relative w-full" style={{ aspectRatio: '4 / 3' }}>
+        <img
+          src={mapBgImage}
+          alt="خريطة المخيم الكشفي"
+          className="absolute inset-0 h-full w-full object-contain"
+          style={{ filter: calibrating ? 'brightness(0.95)' : 'brightness(0.85)' }}
+          draggable={false}
         />
-      )}
+        <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 50px rgba(2,19,26,0.5)' }} />
 
-      <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-black/75 px-2.5 py-1 text-[10px] font-mono text-cyan-300 backdrop-blur-md">
-        <Navigation size={12} className={calibrating ? 'text-orange-400' : 'animate-spin text-cyan-400'} />
-        <span>{calibrating ? 'معايرة' : activeZonePos.code}</span>
-      </div>
-
-      {data.zones.map((z) => {
-        const pos = positions[z.id] || { top: 50, left: 50, code: 'Z' };
-        const isActive = activeZone?.id === z.id;
-
-        return (
+        {calibrating && (
           <div
-            key={z.id}
-            style={{ top: `${pos.top}%`, left: `${pos.left}%`, position: 'absolute', transform: 'translate(-50%, -100%)', zIndex: isActive ? 30 : 20 }}
-            className={`transition-transform duration-150 ${calibrating ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${isActive && !calibrating ? 'scale-125' : 'hover:scale-125'}`}
-            onMouseDown={(e) => { if (calibrating) { startDrag(e, z.id); } else { handleZoneFilter(z.id); } }}
-            onTouchStart={(e) => { if (calibrating) { startDrag(e, z.id); } else { handleZoneFilter(z.id); } }}
-            title={z.name}
-          >
-            {isActive && !calibrating && (
-              <span className="absolute inset-0 top-auto -bottom-1 left-1/2 -translate-x-1/2 h-2 w-2 rounded-full animate-ping opacity-70" style={{ backgroundColor: z.colorHex || '#38bdf8' }} />
-            )}
-            <div className="flex flex-col items-center">
-              <div
-                className={`flex h-6 w-6 items-center justify-center rounded-full shadow-lg transition-all ${
-                  isActive
-                    ? 'ring-2 ring-white ring-offset-1 ring-offset-transparent shadow-[0_0_12px_rgba(255,255,255,0.5)]'
-                    : calibrating ? 'ring-2 ring-orange-400' : 'ring-1 ring-white/40'
-                }`}
-                style={{ backgroundColor: z.colorHex || '#0284c7' }}
-              >
-                {calibrating
-                  ? <Move size={11} className="text-white" />
-                  : <MapPin size={11} fill="white" className="text-white" />
-                }
-              </div>
-              <div className="w-0.5 h-1.5 rounded-b-full" style={{ backgroundColor: z.colorHex || '#0284c7' }} />
-            </div>
-          </div>
-        );
-      })}
+            className="absolute inset-0 pointer-events-none opacity-20"
+            style={{
+              backgroundImage: 'linear-gradient(rgba(56,189,248,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.5) 1px, transparent 1px)',
+              backgroundSize: '10% 10%',
+            }}
+          />
+        )}
 
-      {!calibrating && (
-        <div className="absolute inset-x-2 bottom-2 z-20 rounded-lg border border-cyan-500/30 bg-[#02131a]/95 px-3 py-2 backdrop-blur-xl shadow-xl text-right">
-          {activeZone ? (
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: activeZone.colorHex || '#38bdf8' }} />
-                <span className="text-[10px] font-mono font-black text-cyan-400 truncate">{activeZonePos.code}</span>
-                <span className="text-xs font-black text-white truncate">{activeZone.name}</span>
-              </div>
-              {selectedItem?.zoneId === activeZone.id && (
-                <span className="font-mono text-[10px] text-amber-300 shrink-0">{selectedItem.startTime}</span>
-              )}
-            </div>
-          ) : (
-            <p className="text-[10px] text-slate-400 text-center">اضغط على منطقة</p>
-          )}
+        <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-black/75 px-2.5 py-1 text-[10px] font-mono text-cyan-300 backdrop-blur-md">
+          <Navigation size={12} className={calibrating ? 'text-orange-400' : 'animate-spin text-cyan-400'} />
+          <span>{calibrating ? 'معايرة' : activeZonePos.code}</span>
         </div>
-      )}
+
+        {data.zones.map((z) => {
+          const pos = positions[z.id] || { top: 50, left: 50, code: 'Z' };
+          const isActive = activeZone?.id === z.id;
+
+          return (
+            <div
+              key={z.id}
+              style={{ top: `${pos.top}%`, left: `${pos.left}%`, position: 'absolute', transform: 'translate(-50%, -100%)', zIndex: isActive ? 30 : 20 }}
+              className={`transition-transform duration-150 ${calibrating ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${isActive && !calibrating ? 'scale-125' : 'hover:scale-125'}`}
+              onMouseDown={(e) => { if (calibrating) { startDrag(e, z.id); } else { handleZoneFilter(z.id); } }}
+              onTouchStart={(e) => { if (calibrating) { startDrag(e, z.id); } else { handleZoneFilter(z.id); } }}
+              title={z.name}
+            >
+              {isActive && !calibrating && (
+                <span className="absolute inset-0 top-auto -bottom-1 left-1/2 -translate-x-1/2 h-2 w-2 rounded-full animate-ping opacity-70" style={{ backgroundColor: z.colorHex || '#38bdf8' }} />
+              )}
+              <div className="flex flex-col items-center">
+                <div
+                  className={`flex h-6 w-6 items-center justify-center rounded-full shadow-lg transition-all ${
+                    isActive
+                      ? 'ring-2 ring-white ring-offset-1 ring-offset-transparent shadow-[0_0_12px_rgba(255,255,255,0.5)]'
+                      : calibrating ? 'ring-2 ring-orange-400' : 'ring-1 ring-white/40'
+                  }`}
+                  style={{ backgroundColor: z.colorHex || '#0284c7' }}
+                >
+                  {calibrating
+                    ? <Move size={11} className="text-white" />
+                    : <MapPin size={11} fill="white" className="text-white" />
+                  }
+                </div>
+                <div className="w-0.5 h-1.5 rounded-b-full" style={{ backgroundColor: z.colorHex || '#0284c7' }} />
+              </div>
+            </div>
+          );
+        })}
+
+        {!calibrating && (
+          <div className="absolute inset-x-2 bottom-2 z-20 rounded-lg border border-cyan-500/30 bg-[#02131a]/95 px-3 py-2 backdrop-blur-xl shadow-xl text-right">
+            {activeZone ? (
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: activeZone.colorHex || '#38bdf8' }} />
+                  <span className="text-[10px] font-mono font-black text-cyan-400 truncate">{activeZonePos.code}</span>
+                  <span className="text-xs font-black text-white truncate">{activeZone.name}</span>
+                </div>
+                {selectedItem?.zoneId === activeZone.id && (
+                  <span className="font-mono text-[10px] text-amber-300 shrink-0">{selectedItem.startTime}</span>
+                )}
+              </div>
+            ) : (
+              <p className="text-[10px] text-slate-400 text-center">اضغط على منطقة</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -273,7 +275,7 @@ const Program = () => {
               ))}
             </div>
           </div>
-          <MapCanvas compact />
+          <MapCanvas />
         </div>
 
         {/* Cards list - no timeline */}
@@ -453,7 +455,7 @@ const Program = () => {
 
             <div className="lg:col-span-5 lg:sticky lg:top-20 space-y-4">
               <div className="overflow-hidden rounded-3xl border border-cyan-500/30 bg-[#02131a] shadow-2xl">
-                <MapCanvas compact={false} />
+                <MapCanvas />
               </div>
             </div>
           </div>
