@@ -284,17 +284,25 @@ const UploadReport = () => {
 
         {/* اختيار المسابقة */}
         <div className="text-right">
-          <label className="mb-2 block text-xs font-black text-[#a9a3c2]">المسابقة / النشاط المعني</label>
+          <label className="mb-2 block text-xs font-black text-[#a9a3c2]">اختر المسابقة / النشاط المعني بالتقرير</label>
           <select
             value={selectedCompId}
-            onChange={(e) => setSelectedCompId(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedCompId(val);
+              const comp = competitions.find((c) => c.id === Number(val));
+              if (comp) {
+                setReportTitle(comp.name);
+                setReportContent(`تقرير مسابقة ${comp.name} لفرقة ${teamName}`);
+              }
+            }}
             required
             className="input-field appearance-none"
           >
             <option value="">— اختر المسابقة المعنية بهذا التقرير —</option>
             {competitions.map((c) => (
-              <option key={c.id} value={c.id} disabled={!c.isOpen}>
-                {c.name} {!c.isOpen ? '(مغلقة حالياً)' : ''}
+              <option key={c.id} value={c.id}>
+                {c.name}
               </option>
             ))}
           </select>
@@ -314,32 +322,6 @@ const UploadReport = () => {
             </div>
           </motion.div>
         )}
-
-        {/* عنوان التقرير */}
-        <div className="text-right">
-          <label className="mb-2 block text-xs font-black text-[#a9a3c2]">عنوان التقرير</label>
-          <input
-            type="text"
-            value={reportTitle}
-            onChange={(e) => setReportTitle(e.target.value)}
-            required
-            placeholder={`مثال: تقرير التحدي الكشفي #${currentReportNumber} لـ ${teamName}`}
-            className="input-field"
-          />
-        </div>
-
-        {/* محتوى التقرير */}
-        <div className="text-right">
-          <label className="mb-2 block text-xs font-black text-[#a9a3c2]">ملخص ومحتوى التقرير</label>
-          <textarea
-            value={reportContent}
-            onChange={(e) => setReportContent(e.target.value)}
-            required
-            rows={5}
-            placeholder="اكتب التقرير بالتفصيل، الخطوات المنفذة، وأسماء المشاركين..."
-            className="input-field resize-none"
-          />
-        </div>
 
         {/* Dropzone رفع الملفات */}
         <div className="text-right">
