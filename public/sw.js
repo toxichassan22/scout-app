@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const STATIC_CACHE = `digital-scout-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `digital-scout-runtime-${CACHE_VERSION}`;
 
@@ -11,9 +11,9 @@ const APP_SHELL = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => cache.addAll(APP_SHELL)).catch(() => {})
+    caches.open(STATIC_CACHE).then((cache) => cache.addAll(APP_SHELL)).catch(() => { })
   );
-  self.skipWaiting();
+  // Do not activate over an open tab until the page confirms it has no unsaved input.
 });
 
 self.addEventListener('activate', (event) => {
@@ -44,13 +44,19 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  // API and Socket.IO must never be served from a stale application cache.
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/socket.io/')) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   // Network-first for HTML/navigation -> ensures latest UI
   if (isHTMLRequest(request)) {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: 'no-store' })
         .then((response) => {
           const copy = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => { });
           return response;
         })
         .catch(() =>
@@ -71,7 +77,7 @@ self.addEventListener('fetch', (event) => {
           .then((response) => {
             if (response.ok) {
               const copy = response.clone();
-              caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+              caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => { });
             }
             return response;
           })
@@ -88,7 +94,7 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (response.ok) {
             const copy = response.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => { });
           }
           return response;
         })
@@ -99,5 +105,5 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-  if (event.data === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
