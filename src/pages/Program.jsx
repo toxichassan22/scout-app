@@ -170,8 +170,8 @@ const Program = () => {
               <div className="flex flex-col items-center">
                 <div
                   className={`flex h-6 w-6 items-center justify-center rounded-full shadow-lg transition-all ${isActive
-                      ? 'ring-2 ring-white ring-offset-1 ring-offset-transparent shadow-[0_0_12px_rgba(255,255,255,0.5)]'
-                      : calibrating ? 'ring-2 ring-orange-400' : 'ring-1 ring-white/40'
+                    ? 'ring-2 ring-white ring-offset-1 ring-offset-transparent shadow-[0_0_12px_rgba(255,255,255,0.5)]'
+                    : calibrating ? 'ring-2 ring-orange-400' : 'ring-1 ring-white/40'
                     }`}
                   style={{ backgroundColor: z.colorHex || '#0284c7' }}
                 >
@@ -233,8 +233,8 @@ const Program = () => {
                   type="button"
                   onClick={() => setCalibrating(v => !v)}
                   className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-black border transition-all ${calibrating
-                      ? 'border-orange-400 bg-orange-500/20 text-orange-300'
-                      : 'border-slate-700 bg-slate-900/60 text-slate-500'
+                    ? 'border-orange-400 bg-orange-500/20 text-orange-300'
+                    : 'border-slate-700 bg-slate-900/60 text-slate-500'
                     }`}
                 >
                   {calibrating ? <Lock size={10} /> : <Move size={10} />}
@@ -251,19 +251,19 @@ const Program = () => {
               </div>
             </div>
             {/* Filter chips */}
-            <div className="scrollbar-none flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            <div className="min-w-0 w-full scrollbar-none flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1 touch-pan-x" dir="rtl" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
               <button type="button" onClick={() => handleZoneFilter('all')}
                 className={`shrink-0 rounded-full px-3 py-1.5 text-[10px] font-black transition-all border ${selectedZone === 'all'
-                    ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
-                    : 'border-white/10 bg-slate-900/60 text-slate-500'
+                  ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
+                  : 'border-white/10 bg-slate-900/60 text-slate-500'
                   }`}>
                 الكل
               </button>
               {data.zones.map((zone) => (
                 <button key={zone.id} type="button" onClick={() => handleZoneFilter(zone.id)}
                   className={`flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-[10px] font-black transition-all border ${selectedZone === zone.id
-                      ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
-                      : 'border-white/10 bg-slate-900/60 text-slate-500'
+                    ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
+                    : 'border-white/10 bg-slate-900/60 text-slate-500'
                     }`}>
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: zone.colorHex || '#38bdf8' }} />
                   {zone.numberLabel}
@@ -291,8 +291,8 @@ const Program = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className={`rounded-xl border px-3 py-2.5 transition-all ${isSelected
-                      ? 'border-cyan-400/60 bg-cyan-950/60 shadow-[0_0_15px_rgba(56,189,248,0.15)]'
-                      : 'border-slate-800 bg-slate-900/30'
+                    ? 'border-cyan-400/60 bg-cyan-950/60 shadow-[0_0_15px_rgba(56,189,248,0.15)]'
+                    : 'border-slate-800 bg-slate-900/30'
                     }`}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -344,8 +344,8 @@ const Program = () => {
                 type="button"
                 onClick={() => setCalibrating(v => !v)}
                 className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black transition-all border ${calibrating
-                    ? 'border-orange-400 bg-orange-500/20 text-orange-300 shadow-[0_0_15px_rgba(251,146,60,0.4)]'
-                    : 'border-slate-700 bg-slate-900/60 text-slate-400 hover:text-white'
+                  ? 'border-orange-400 bg-orange-500/20 text-orange-300 shadow-[0_0_15px_rgba(251,146,60,0.4)]'
+                  : 'border-slate-700 bg-slate-900/60 text-slate-400 hover:text-white'
                   }`}
               >
                 {calibrating ? <><Lock size={13} /> إيقاف المعايرة</> : <><Move size={13} /> معايرة الخريطة</>}
@@ -372,25 +372,31 @@ const Program = () => {
           )}
 
           <div className="grid gap-8 lg:grid-cols-12 items-start">
-            <div className={`lg:col-span-7 space-y-6 transition-opacity duration-300 ${calibrating ? 'opacity-25 pointer-events-none select-none' : ''}`}>
-              <div className="scrollbar-none flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
-                <button type="button" onClick={() => handleZoneFilter('all')}
-                  className={`shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black transition-all border ${selectedZone === 'all'
+            <div className={`min-w-0 lg:col-span-7 space-y-6 transition-opacity duration-300 ${calibrating ? 'opacity-25 pointer-events-none select-none' : ''}`}>
+              <div
+                className="min-w-0 w-full overflow-x-auto overscroll-x-contain scrollbar-none pb-2 touch-pan-x"
+                dir="rtl"
+                style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+              >
+                <div className="flex w-max min-w-full gap-2">
+                  <button type="button" onClick={() => handleZoneFilter('all')}
+                    className={`shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black transition-all border ${selectedZone === 'all'
                       ? 'border border-cyan-400 bg-cyan-500/20 text-cyan-200'
                       : 'border border-white/10 bg-slate-900/60 text-slate-400 hover:text-white'
-                    }`}>
-                  كل المناطق ({data.agenda.length})
-                </button>
-                {data.zones.map((zone) => (
-                  <button key={zone.id} type="button" onClick={() => handleZoneFilter(zone.id)}
-                    className={`flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-black transition-all border ${selectedZone === zone.id
+                      }`}>
+                    كل المناطق ({data.zones.length})
+                  </button>
+                  {data.zones.map((zone) => (
+                    <button key={zone.id} type="button" onClick={() => handleZoneFilter(zone.id)}
+                      className={`flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-black transition-all border ${selectedZone === zone.id
                         ? 'border border-cyan-400 bg-cyan-500/20 text-cyan-200'
                         : 'border border-white/10 bg-slate-900/60 text-slate-400 hover:text-white'
-                      }`}>
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: zone.colorHex || '#38bdf8' }} />
-                    {zone.name} ({zone.numberLabel})
-                  </button>
-                ))}
+                        }`}>
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: zone.colorHex || '#38bdf8' }} />
+                      {zone.name} ({zone.numberLabel})
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {loading ? (
@@ -410,8 +416,8 @@ const Program = () => {
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         className={`cursor-pointer relative rounded-2xl border p-5 transition-all duration-300 ${isSelected
-                            ? 'border-cyan-400 bg-gradient-to-r from-cyan-950/80 via-slate-900/90 to-slate-900/90 shadow-[0_0_25px_rgba(56,189,248,0.25)] scale-[1.01]'
-                            : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
+                          ? 'border-cyan-400 bg-gradient-to-r from-cyan-950/80 via-slate-900/90 to-slate-900/90 shadow-[0_0_25px_rgba(56,189,248,0.25)] scale-[1.01]'
+                          : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
                           }`}>
                         <span className={`absolute -right-3.5 top-6 h-3.5 w-3.5 rounded-full border-2 border-slate-950 transition-all ${isSelected ? 'bg-cyan-400 shadow-[0_0_12px_#38bdf8] scale-125' : 'bg-slate-700'
                           }`} />
