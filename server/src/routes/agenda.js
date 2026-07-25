@@ -20,11 +20,11 @@ const OFFICIAL_ZONES = [
 const LEGACY_ZONE_ALIASES = {
   'zone-mosque': 'zone-3',
   'zone-field': 'zone-6',
-  'zone-behind-mosque': 'zone-3',
+  'zone-behind-mosque': 'zone-2',
   'zone-new-building': 'zone-4',
   'zone-camp': 'zone-5',
   'zone-fountain': 'zone-6',
-  'zone-radio': 'zone-1',
+  'zone-radio': 'zone-2',
   'zone-online': 'zone-2'
 };
 
