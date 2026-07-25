@@ -84,7 +84,7 @@ router.get('/teams/:competitionId', async (req, res) => {
           where: { competitionId }
         },
         reports: {
-          orderBy: { createdAt: 'desc' }
+          orderBy: { uploadedAt: 'desc' }
         }
       }
     });
