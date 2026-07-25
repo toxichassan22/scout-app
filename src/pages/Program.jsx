@@ -38,10 +38,11 @@ const Program = () => {
 
   const { socket } = useSocket();
 
-  const fetchAgendaData = async () => {
+  const fetchAgendaData = useCallback(async (reason = 'initial') => {
     try {
       const res = await getAgenda();
       const competitions = (res.agenda || []).filter((item) => item.type === 'competition');
+      console.info(`[Program] agenda synced reason=${reason} zones=${res.zones?.length || 0} items=${res.agenda?.length || 0}`);
       setData(res);
       setSelectedItem((currentItem) => (
         competitions.find((item) => item.id === currentItem?.id) || competitions[0] || null
@@ -51,15 +52,23 @@ const Program = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchAgendaData();
-    if (socket) {
-      socket.on('agenda:update', fetchAgendaData);
-      return () => socket.off('agenda:update');
-    }
-  }, [socket]);
+    fetchAgendaData('initial');
+    if (!socket) return undefined;
+    const handleAgendaUpdate = (payload) => {
+      console.info('[Program] agenda:update received', payload || {});
+      fetchAgendaData('socket:agenda:update');
+    };
+    const handleConnect = () => fetchAgendaData('socket:connect');
+    socket.on('agenda:update', handleAgendaUpdate);
+    socket.on('connect', handleConnect);
+    return () => {
+      socket.off('agenda:update', handleAgendaUpdate);
+      socket.off('connect', handleConnect);
+    };
+  }, [socket, fetchAgendaData]);
 
   const startDrag = useCallback((e, zoneId) => {
     if (!calibrating) return;

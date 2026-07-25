@@ -9,6 +9,7 @@ import {
 } from '../data/mockData';
 import { getCompetitions } from '../services/api';
 import { getDeviceId } from '../utils/security';
+import { useSocket } from './SocketContext';
 
 const CompetitionContext = createContext(null);
 
@@ -30,6 +31,7 @@ const hasExpired = (competition, now = Date.now()) => {
 };
 
 export const CompetitionProvider = ({ children }) => {
+  const { socket } = useSocket();
   const [competitions, setCompetitions] = useState(() => readJson(STORAGE_KEYS.competitions, MOCK_COMPETITIONS));
   const [submissions, setSubmissions] = useState(() => readJson(STORAGE_KEYS.submissions, []));
   const [deviceLocks, setDeviceLocks] = useState(() => readJson(STORAGE_KEYS.deviceLocks, []));
@@ -40,18 +42,38 @@ export const CompetitionProvider = ({ children }) => {
   const [delegations, setDelegations] = useState(() => readJson('dsc_delegations', []));
   const [scannedQRs, setScannedQRs] = useState(() => readJson('dsc_scanned_qrs', []));
 
-  // Sync competitions from backend when a token is available so the UI reflects server data.
-  useEffect(() => {
+  const syncCompetitions = useCallback(async (reason = 'initial') => {
     const token = localStorage.getItem('dsc_token');
     if (!token) return;
-    getCompetitions()
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setCompetitions(data);
-        }
-      })
-      .catch((err) => console.warn('[CompetitionContext] Failed to sync competitions:', err));
+    try {
+      const data = await getCompetitions();
+      if (Array.isArray(data)) {
+        console.info(`[CompetitionContext] synced competitions reason=${reason} count=${data.length}`);
+        setCompetitions(data);
+      }
+    } catch (err) {
+      console.warn(`[CompetitionContext] sync failed reason=${reason}: ${err.message}`);
+    }
   }, []);
+
+  // Initial sync plus server-pushed operational competition changes.
+  useEffect(() => {
+    syncCompetitions('initial');
+  }, [syncCompetitions]);
+
+  useEffect(() => {
+    if (!socket) return undefined;
+    const handleCompetitionUpdate = (payload) => {
+      console.info('[CompetitionContext] competition:update received', payload || {});
+      syncCompetitions('socket:competition:update');
+    };
+    socket.on('competition:update', handleCompetitionUpdate);
+    socket.on('competitions:update', handleCompetitionUpdate);
+    return () => {
+      socket.off('competition:update', handleCompetitionUpdate);
+      socket.off('competitions:update', handleCompetitionUpdate);
+    };
+  }, [socket, syncCompetitions]);
 
   useEffect(() => persist(STORAGE_KEYS.competitions, competitions), [competitions]);
   useEffect(() => persist(STORAGE_KEYS.submissions, submissions), [submissions]);
@@ -390,7 +412,7 @@ export const CompetitionProvider = ({ children }) => {
           if (data.submissionId && data.videoUrl) {
             updateSubmissionVideo(data.submissionId, data.videoUrl);
           }
-        } catch {}
+        } catch { }
       }
     };
     window.addEventListener('storage', handleStorage);

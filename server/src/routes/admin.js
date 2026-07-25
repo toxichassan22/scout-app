@@ -248,14 +248,14 @@ router.delete('/teams/:id', async (req, res) => {
           const fileName = path.basename(report.fileUrl);
           const fp = path.join(uploadsDir, fileName);
           if (fs.existsSync(fp)) {
-            try { fs.unlinkSync(fp); } catch (_) {}
+            try { fs.unlinkSync(fp); } catch (_) { }
           }
         }
       }
 
       // 2. Sync deletion to Google Drive (trash team folder)
       const safeFolderName = `Team_${team.username}_${team.label.replace(/[/\\?%*:|"<>]/g, '_')}`;
-      deleteFromGoogleDrive('', `03_TEAMS_DATA/${safeFolderName}`, 'delete_folder').catch(() => {});
+      deleteFromGoogleDrive('', `03_TEAMS_DATA/${safeFolderName}`, 'delete_folder').catch(() => { });
 
       // 3. Delete team from DB
       await prisma.team.delete({ where: { id: deletedId } });
@@ -337,6 +337,7 @@ router.post('/competitions', async (req, res) => {
         criteria: typeof criteria === 'string' ? criteria : JSON.stringify(criteria || [])
       }
     });
+    if (req.io) req.io.emit('competition:update', { action: 'created', competitionId: comp.id });
     res.status(201).json(comp);
   } catch (err) {
     res.status(500).json({ error: 'فشل في إنشاء المسابقة' });
@@ -355,8 +356,9 @@ router.patch('/competitions/:id', async (req, res) => {
       }
     });
 
-    if (isOpen === false && req.io) {
-      req.io.emit('judge:session:closed', { competitionId: comp.id });
+    if (req.io) {
+      req.io.emit('competition:update', { action: 'updated', competitionId: comp.id, isOpen: comp.isOpen });
+      if (isOpen === false) req.io.emit('judge:session:closed', { competitionId: comp.id });
     }
 
     res.json(comp);
@@ -372,6 +374,7 @@ router.post('/competitions/:id/passcode', async (req, res) => {
       where: { id: req.params.id },
       data: { passcode: randomCode, isOpen: true }
     });
+    if (req.io) req.io.emit('competition:update', { action: 'opened', competitionId: comp.id, isOpen: comp.isOpen });
     res.json({ passcode: comp.passcode });
   } catch (err) {
     res.status(500).json({ error: 'فشل في توليد كود المسابقة' });
@@ -462,7 +465,7 @@ router.post('/news', async (req, res) => {
 router.delete('/news/:id', async (req, res) => {
   try {
     await prisma.news.delete({ where: { id: req.params.id } });
-    
+
     if (req.io) {
       req.io.emit('news:deleted', { id: req.params.id });
     }
@@ -494,7 +497,7 @@ router.post('/agenda', async (req, res) => {
 router.delete('/agenda/:id', async (req, res) => {
   try {
     await prisma.agendaItem.delete({ where: { id: req.params.id } });
-    
+
     if (req.io) {
       req.io.emit('agenda:update');
     }
@@ -557,12 +560,12 @@ router.delete('/reports/:id', async (req, res) => {
         const uploadsDir = path.join(process.cwd(), 'uploads');
         const fp = path.join(uploadsDir, fileName);
         if (fs.existsSync(fp)) {
-          try { fs.unlinkSync(fp); } catch (_) {}
+          try { fs.unlinkSync(fp); } catch (_) { }
         }
 
         if (report.team) {
           const safeFolderName = `Team_${report.team.username}_${report.team.label.replace(/[/\\?%*:|"<>]/g, '_')}`;
-          deleteFromGoogleDrive(fileName, `03_TEAMS_DATA/${safeFolderName}/reports`, 'delete_file').catch(() => {});
+          deleteFromGoogleDrive(fileName, `03_TEAMS_DATA/${safeFolderName}/reports`, 'delete_file').catch(() => { });
         }
       }
 
@@ -747,7 +750,10 @@ router.post('/seed-agenda', async (req, res) => {
       compsAdded++;
     }
 
-    if (req.io) req.io.emit('agenda:update');
+    if (req.io) {
+      req.io.emit('agenda:update', { action: 'seeded', agendaAdded: added });
+      if (compsAdded > 0) req.io.emit('competition:update', { action: 'seeded', count: compsAdded });
+    }
     res.json({ success: true, agendaAdded: added, compsAdded, totalAgenda: existing.length + added, totalComps: existingComps.length + compsAdded });
   } catch (err) {
     console.error(err);

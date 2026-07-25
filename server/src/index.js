@@ -106,16 +106,15 @@ app.get('/api/health', (req, res) => {
 
 // Socket connection handling (optimized for high concurrency)
 io.on('connection', (socket) => {
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`[Socket] Client connected: ${socket.id}`);
-  }
+  console.info(`[Socket] connected id=${socket.id} transport=${socket.conn.transport.name}`);
 
   socket.on('join:room', (room) => {
+    if (typeof room !== 'string' || room.length > 100) return;
     socket.join(room);
   });
 
-  socket.on('disconnect', () => {
-    // Silent disconnects to prevent log flooding under 5000 users
+  socket.on('disconnect', (reason) => {
+    console.info(`[Socket] disconnected id=${socket.id} reason=${reason}`);
   });
 });
 

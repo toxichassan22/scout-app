@@ -1,7 +1,6 @@
 import { lazy, Suspense, memo } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import { SocketProvider } from './context/SocketContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Navbar } from './components/Navbar';
 import { LoadingFallback } from './components/LoadingFallback';
@@ -56,61 +55,59 @@ const App = memo(function App() {
   }
 
   return (
-    <SocketProvider>
-      <div dir="rtl" className="app-shell min-h-screen">
-        <TopHeader />
-        <ScoutCampfireScene />
-        <Suspense fallback={<LoadingFallback />}>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={user ? <Navigate to={defaultRoute} replace /> : <Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/judge/login" element={<JudgeLogin />} />
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/support" element={<Contact />} />
+    <div dir="rtl" className="app-shell min-h-screen">
+      <TopHeader />
+      <ScoutCampfireScene />
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={user ? <Navigate to={defaultRoute} replace /> : <Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/judge/login" element={<JudgeLogin />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/support" element={<Contact />} />
 
-            {/* Team Routes */}
-            <Route path="/home" element={<ProtectedRoute allowedRoles={['team']}><Home /></ProtectedRoute>} />
-            <Route path="/competitions" element={<ProtectedRoute allowedRoles={['team']}><Activities /></ProtectedRoute>} />
-            <Route path="/activities" element={<ProtectedRoute allowedRoles={['team']}><Activities /></ProtectedRoute>} />
-            <Route path="/program" element={<ProtectedRoute allowedRoles={['team']}><Program /></ProtectedRoute>} />
-            <Route path="/upload-report" element={<ProtectedRoute allowedRoles={['team']}><UploadReport /></ProtectedRoute>} />
-            <Route path="/news" element={<ProtectedRoute allowedRoles={['team']}><News /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute allowedRoles={['team']}><Profile /></ProtectedRoute>} />
+          {/* Team Routes */}
+          <Route path="/home" element={<ProtectedRoute allowedRoles={['team']}><Home /></ProtectedRoute>} />
+          <Route path="/competitions" element={<ProtectedRoute allowedRoles={['team']}><Activities /></ProtectedRoute>} />
+          <Route path="/activities" element={<ProtectedRoute allowedRoles={['team']}><Activities /></ProtectedRoute>} />
+          <Route path="/program" element={<ProtectedRoute allowedRoles={['team']}><Program /></ProtectedRoute>} />
+          <Route path="/upload-report" element={<ProtectedRoute allowedRoles={['team']}><UploadReport /></ProtectedRoute>} />
+          <Route path="/news" element={<ProtectedRoute allowedRoles={['team']}><News /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute allowedRoles={['team']}><Profile /></ProtectedRoute>} />
 
-            {/* Competition Detail Routes */}
-            <Route path="/competition/1" element={<ProtectedRoute allowedRoles={['team']}><TwoTruths /></ProtectedRoute>} />
-            <Route path="/competition/2" element={<ProtectedRoute allowedRoles={['team']}><Genius /></ProtectedRoute>} />
-            <Route path="/competition/3" element={<ProtectedRoute allowedRoles={['team']}><Geography /></ProtectedRoute>} />
-            <Route path="/competition/4" element={<ProtectedRoute allowedRoles={['team']}><VideoDesign /></ProtectedRoute>} />
+          {/* Competition Detail Routes */}
+          <Route path="/competition/1" element={<ProtectedRoute allowedRoles={['team']}><TwoTruths /></ProtectedRoute>} />
+          <Route path="/competition/2" element={<ProtectedRoute allowedRoles={['team']}><Genius /></ProtectedRoute>} />
+          <Route path="/competition/3" element={<ProtectedRoute allowedRoles={['team']}><Geography /></ProtectedRoute>} />
+          <Route path="/competition/4" element={<ProtectedRoute allowedRoles={['team']}><VideoDesign /></ProtectedRoute>} />
 
-            {/* Judge Routes */}
-            <Route path="/judge" element={<Navigate to="/judge/passcode" replace />} />
-            <Route path="/judge/passcode" element={<ProtectedRoute allowedRoles={['judge']}><PasscodeGate /></ProtectedRoute>} />
-            <Route path="/judge/sheet" element={<ProtectedRoute allowedRoles={['judge']}><JudgingSheet /></ProtectedRoute>} />
+          {/* Judge Routes */}
+          <Route path="/judge" element={<Navigate to="/judge/passcode" replace />} />
+          <Route path="/judge/passcode" element={<ProtectedRoute allowedRoles={['judge']}><PasscodeGate /></ProtectedRoute>} />
+          <Route path="/judge/sheet" element={<ProtectedRoute allowedRoles={['judge']}><JudgingSheet /></ProtectedRoute>} />
 
-            {/* Admin Routes */}
-            <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/admin/competitions" element={<ProtectedRoute allowedRoles={['admin']}><AdminCompetitions /></ProtectedRoute>} />
-            <Route path="/admin/news" element={<ProtectedRoute allowedRoles={['admin']}><AdminNews /></ProtectedRoute>} />
-            <Route path="/admin/teams" element={<ProtectedRoute allowedRoles={['admin']}><AdminTeams /></ProtectedRoute>} />
-            <Route path="/admin/judges" element={<ProtectedRoute allowedRoles={['admin']}><AdminJudges /></ProtectedRoute>} />
-            <Route path="/admin/scoring" element={<ProtectedRoute allowedRoles={['admin']}><AdminScoring /></ProtectedRoute>} />
-            <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={['admin']}><AdminReports /></ProtectedRoute>} />
-            <Route path="/admin/agenda" element={<ProtectedRoute allowedRoles={['admin']}><AdminAgenda /></ProtectedRoute>} />
-            <Route path="/admin/questions" element={<ProtectedRoute allowedRoles={['admin']}><AdminQuestions /></ProtectedRoute>} />
-            <Route path="/admin/stress-test" element={<ProtectedRoute allowedRoles={['admin']}><AdminStressTest /></ProtectedRoute>} />
+          {/* Admin Routes */}
+          <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/competitions" element={<ProtectedRoute allowedRoles={['admin']}><AdminCompetitions /></ProtectedRoute>} />
+          <Route path="/admin/news" element={<ProtectedRoute allowedRoles={['admin']}><AdminNews /></ProtectedRoute>} />
+          <Route path="/admin/teams" element={<ProtectedRoute allowedRoles={['admin']}><AdminTeams /></ProtectedRoute>} />
+          <Route path="/admin/judges" element={<ProtectedRoute allowedRoles={['admin']}><AdminJudges /></ProtectedRoute>} />
+          <Route path="/admin/scoring" element={<ProtectedRoute allowedRoles={['admin']}><AdminScoring /></ProtectedRoute>} />
+          <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={['admin']}><AdminReports /></ProtectedRoute>} />
+          <Route path="/admin/agenda" element={<ProtectedRoute allowedRoles={['admin']}><AdminAgenda /></ProtectedRoute>} />
+          <Route path="/admin/questions" element={<ProtectedRoute allowedRoles={['admin']}><AdminQuestions /></ProtectedRoute>} />
+          <Route path="/admin/stress-test" element={<ProtectedRoute allowedRoles={['admin']}><AdminStressTest /></ProtectedRoute>} />
 
-            {/* Default Redirect */}
-            <Route path="*" element={<Navigate to={defaultRoute} replace />} />
-          </Routes>
-        </Suspense>
-        <ScoutMascotToy />
-        <Navbar />
-      </div>
-    </SocketProvider>
+          {/* Default Redirect */}
+          <Route path="*" element={<Navigate to={defaultRoute} replace />} />
+        </Routes>
+      </Suspense>
+      <ScoutMascotToy />
+      <Navbar />
+    </div>
   );
 });
 

@@ -6,6 +6,7 @@ import './index.css';
 import { AuthProvider } from './context/AuthContext';
 import { CompetitionProvider } from './context/CompetitionContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { SocketProvider } from './context/SocketContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Automatically unregister stale service workers to ensure fresh API connections
@@ -15,7 +16,7 @@ if ('serviceWorker' in navigator) {
       for (let registration of registrations) {
         registration.unregister();
       }
-    }).catch(() => {});
+    }).catch(() => { });
   });
 }
 
@@ -23,13 +24,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
-        <ThemeProvider>
-        <AuthProvider>
-          <CompetitionProvider>
-            <App />
-          </CompetitionProvider>
-        </AuthProvider>
-        </ThemeProvider>
+        <SocketProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <CompetitionProvider>
+                <App />
+              </CompetitionProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </SocketProvider>
       </BrowserRouter>
     </ErrorBoundary>
   </React.StrictMode>
