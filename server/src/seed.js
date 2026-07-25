@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import prisma from './db.js';
+import { OFFICIAL_AGENDA, OFFICIAL_ZONES } from './agendaCanonical.js';
 
 async function seed() {
   console.log('[Seed] Idempotent seed: ensuring core accounts, competitions and base data exist...');
@@ -460,20 +461,8 @@ async function seed() {
     });
   }
 
-  // 7️⃣ Official Schedule Zones
-  const officialZones = [
-    { id: 'zone-1', numberLabel: '١', name: 'مبنى الإدارة', description: 'المقر الإداري واستقبال الوفود', colorHex: '#ef4444', order: 1 },
-    { id: 'zone-2', numberLabel: '٢', name: 'خلف المسجد', description: 'الموقع الرسمي للمسابقة الفنية', colorHex: '#10b981', order: 2 },
-    { id: 'zone-3', numberLabel: '٣', name: 'المسجد', description: 'مكان الصلاة والتسميع', colorHex: '#f59e0b', order: 3 },
-    { id: 'zone-4', numberLabel: '٤', name: 'المبنى الجديد', description: 'الدوران الثاني والثالث للمسابقات', colorHex: '#3b82f6', order: 4 },
-    { id: 'zone-5', numberLabel: '٥', name: 'المخيم الكشفي للمجموعات', description: 'موقع المسابقات الكشفية للمجموعات', colorHex: '#8b5cf6', order: 5 },
-    { id: 'zone-6', numberLabel: '٦', name: 'ملعب النجيلة بالمركز', description: 'المسابقات والعروض الرياضية', colorHex: '#06b6d4', order: 6 },
-    { id: 'zone-7', numberLabel: '٧', name: 'أمام نافورة المركز', description: 'موقع العروض الميدانية', colorHex: '#ec4899', order: 7 },
-    { id: 'zone-8', numberLabel: '٨', name: 'إذاعة المهرجان', description: 'البث الرسمي للمهرجان', colorHex: '#14b8a6', order: 8 }
-  ];
-
-  // Upsert canonical rows; legacy rows are intentionally retained for admin data compatibility.
-  for (const z of officialZones) {
+  // 7️⃣ Official schedule zones and the complete canonical program.
+  for (const z of OFFICIAL_ZONES) {
     await prisma.zone.upsert({
       where: { id: z.id },
       update: { name: z.name, description: z.description, numberLabel: z.numberLabel, colorHex: z.colorHex, order: z.order },
@@ -481,47 +470,13 @@ async function seed() {
     });
   }
 
-  // 8️⃣ Canonical competition-only program from the supplied schedule image.
-  // Remove every seeded agenda row, while leaving admin-created UUID rows untouched.
-  await prisma.agendaItem.deleteMany({ where: { id: { startsWith: 'agenda-' } } });
-
-  const officialAgendaItems = [
-    { id: 'agenda-competition-5', title: 'تسميع القرآن الكريم والأحاديث', type: 'competition', zoneId: 'zone-mosque', startTime: '10:30', endTime: '12:00', description: 'المسابقة رقم 5', isVisible: true },
-    { id: 'agenda-competition-6', title: 'المجال الرياضي', type: 'competition', zoneId: 'zone-field', startTime: '10:30', endTime: '12:00', description: 'المسابقة رقم 6', isVisible: true },
-    { id: 'agenda-competition-7', title: 'الملصق الفني', type: 'competition', zoneId: 'zone-behind-mosque', startTime: '10:30', endTime: '12:00', description: 'المسابقة رقم 7', isVisible: true },
-    { id: 'agenda-competition-8', title: 'رحالة العالم الذكي', type: 'competition', zoneId: 'zone-new-building', startTime: '10:30', endTime: '12:00', description: 'المسابقة رقم 8 — الدور الثاني', isVisible: true },
-    { id: 'agenda-competition-9', title: 'تصميم فيديو دقيقتين بالـ AI', type: 'competition', zoneId: 'zone-new-building', startTime: '10:30', endTime: '12:00', description: 'المسابقة رقم 9 — الدور الثالث', isVisible: true },
-    { id: 'agenda-competition-10', title: 'عقد وربطات', type: 'competition', zoneId: 'zone-camp', startTime: '10:30', endTime: '12:00', description: 'المسابقة رقم 10', isVisible: true },
-    { id: 'agenda-competition-11', title: 'تكملة المجال الرياضي', type: 'competition', zoneId: 'zone-field', startTime: '12:00', endTime: '13:00', description: 'المسابقة رقم 11', isVisible: true },
-    { id: 'agenda-competition-14', title: 'عرض ثلاث مبتكرات علمية', type: 'competition', zoneId: 'zone-new-building', startTime: '12:00', endTime: '13:00', description: 'المسابقة رقم 14 — الدور الثالث', isVisible: true },
-    { id: 'agenda-competition-15', title: 'النموذج الكشفي', type: 'competition', zoneId: 'zone-camp', startTime: '12:00', endTime: '13:00', description: 'المسابقة رقم 15', isVisible: true },
-    { id: 'agenda-competition-17', title: 'عرض تطير الطائرات', type: 'competition', zoneId: 'zone-field', startTime: '14:00', endTime: '16:00', description: 'المسابقة رقم 17', isVisible: true },
-    { id: 'agenda-competition-20', title: 'حقيقتين وكذبة', type: 'competition', zoneId: 'zone-behind-mosque', startTime: '14:00', endTime: '16:00', description: 'المسابقة رقم 20', isVisible: true },
-    { id: 'agenda-competition-21', title: 'الكاشف الذكي', type: 'competition', zoneId: 'zone-new-building', startTime: '14:00', endTime: '16:00', description: 'المسابقة رقم 21 — الدور الثاني', isVisible: true },
-    { id: 'agenda-competition-22', title: 'عرض تقديمي عن أحد الموديلات', type: 'competition', zoneId: 'zone-new-building', startTime: '14:00', endTime: '16:00', description: 'المسابقة رقم 22 — الدور الثالث', isVisible: true },
-    { id: 'agenda-competition-23', title: 'كينج الشفرات', type: 'competition', zoneId: 'zone-camp', startTime: '14:00', endTime: '16:00', description: 'المسابقة رقم 23', isVisible: true },
-    { id: 'agenda-competition-24', title: 'المجلة الأرضية', type: 'competition', zoneId: 'zone-camp', startTime: '14:00', endTime: '16:00', description: 'المسابقة رقم 24', isVisible: true },
-    { id: 'agenda-competition-26', title: 'من سيربح الكود', type: 'competition', zoneId: 'zone-new-building', startTime: '16:00', endTime: '17:30', description: 'المسابقة رقم 26 — الدور الثاني', isVisible: true }
-  ];
-
-  const legacyZoneIds = {
-    'zone-mosque': 'zone-3',
-    'zone-field': 'zone-6',
-    'zone-behind-mosque': 'zone-2',
-    'zone-new-building': 'zone-4',
-    'zone-camp': 'zone-5'
-  };
-
-  for (const item of officialAgendaItems) {
-    const zoneId = legacyZoneIds[item.zoneId] || item.zoneId;
-    await prisma.agendaItem.upsert({
-      where: { id: item.id },
-      update: { title: item.title, type: item.type, zoneId, startTime: item.startTime, endTime: item.endTime, description: item.description, isVisible: item.isVisible },
-      create: { ...item, zoneId }
-    });
+  // Only rows owned by the canonical schedule are replaced. Unrelated admin UUID rows remain intact.
+  await prisma.agendaItem.deleteMany({ where: { id: { startsWith: 'agenda-official-' } } });
+  for (const item of OFFICIAL_AGENDA) {
+    await prisma.agendaItem.create({ data: item });
   }
 
-  console.log('[Seed] Core data verified: admin, sample teams, competitions, 50 genius questions, 22 geography countries, 8 zones and ' + officialAgendaItems.length + ' competition agenda items.');
+  console.log('[Seed] Core data verified with 8 zones and ' + OFFICIAL_AGENDA.length + ' complete agenda items.');
 }
 
 seed()

@@ -41,11 +41,11 @@ const Program = () => {
   const fetchAgendaData = useCallback(async (reason = 'initial') => {
     try {
       const res = await getAgenda();
-      const competitions = (res.agenda || []).filter((item) => item.type === 'competition');
-      console.info(`[Program] agenda synced reason=${reason} zones=${res.zones?.length || 0} items=${res.agenda?.length || 0}`);
+      const agenda = res.agenda || [];
+      console.info(`[Program] agenda synced reason=${reason} zones=${res.zones?.length || 0} items=${agenda.length}`);
       setData(res);
       setSelectedItem((currentItem) => (
-        competitions.find((item) => item.id === currentItem?.id) || competitions[0] || null
+        agenda.find((item) => item.id === currentItem?.id) || agenda[0] || null
       ));
     } catch (err) {
       console.error('Failed to load agenda:', err);
@@ -56,17 +56,22 @@ const Program = () => {
 
   useEffect(() => {
     fetchAgendaData('initial');
-    if (!socket) return undefined;
+    const timer = window.setInterval(() => fetchAgendaData('clock'), 30000);
     const handleAgendaUpdate = (payload) => {
       console.info('[Program] agenda:update received', payload || {});
       fetchAgendaData('socket:agenda:update');
     };
     const handleConnect = () => fetchAgendaData('socket:connect');
-    socket.on('agenda:update', handleAgendaUpdate);
-    socket.on('connect', handleConnect);
+    if (socket) {
+      socket.on('agenda:update', handleAgendaUpdate);
+      socket.on('connect', handleConnect);
+    }
     return () => {
-      socket.off('agenda:update', handleAgendaUpdate);
-      socket.off('connect', handleConnect);
+      window.clearInterval(timer);
+      if (socket) {
+        socket.off('agenda:update', handleAgendaUpdate);
+        socket.off('connect', handleConnect);
+      }
     };
   }, [socket, fetchAgendaData]);
 
@@ -111,7 +116,18 @@ const Program = () => {
     setTimeout(() => setCopied(false), 3000);
   };
 
-  const competitionAgenda = data.agenda.filter((item) => item.type === 'competition');
+  const agendaItems = data.agenda || [];
+  const periodLabels = {
+    before: 'قبل الفترة الأولى', 'period-1': 'الفترة الأولى · 10:30 - 12:00',
+    'period-2': 'الفترة الثانية · 12:00 - 13:00', 'period-3': 'الفترة الثالثة · 14:00 - 16:00',
+    'period-4': 'الفترة الرابعة · 16:00 - 17:30', closing: 'الختام · 17:30 - 18:30'
+  };
+  const statusMeta = {
+    upcoming: { label: 'قريبًا · مقفول', cls: 'border-slate-600/50 bg-slate-800/60 text-slate-400', icon: Lock },
+    active: { label: 'مفتوح الآن', cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300', icon: CheckCheck },
+    finished: { label: 'انتهى · مغلق', cls: 'border-red-500/30 bg-red-500/10 text-red-300', icon: Lock }
+  };
+  const competitionAgenda = agendaItems;
 
   const handleZoneFilter = (zoneId) => {
     if (calibrating) return;
@@ -240,7 +256,7 @@ const Program = () => {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping" />
-                <span className="text-[11px] font-mono font-black text-cyan-400">مسابقات المهرجان</span>
+                <span className="text-[11px] font-mono font-black text-cyan-400">برنامج المهرجان</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -260,7 +276,7 @@ const Program = () => {
                   </button>
                 )}
                 <span className="rounded-full border border-cyan-500/30 bg-cyan-950/50 px-2.5 py-1 text-[10px] font-mono font-black text-cyan-300">
-                  {competitionAgenda.length} مسابقات
+                  {competitionAgenda.length} فعالية
                 </span>
               </div>
             </div>
@@ -291,44 +307,50 @@ const Program = () => {
         {/* Cards list - no timeline */}
         <div className="p-3 space-y-2">
           {loading ? (
-            <LoadingSpinner label="جاري تحميل المسابقات..." />
+            <LoadingSpinner label="جاري تحميل برنامج المهرجان..." />
           ) : filteredCompetitions.length === 0 ? (
-            <EmptyState icon={Sparkles} title="لا توجد مسابقات في هذه المنطقة" hint="اختر منطقة أخرى" />
+            <EmptyState icon={Sparkles} title="لا توجد فعاليات في هذه المنطقة" hint="اختر منطقة أخرى" />
           ) : (
-            filteredCompetitions.map((item) => {
+            filteredCompetitions.map((item, index) => {
               const meta = typeMeta[item.type] || typeMeta.competition;
+              const state = statusMeta[item.status] || statusMeta.upcoming;
+              const StateIcon = state.icon;
               const isSelected = selectedItem?.id === item.id;
+              const showPeriod = index === 0 || filteredCompetitions[index - 1]?.period !== item.period;
               return (
-                <motion.article
-                  key={item.id}
-                  onClick={() => setSelectedItem(item)}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`rounded-xl border px-3 py-2.5 transition-all ${isSelected
-                    ? 'border-cyan-400/60 bg-cyan-950/60 shadow-[0_0_15px_rgba(56,189,248,0.15)]'
-                    : 'border-slate-800 bg-slate-900/30'
-                    }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[9px] font-black ${meta.cls}`}>
-                        {meta.label}
-                      </span>
-                      <h3 className="text-sm font-bold text-white truncate">{item.title}</h3>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {item.zone && (
-                        <span className="flex max-w-[9rem] items-center gap-0.5 truncate text-[10px] font-bold text-cyan-300">
-                          <MapPin size={10} className="shrink-0" />{item.zone.name}
+                <React.Fragment key={item.id}>
+                  {showPeriod && <h2 className="pt-3 text-xs font-black text-cyan-300">{periodLabels[item.period] || item.period}</h2>}
+                  <motion.article
+                    onClick={() => setSelectedItem(item)}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`rounded-xl border px-3 py-2.5 transition-all ${isSelected
+                      ? 'border-cyan-400/60 bg-cyan-950/60 shadow-[0_0_15px_rgba(56,189,248,0.15)]'
+                      : 'border-slate-800 bg-slate-900/30'
+                      }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[9px] font-black ${meta.cls}`}>{meta.label}</span>
+                        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black ${state.cls}`}>
+                          <StateIcon size={9} />{state.label}
                         </span>
-                      )}
-                      <span className="flex items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-mono font-black text-amber-300">
-                        <Clock size={10} />
-                        <span dir="ltr">{item.startTime}</span>
-                      </span>
+                        <h3 className="text-sm font-bold text-white truncate">{item.title}</h3>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {item.zone && (
+                          <span className="flex max-w-[9rem] items-center gap-0.5 truncate text-[10px] font-bold text-cyan-300">
+                            <MapPin size={10} className="shrink-0" />{item.zone.name}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-mono font-black text-amber-300">
+                          <Clock size={10} />
+                          <span dir="ltr">{item.startTime}</span>
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </motion.article>
+                  </motion.article>
+                </React.Fragment>
               );
             })
           )}
@@ -347,10 +369,10 @@ const Program = () => {
                 <Tent size={16} /> المهرجان الكشفي الإرشادي الثلاثون
               </div>
               <h1 className="mt-1 text-4xl font-black text-white">
-                مسابقات المهرجان <span className="text-[#38bdf8] drop-shadow-[0_0_15px_rgba(56,189,248,0.6)]">والخريطة التفاعلية</span>
+                برنامج المهرجان <span className="text-[#38bdf8] drop-shadow-[0_0_15px_rgba(56,189,248,0.6)]">والخريطة التفاعلية</span>
               </h1>
               <p className="mt-1 text-sm text-slate-300">
-                اختر أي مسابقة لعرض موقعها ومبناها فوراً على الخريطة.
+                كل عناصر البرنامج منظمة حسب الفترة؛ الفعالية تفتح عند موعدها أو بإعلان الأدمن.
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -371,7 +393,7 @@ const Program = () => {
                 </button>
               )}
               <span className="rounded-full border border-cyan-500/30 bg-cyan-950/50 px-4 py-2 text-xs font-mono font-black text-cyan-300">
-                {competitionAgenda.length} مسابقات
+                {competitionAgenda.length} فعاليات
               </span>
             </div>
           </header>
@@ -404,7 +426,7 @@ const Program = () => {
                       ? 'border border-cyan-400 bg-cyan-500/20 text-cyan-200'
                       : 'border border-white/10 bg-slate-900/60 text-slate-400 hover:text-white'
                       }`}>
-                    كل المسابقات ({competitionAgenda.length})
+                    كل البرنامج ({competitionAgenda.length})
                   </button>
                   {data.zones.map((zone) => (
                     <button key={zone.id} type="button" onClick={() => handleZoneFilter(zone.id)}
@@ -420,49 +442,61 @@ const Program = () => {
               </div>
 
               {loading ? (
-                <LoadingSpinner label="جاري تحميل المسابقات..." />
+                <LoadingSpinner label="جاري تحميل برنامج المهرجان..." />
               ) : filteredCompetitions.length === 0 ? (
-                <EmptyState icon={Sparkles} title="لا توجد مسابقات في هذه المنطقة" hint="اختر منطقة أخرى" />
+                <EmptyState icon={Sparkles} title="لا توجد فعاليات في هذه المنطقة" hint="اختر منطقة أخرى" />
               ) : (
                 <div className="relative space-y-4 pr-4">
                   <div className="absolute right-1 top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-cyan-500 via-teal-500 to-emerald-500 opacity-40" />
-                  {filteredCompetitions.map((item) => {
+                  {filteredCompetitions.map((item, index) => {
                     const meta = typeMeta[item.type] || typeMeta.competition;
+                    const state = statusMeta[item.status] || statusMeta.upcoming;
+                    const StateIcon = state.icon;
                     const isSelected = selectedItem?.id === item.id;
+                    const showPeriod = index === 0 || filteredCompetitions[index - 1]?.period !== item.period;
                     return (
-                      <motion.article
-                        key={item.id}
-                        onClick={() => setSelectedItem(item)}
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`cursor-pointer relative rounded-2xl border p-5 transition-all duration-300 ${isSelected
-                          ? 'border-cyan-400 bg-gradient-to-r from-cyan-950/80 via-slate-900/90 to-slate-900/90 shadow-[0_0_25px_rgba(56,189,248,0.25)] scale-[1.01]'
-                          : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
-                          }`}>
-                        <span className={`absolute -right-3.5 top-6 h-3.5 w-3.5 rounded-full border-2 border-slate-950 transition-all ${isSelected ? 'bg-cyan-400 shadow-[0_0_12px_#38bdf8] scale-125' : 'bg-slate-700'
-                          }`} />
-                        <div className="flex items-center justify-between gap-3 mb-2">
-                          <div className="flex items-center gap-2.5 flex-wrap">
-                            <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-black ${meta.cls}`}>
-                              {meta.label}
-                            </span>
-                            <h3 className="text-lg font-black text-white">{item.title}</h3>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-mono font-black text-amber-300">
-                            <Clock size={13} />
-                            <span dir="ltr">{item.startTime} — {item.endTime}</span>
-                          </div>
-                        </div>
-                        {item.description && <p className="text-xs leading-6 text-slate-300 mb-3">{item.description}</p>}
-                        {item.zone && (
-                          <div className="flex items-center justify-between border-t border-slate-800/80 pt-3 text-xs font-bold text-slate-400">
-                            <span className="flex items-center gap-1.5 text-cyan-300">
-                              <MapPin size={14} /> {item.zone.name}
-                            </span>
-                            <span className="text-[10px] font-mono text-slate-500">انقر لإظهار الموقع</span>
-                          </div>
+                      <React.Fragment key={item.id}>
+                        {showPeriod && (
+                          <h2 className="relative -mr-4 rounded-xl border border-cyan-500/20 bg-cyan-950/30 px-4 py-2 text-sm font-black text-cyan-200">
+                            {periodLabels[item.period] || item.period}
+                          </h2>
                         )}
-                      </motion.article>
+                        <motion.article
+                          onClick={() => setSelectedItem(item)}
+                          initial={{ opacity: 0, y: 15 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`cursor-pointer relative rounded-2xl border p-5 transition-all duration-300 ${isSelected
+                            ? 'border-cyan-400 bg-gradient-to-r from-cyan-950/80 via-slate-900/90 to-slate-900/90 shadow-[0_0_25px_rgba(56,189,248,0.25)] scale-[1.01]'
+                            : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
+                            }`}>
+                          <span className={`absolute -right-3.5 top-6 h-3.5 w-3.5 rounded-full border-2 border-slate-950 transition-all ${isSelected ? 'bg-cyan-400 shadow-[0_0_12px_#38bdf8] scale-125' : 'bg-slate-700'
+                            }`} />
+                          <div className="flex items-center justify-between gap-3 mb-2">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-black ${meta.cls}`}>
+                                {meta.label}
+                              </span>
+                              <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-black ${state.cls}`}>
+                                <StateIcon size={11} />{state.label}
+                              </span>
+                              <h3 className="text-lg font-black text-white">{item.title}</h3>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-mono font-black text-amber-300">
+                              <Clock size={13} />
+                              <span dir="ltr">{item.startTime} — {item.endTime}</span>
+                            </div>
+                          </div>
+                          {item.description && <p className="text-xs leading-6 text-slate-300 mb-3">{item.description}</p>}
+                          {item.zone && (
+                            <div className="flex items-center justify-between border-t border-slate-800/80 pt-3 text-xs font-bold text-slate-400">
+                              <span className="flex items-center gap-1.5 text-cyan-300">
+                                <MapPin size={14} /> {item.zone.name}
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-500">انقر لإظهار الموقع</span>
+                            </div>
+                          )}
+                        </motion.article>
+                      </React.Fragment>
                     );
                   })}
                 </div>

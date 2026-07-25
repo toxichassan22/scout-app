@@ -138,15 +138,21 @@ model Zone {
 }
 
 model AgendaItem {
-  id          String  @id @default(uuid())
+  id          String    @id @default(uuid())
   title       String
-  type        String // competition | workshop | ceremony
+  type        String    // competition | workshop | ceremony
+  period      String    @default("before")
+  order       Int       @default(0)
   zoneId      String
-  zone        Zone    @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  zone        Zone      @relation(fields: [zoneId], references: [id], onDelete: Cascade)
   startTime   String
   endTime     String
   description String
-  isVisible   Boolean @default(true)
+  isVisible   Boolean   @default(true)
+  isStarted   Boolean   @default(false)
+  startedAt   DateTime?
+  isClosed    Boolean   @default(false)
+  closedAt    DateTime?
 }
 
 model Report {

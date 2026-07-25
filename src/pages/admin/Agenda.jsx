@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Plus, Trash2, Edit3, Clock, MapPin, Sparkles, CheckCircle2, X } from 'lucide-react';
-import { getAgenda, addAgendaItem, deleteAgendaItem, updateAgendaItem } from '../../services/api';
+import { Calendar, Plus, Trash2, Edit3, Clock, MapPin, Sparkles, CheckCircle2, X, Play, Square } from 'lucide-react';
+import { getAgenda, addAgendaItem, deleteAgendaItem, updateAgendaItem, agendaAction } from '../../services/api';
 
 const TYPE_OPTIONS = [
   { value: 'ceremony', label: 'احتفالية / مراسم 🎖️' },
@@ -103,6 +103,16 @@ const AdminAgenda = () => {
     }
   };
 
+  const handleAction = async (id, action) => {
+    try {
+      await agendaAction(id, action);
+      await fetchAgenda();
+      setSuccessMsg(action === 'start' ? 'تم تشغيل الفعالية وبث التحديث للجميع.' : 'تم إغلاق الفعالية وبث التحديث للجميع.');
+    } catch (err) {
+      alert('فشل في تغيير حالة الفعالية');
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('هل أنت تأكد من حذف هذه الفعالية من البرنامج؟')) return;
     try {
@@ -117,7 +127,7 @@ const AdminAgenda = () => {
   return (
     <main className="app-shell dir-rtl min-h-screen p-4 sm:p-6 text-right">
       <div className="mx-auto max-w-6xl space-y-8">
-        
+
         {/* Header */}
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
           <div>
@@ -135,9 +145,8 @@ const AdminAgenda = () => {
         </header>
 
         {/* Add/Edit Agenda Form */}
-        <section className={`card p-6 rounded-3xl border transition-all ${
-          editingId ? 'border-amber-500/50 bg-amber-950/20 shadow-amber-500/10' : 'border-slate-800 bg-slate-900/60 shadow-xl'
-        }`}>
+        <section className={`card p-6 rounded-3xl border transition-all ${editingId ? 'border-amber-500/50 bg-amber-950/20 shadow-amber-500/10' : 'border-slate-800 bg-slate-900/60 shadow-xl'
+          }`}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-black text-white flex items-center gap-2">
               {editingId ? (
@@ -238,11 +247,10 @@ const AdminAgenda = () => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className={`w-full rounded-xl px-6 py-2.5 text-sm font-black transition active:scale-98 disabled:opacity-50 ${
-                    editingId
+                  className={`w-full rounded-xl px-6 py-2.5 text-sm font-black transition active:scale-98 disabled:opacity-50 ${editingId
                       ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:opacity-90'
                       : 'bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 hover:opacity-90'
-                  }`}
+                    }`}
                 >
                   {submitting ? 'جاري الحفظ...' : editingId ? 'تعديل الفعالية' : 'إضافة الفعالية'}
                 </button>
@@ -278,9 +286,8 @@ const AdminAgenda = () => {
               {agenda.map((item) => (
                 <article
                   key={item.id}
-                  className={`card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl border transition ${
-                    editingId === item.id ? 'border-amber-400 bg-amber-950/30' : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
-                  }`}
+                  className={`card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl border transition ${editingId === item.id ? 'border-amber-400 bg-amber-950/30' : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
+                    }`}
                 >
                   <div className="space-y-1.5 text-right flex-1">
                     <div className="flex items-center gap-3 flex-wrap">
@@ -301,6 +308,14 @@ const AdminAgenda = () => {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleAction(item.id, item.status === 'active' ? 'close' : 'start')}
+                      className={`rounded-xl border p-2.5 transition ${item.status === 'active' ? 'border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'}`}
+                      title={item.status === 'active' ? 'إغلاق الفعالية' : 'تشغيل الفعالية'}
+                    >
+                      {item.status === 'active' ? <Square size={18} /> : <Play size={18} />}
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleStartEdit(item)}

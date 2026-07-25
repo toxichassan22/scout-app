@@ -479,9 +479,9 @@ router.delete('/news/:id', async (req, res) => {
 // Agenda Management
 router.post('/agenda', async (req, res) => {
   try {
-    const { title, type, zoneId, startTime, endTime, description } = req.body;
+    const { title, type, period, order, zoneId, startTime, endTime, description } = req.body;
     const item = await prisma.agendaItem.create({
-      data: { title, type, zoneId, startTime, endTime, description }
+      data: { title, type, period: period || 'before', order: Number(order) || 0, zoneId, startTime, endTime, description: description || '' }
     });
 
     if (req.io) {
@@ -510,10 +510,10 @@ router.delete('/agenda/:id', async (req, res) => {
 
 router.put('/agenda/:id', async (req, res) => {
   try {
-    const { title, type, zoneId, startTime, endTime, description } = req.body;
+    const { title, type, period, order, zoneId, startTime, endTime, description } = req.body;
     const item = await prisma.agendaItem.update({
       where: { id: req.params.id },
-      data: { title, type, zoneId, startTime, endTime, description }
+      data: { title, type, period: period || 'before', order: Number(order) || 0, zoneId, startTime, endTime, description: description || '' }
     });
 
     if (req.io) {
@@ -523,6 +523,25 @@ router.put('/agenda/:id', async (req, res) => {
     res.json(item);
   } catch (err) {
     res.status(500).json({ error: 'فشل في تعديل الفعالية' });
+  }
+});
+
+router.post('/agenda/:id/action', async (req, res) => {
+  try {
+    const action = String(req.body.action || '').toLowerCase();
+    const now = new Date();
+    const data = action === 'start'
+      ? { isStarted: true, startedAt: now, isClosed: false, closedAt: null }
+      : action === 'stop' || action === 'close'
+        ? { isClosed: true, closedAt: now }
+        : null;
+    if (!data) return res.status(400).json({ error: 'الإجراء يجب أن يكون start أو stop أو close' });
+    const item = await prisma.agendaItem.update({ where: { id: req.params.id }, data });
+    if (req.io) req.io.emit('agenda:update', { action, agendaId: item.id });
+    res.json(item);
+  } catch (err) {
+    console.error('[Admin Agenda Action]', err);
+    res.status(500).json({ error: 'فشل في تغيير حالة الفعالية' });
   }
 });
 
