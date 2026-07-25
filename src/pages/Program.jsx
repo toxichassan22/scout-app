@@ -9,40 +9,32 @@ import mapBgImage from '../../س.jpeg';
 
 const typeMeta = {
   competition: { label: 'مسابقة', cls: 'border-amber-500/40 bg-amber-500/10 text-amber-300', dot: '#f59e0b' },
-  workshop:    { label: 'ورشة',   cls: 'border-purple-500/40 bg-purple-500/10 text-purple-300', dot: '#8b5cf6' },
-  ceremony:    { label: 'مراسم',  cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300', dot: '#10b981' },
+  workshop: { label: 'ورشة', cls: 'border-purple-500/40 bg-purple-500/10 text-purple-300', dot: '#8b5cf6' },
+  ceremony: { label: 'مراسم', cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300', dot: '#10b981' },
 };
 
 const DEFAULT_POSITIONS = {
-  'zone-1': { top: 65.6, left: 79.3, code: 'ZONE-01' },
-  'zone-2': { top: 68.2, left: 62.9, code: 'ZONE-02' },
-  'zone-3': { top: 57.2, left: 79.1, code: 'ZONE-03' },
-  'zone-4': { top: 48.4, left: 73.0, code: 'ZONE-04' },
-  'zone-5': { top: 45.1, left: 58.7, code: 'ZONE-05' },
-  'zone-6': { top: 38.9, left: 38.3, code: 'ZONE-06' },
-  'zone-7': { top: 61.6, left: 43.9, code: 'ZONE-07' },
-  'zone-8': { top: 63.6, left: 32.4, code: 'ZONE-08' },
-  'zone-mosque': { top: 55.0, left: 80.0, code: 'ZONE-01' },
-  'zone-field': { top: 40.0, left: 40.0, code: 'ZONE-02' },
-  'zone-behind-mosque': { top: 50.0, left: 85.0, code: 'ZONE-03' },
-  'zone-new-building': { top: 48.0, left: 72.0, code: 'ZONE-04' },
-  'zone-camp': { top: 45.0, left: 58.0, code: 'ZONE-05' },
-  'zone-fountain': { top: 42.0, left: 65.0, code: 'ZONE-06' },
-  'zone-radio': { top: 60.0, left: 35.0, code: 'ZONE-07' },
-  'zone-online': { top: 70.0, left: 50.0, code: 'ZONE-08' },
+  'zone-1': { top: 65.6, left: 79.3 },
+  'zone-2': { top: 68.2, left: 62.9 },
+  'zone-3': { top: 57.2, left: 79.1 },
+  'zone-4': { top: 48.4, left: 73.0 },
+  'zone-5': { top: 45.1, left: 58.7 },
+  'zone-6': { top: 38.9, left: 38.3 },
+  'zone-7': { top: 61.6, left: 43.9 },
+  'zone-8': { top: 63.6, left: 32.4 },
 };
 
 const Program = () => {
-  const [data, setData]               = useState({ zones: [], agenda: [] });
-  const [loading, setLoading]         = useState(true);
+  const [data, setData] = useState({ zones: [], agenda: [] });
+  const [loading, setLoading] = useState(true);
   const [selectedZone, setSelectedZone] = useState('all');
   const [selectedItem, setSelectedItem] = useState(null);
 
   const [calibrating, setCalibrating] = useState(false);
-  const [positions, setPositions]     = useState(DEFAULT_POSITIONS);
-  const [copied, setCopied]           = useState(false);
-  const dragging                      = useRef(null);
-  const mapRef                        = useRef(null);
+  const [positions, setPositions] = useState(DEFAULT_POSITIONS);
+  const [copied, setCopied] = useState(false);
+  const dragging = useRef(null);
+  const mapRef = useRef(null);
 
   const { socket } = useSocket();
 
@@ -76,7 +68,7 @@ const Program = () => {
       startX: clientX,
       startY: clientY,
       startLeft: positions[zoneId]?.left ?? 50,
-      startTop:  positions[zoneId]?.top  ?? 50,
+      startTop: positions[zoneId]?.top ?? 50,
     };
   }, [calibrating, positions]);
 
@@ -86,10 +78,10 @@ const Program = () => {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     const rect = mapRef.current.getBoundingClientRect();
-    const dx = ((clientX - d.startX) / rect.width)  * 100;
+    const dx = ((clientX - d.startX) / rect.width) * 100;
     const dy = ((clientY - d.startY) / rect.height) * 100;
     const newLeft = Math.max(2, Math.min(98, d.startLeft + dx));
-    const newTop  = Math.max(2, Math.min(95, d.startTop  + dy));
+    const newTop = Math.max(2, Math.min(95, d.startTop + dy));
     setPositions(prev => ({
       ...prev,
       [d.zoneId]: { ...prev[d.zoneId], left: newLeft, top: newTop }
@@ -100,7 +92,7 @@ const Program = () => {
 
   const copyPositions = () => {
     const out = Object.entries(positions).map(([id, p]) =>
-      `  '${id}': { top: '${p.top.toFixed(1)}%', left: '${p.left.toFixed(1)}%', code: '${p.code}' },`
+      `  '${id}': { top: '${p.top.toFixed(1)}%', left: '${p.left.toFixed(1)}%' },`
     ).join('\n');
     navigator.clipboard.writeText(`const ZONE_MAP_POSITIONS = {\n${out}\n};`);
     setCopied(true);
@@ -125,8 +117,8 @@ const Program = () => {
     || (data.zones.length > 0 ? data.zones[0] : null);
 
   const activeZonePos = activeZone
-    ? positions[activeZone.id] || { top: 50, left: 50, code: 'ZONE' }
-    : { top: 50, left: 50, code: 'ZONE' };
+    ? positions[activeZone.id] || { top: 50, left: 50 }
+    : { top: 50, left: 50 };
 
   const MapCanvas = () => (
     <div
@@ -154,13 +146,13 @@ const Program = () => {
           />
         )}
 
-        <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-black/75 px-2.5 py-1 text-[10px] font-mono text-cyan-300 backdrop-blur-md">
+        <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-black/75 px-2.5 py-1 text-[10px] text-cyan-300 backdrop-blur-md">
           <Navigation size={12} className={calibrating ? 'text-orange-400' : 'animate-spin text-cyan-400'} />
-          <span>{calibrating ? 'معايرة' : activeZonePos.code}</span>
+          <span>{calibrating ? 'معايرة' : activeZone ? `المنطقة ${activeZone.numberLabel}` : 'الخريطة'}</span>
         </div>
 
         {data.zones.map((z) => {
-          const pos = positions[z.id] || { top: 50, left: 50, code: 'Z' };
+          const pos = positions[z.id] || { top: 50, left: 50 };
           const isActive = activeZone?.id === z.id;
 
           return (
@@ -177,11 +169,10 @@ const Program = () => {
               )}
               <div className="flex flex-col items-center">
                 <div
-                  className={`flex h-6 w-6 items-center justify-center rounded-full shadow-lg transition-all ${
-                    isActive
+                  className={`flex h-6 w-6 items-center justify-center rounded-full shadow-lg transition-all ${isActive
                       ? 'ring-2 ring-white ring-offset-1 ring-offset-transparent shadow-[0_0_12px_rgba(255,255,255,0.5)]'
                       : calibrating ? 'ring-2 ring-orange-400' : 'ring-1 ring-white/40'
-                  }`}
+                    }`}
                   style={{ backgroundColor: z.colorHex || '#0284c7' }}
                 >
                   {calibrating
@@ -201,7 +192,7 @@ const Program = () => {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: activeZone.colorHex || '#38bdf8' }} />
-                  <span className="text-[10px] font-mono font-black text-cyan-400 truncate">{activeZonePos.code}</span>
+                  <span className="text-[10px] font-black text-cyan-400 shrink-0">{activeZone.numberLabel}</span>
                   <span className="text-xs font-black text-white truncate">{activeZone.name}</span>
                 </div>
                 {selectedItem?.zoneId === activeZone.id && (
@@ -241,11 +232,10 @@ const Program = () => {
                 <button
                   type="button"
                   onClick={() => setCalibrating(v => !v)}
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-black border transition-all ${
-                    calibrating
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-black border transition-all ${calibrating
                       ? 'border-orange-400 bg-orange-500/20 text-orange-300'
                       : 'border-slate-700 bg-slate-900/60 text-slate-500'
-                  }`}
+                    }`}
                 >
                   {calibrating ? <Lock size={10} /> : <Move size={10} />}
                 </button>
@@ -263,20 +253,18 @@ const Program = () => {
             {/* Filter chips */}
             <div className="scrollbar-none flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
               <button type="button" onClick={() => handleZoneFilter('all')}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-[10px] font-black transition-all border ${
-                  selectedZone === 'all'
+                className={`shrink-0 rounded-full px-3 py-1.5 text-[10px] font-black transition-all border ${selectedZone === 'all'
                     ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
                     : 'border-white/10 bg-slate-900/60 text-slate-500'
-                }`}>
+                  }`}>
                 الكل
               </button>
               {data.zones.map((zone) => (
                 <button key={zone.id} type="button" onClick={() => handleZoneFilter(zone.id)}
-                  className={`flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-[10px] font-black transition-all border ${
-                    selectedZone === zone.id
+                  className={`flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-[10px] font-black transition-all border ${selectedZone === zone.id
                       ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
                       : 'border-white/10 bg-slate-900/60 text-slate-500'
-                  }`}>
+                    }`}>
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: zone.colorHex || '#38bdf8' }} />
                   {zone.numberLabel}
                 </button>
@@ -302,11 +290,10 @@ const Program = () => {
                   onClick={() => setSelectedItem(item)}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`rounded-xl border px-3 py-2.5 transition-all ${
-                    isSelected
+                  className={`rounded-xl border px-3 py-2.5 transition-all ${isSelected
                       ? 'border-cyan-400/60 bg-cyan-950/60 shadow-[0_0_15px_rgba(56,189,248,0.15)]'
                       : 'border-slate-800 bg-slate-900/30'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -356,11 +343,10 @@ const Program = () => {
               <button
                 type="button"
                 onClick={() => setCalibrating(v => !v)}
-                className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black transition-all border ${
-                  calibrating
+                className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black transition-all border ${calibrating
                     ? 'border-orange-400 bg-orange-500/20 text-orange-300 shadow-[0_0_15px_rgba(251,146,60,0.4)]'
                     : 'border-slate-700 bg-slate-900/60 text-slate-400 hover:text-white'
-                }`}
+                  }`}
               >
                 {calibrating ? <><Lock size={13} /> إيقاف المعايرة</> : <><Move size={13} /> معايرة الخريطة</>}
               </button>
@@ -389,20 +375,18 @@ const Program = () => {
             <div className={`lg:col-span-7 space-y-6 transition-opacity duration-300 ${calibrating ? 'opacity-25 pointer-events-none select-none' : ''}`}>
               <div className="scrollbar-none flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
                 <button type="button" onClick={() => handleZoneFilter('all')}
-                  className={`shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black transition-all border ${
-                    selectedZone === 'all'
+                  className={`shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black transition-all border ${selectedZone === 'all'
                       ? 'border border-cyan-400 bg-cyan-500/20 text-cyan-200'
                       : 'border border-white/10 bg-slate-900/60 text-slate-400 hover:text-white'
-                  }`}>
+                    }`}>
                   كل المناطق ({data.agenda.length})
                 </button>
                 {data.zones.map((zone) => (
                   <button key={zone.id} type="button" onClick={() => handleZoneFilter(zone.id)}
-                    className={`flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-black transition-all border ${
-                      selectedZone === zone.id
+                    className={`flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-black transition-all border ${selectedZone === zone.id
                         ? 'border border-cyan-400 bg-cyan-500/20 text-cyan-200'
                         : 'border border-white/10 bg-slate-900/60 text-slate-400 hover:text-white'
-                    }`}>
+                      }`}>
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: zone.colorHex || '#38bdf8' }} />
                     {zone.name} ({zone.numberLabel})
                   </button>
@@ -425,14 +409,12 @@ const Program = () => {
                         onClick={() => setSelectedItem(item)}
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className={`cursor-pointer relative rounded-2xl border p-5 transition-all duration-300 ${
-                          isSelected
+                        className={`cursor-pointer relative rounded-2xl border p-5 transition-all duration-300 ${isSelected
                             ? 'border-cyan-400 bg-gradient-to-r from-cyan-950/80 via-slate-900/90 to-slate-900/90 shadow-[0_0_25px_rgba(56,189,248,0.25)] scale-[1.01]'
                             : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
-                        }`}>
-                        <span className={`absolute -right-3.5 top-6 h-3.5 w-3.5 rounded-full border-2 border-slate-950 transition-all ${
-                          isSelected ? 'bg-cyan-400 shadow-[0_0_12px_#38bdf8] scale-125' : 'bg-slate-700'
-                        }`} />
+                          }`}>
+                        <span className={`absolute -right-3.5 top-6 h-3.5 w-3.5 rounded-full border-2 border-slate-950 transition-all ${isSelected ? 'bg-cyan-400 shadow-[0_0_12px_#38bdf8] scale-125' : 'bg-slate-700'
+                          }`} />
                         <div className="flex items-center justify-between gap-3 mb-2">
                           <div className="flex items-center gap-2.5 flex-wrap">
                             <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-black ${meta.cls}`}>
