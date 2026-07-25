@@ -10,7 +10,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const allItems = await prisma.agendaItem.findMany({
       where: { isVisible: true },
       include: { zone: true },
-      orderBy: [{ startTime: 'asc' }, { order: 'asc' }]
+      orderBy: { startTime: 'asc' }
     });
 
     const activeZoneIds = new Set(allItems.map((item) => item.zoneId).filter(Boolean));
