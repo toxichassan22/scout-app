@@ -318,8 +318,8 @@ const Program = () => {
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {item.zone && (
-                        <span className="flex items-center gap-0.5 text-[10px] font-bold text-cyan-300">
-                          <MapPin size={10} />{item.zone.numberLabel}
+                        <span className="flex max-w-[9rem] items-center gap-0.5 truncate text-[10px] font-bold text-cyan-300">
+                          <MapPin size={10} className="shrink-0" />{item.zone.name}
                         </span>
                       )}
                       <span className="flex items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-mono font-black text-amber-300">
@@ -404,7 +404,7 @@ const Program = () => {
                       ? 'border border-cyan-400 bg-cyan-500/20 text-cyan-200'
                       : 'border border-white/10 bg-slate-900/60 text-slate-400 hover:text-white'
                       }`}>
-                    كل المناطق ({data.zones.length})
+                    كل المسابقات ({competitionAgenda.length})
                   </button>
                   {data.zones.map((zone) => (
                     <button key={zone.id} type="button" onClick={() => handleZoneFilter(zone.id)}
@@ -457,7 +457,7 @@ const Program = () => {
                         {item.zone && (
                           <div className="flex items-center justify-between border-t border-slate-800/80 pt-3 text-xs font-bold text-slate-400">
                             <span className="flex items-center gap-1.5 text-cyan-300">
-                              <MapPin size={14} /> منطقة {item.zone.name} ({item.zone.numberLabel})
+                              <MapPin size={14} /> {item.zone.name}
                             </span>
                             <span className="text-[10px] font-mono text-slate-500">انقر لإظهار الموقع</span>
                           </div>
