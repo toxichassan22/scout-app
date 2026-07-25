@@ -480,43 +480,49 @@ async function seed() {
     });
   }
 
-  // 8️⃣ Official Agenda Items (festival schedule)
-  const officialAgendaItems = [
-    // الفترة الأولى 10:30 – 12:00
-    { id: 'agenda-p1-5', title: 'تسميع القرآن الكريم والأحاديث', type: 'competition', zoneId: 'zone-mosque', startTime: '10:30', endTime: '12:00', description: 'حفظ وتسميع آيات وأحاديث نبوية', isVisible: true },
-    { id: 'agenda-p1-6', title: 'المجال الرياضي', type: 'competition', zoneId: 'zone-field', startTime: '10:30', endTime: '12:00', description: 'المسابقات الرياضية والألعاب الميدانية', isVisible: true },
-    { id: 'agenda-p1-7', title: 'الملصق الفني', type: 'competition', zoneId: 'zone-behind-mosque', startTime: '10:30', endTime: '12:00', description: 'تصميم ملصق فني كشفي', isVisible: true },
-    { id: 'agenda-p1-8', title: 'عواصم وعملات الدول العربية', type: 'competition', zoneId: 'zone-new-building', startTime: '10:30', endTime: '12:00', description: 'الدور الثاني - مسابقة الجغرافيا', isVisible: true },
-    { id: 'agenda-p1-9', title: 'تصميم فيديو دقيقتين بالـ AI', type: 'competition', zoneId: 'zone-new-building', startTime: '10:30', endTime: '12:00', description: 'الدور الثالث - مسابقة تصميم الفيديو الكشفي', isVisible: true },
-    { id: 'agenda-p1-10', title: 'عقد وربطات', type: 'competition', zoneId: 'zone-camp', startTime: '10:30', endTime: '12:00', description: 'إتقان العقد والربطات الكشفية', isVisible: true },
+  // 8️⃣ Official Agenda Items (updated festival schedule)
+  // Clean up previous seed agenda items (admin-created UUID items are untouched)
+  await prisma.agendaItem.deleteMany({ where: { id: { startsWith: 'agenda-p' } } });
 
-    // الفترة الثانية 12:00 – 01:00
-    { id: 'agenda-p2-11', title: 'تكملة المجال الرياضي', type: 'competition', zoneId: 'zone-field', startTime: '12:00', endTime: '13:00', description: 'استكمال المسابقات الرياضية', isVisible: true },
-    { id: 'agenda-p2-12', title: 'الورشة الفنية', type: 'workshop', zoneId: 'zone-behind-mosque', startTime: '12:00', endTime: '13:00', description: 'ورشة فنية تنفذها الفرقة', isVisible: true },
-    { id: 'agenda-p2-13', title: 'بحث على خطى الأنبياء', type: 'competition', zoneId: 'zone-new-building', startTime: '12:00', endTime: '13:00', description: 'الدور الثاني - ورقة عمل على خطى الأنبياء', isVisible: true },
-    { id: 'agenda-p2-14', title: 'عرض ثلاث مبتكرات علمية', type: 'competition', zoneId: 'zone-new-building', startTime: '12:00', endTime: '13:00', description: 'الدور الثالث - عرض ثلاث مبتكرات علمية', isVisible: true },
-    { id: 'agenda-p2-15', title: 'النموذج الكشفي', type: 'competition', zoneId: 'zone-camp', startTime: '12:00', endTime: '13:00', description: 'تصميم وعرض النموذج الكشفي', isVisible: true },
-    { id: 'agenda-p2-16', title: 'صلاة الجمعة', type: 'ceremony', zoneId: 'zone-mosque', startTime: '12:00', endTime: '13:00', description: 'صلاة الجمعة والخطبة', isVisible: true },
+  const officialAgendaItems = [
+    // الافتتاح والفقرات التنظيمية 08:00 – 10:30
+    { id: 'agenda-opening-1', title: 'تجمع واستقبال الوفود', type: 'ceremony', zoneId: 'zone-camp', startTime: '08:00', endTime: '09:00', description: 'استقبال المجموعات والوفود المشاركة', isVisible: true },
+    { id: 'agenda-opening-2', title: 'تحية العلم وافتتاح المهرجان', type: 'ceremony', zoneId: 'zone-field', startTime: '09:00', endTime: '10:00', description: 'التحية الوطنية والافتتاح الرسمي', isVisible: true },
+    { id: 'agenda-opening-3', title: 'اجتماع القادة وتسليم الأعمال الجاهزة', type: 'workshop', zoneId: 'zone-camp', startTime: '10:00', endTime: '10:30', description: 'تسليم الأعمال والتجهيزات للقادة', isVisible: true },
+
+    // الفترة الأولى 10:30 – 11:30
+    { id: 'agenda-p1-quran', title: 'تسميع القرآن الكريم', type: 'competition', zoneId: 'zone-mosque', startTime: '10:30', endTime: '11:30', description: 'مسابقة تسميع آيات من القرآن الكريم', isVisible: true },
+    { id: 'agenda-p1-hadith', title: 'تسميع الأحاديث النبوية', type: 'competition', zoneId: 'zone-mosque', startTime: '10:30', endTime: '11:30', description: 'مسابقة تسميع الأحاديث النبوية الشريفة', isVisible: true },
+    { id: 'agenda-p1-poster', title: 'الملصق الفني الكشفي', type: 'competition', zoneId: 'zone-behind-mosque', startTime: '10:30', endTime: '11:30', description: 'تصميم ملصق فني كشفي', isVisible: true },
+    { id: 'agenda-p1-knots', title: 'العقد والربطات الكشفية', type: 'competition', zoneId: 'zone-camp', startTime: '10:30', endTime: '11:30', description: 'إتقان العقد والربطات الكشفية', isVisible: true },
+    { id: 'agenda-p1-video', title: 'تصميم فيديو دقيقتين بالـ AI', type: 'competition', zoneId: 'zone-new-building', startTime: '10:30', endTime: '11:30', description: 'الدور الثالث - مسابقة تصميم الفيديو الكشفي (مسابقة 1-4)', isVisible: true },
+    { id: 'agenda-p1-geography', title: 'عواصم وعملات الدول العربية', type: 'competition', zoneId: 'zone-new-building', startTime: '10:30', endTime: '11:30', description: 'الدور الثاني - مسابقة الجغرافيا (مسابقة 1-4)', isVisible: true },
+
+    // الفترة الثانية 11:30 – 01:00 (13:00)
+    { id: 'agenda-p2-art', title: 'الورشة الفنية', type: 'workshop', zoneId: 'zone-behind-mosque', startTime: '11:30', endTime: '13:00', description: 'ورشة فنية تنفذها الفرقة', isVisible: true },
+    { id: 'agenda-p2-model', title: 'النموذج الكشفي', type: 'competition', zoneId: 'zone-camp', startTime: '11:30', endTime: '13:00', description: 'تصميم وعرض النموذج الكشفي', isVisible: true },
+    { id: 'agenda-p2-science', title: 'بحث ثلاث أفكار لمبتكرات علمية', type: 'competition', zoneId: 'zone-new-building', startTime: '11:30', endTime: '13:00', description: 'الدور الثالث - بحث ثلاث أفكار لمبتكرات علمية', isVisible: true },
+    { id: 'agenda-p2-prophets', title: 'ورقة عمل على خطى الأنبياء', type: 'competition', zoneId: 'zone-new-building', startTime: '11:30', endTime: '13:00', description: 'الدور الثاني - ورقة عمل على خطى الأنبياء', isVisible: true },
+
+    // استراحة الصلاة 01:00 – 02:00 (13:00 – 14:00)
+    { id: 'agenda-prayer', title: 'صلاة الجمعة', type: 'ceremony', zoneId: 'zone-mosque', startTime: '13:00', endTime: '14:00', description: 'صلاة الجمعة والخطبة', isVisible: true },
 
     // الفترة الثالثة 02:00 – 04:00 (14:00 – 16:00)
-    { id: 'agenda-p3-17', title: 'عرض تطير الطائرات', type: 'competition', zoneId: 'zone-field', startTime: '14:00', endTime: '16:00', description: 'عرض ومنافسة الطائرات الورقية', isVisible: true },
-    { id: 'agenda-p3-18', title: 'نصب المعرض (الساعة 3 عصراً)', type: 'workshop', zoneId: 'zone-fountain', startTime: '15:00', endTime: '15:30', description: 'نصب المعرض أمام النافورة', isVisible: true },
-    { id: 'agenda-p3-19', title: 'إقامة حفل الكرنفال', type: 'ceremony', zoneId: 'zone-fountain', startTime: '15:30', endTime: '16:00', description: 'حفل الكرنفال الكشفي أمام النافورة', isVisible: true },
-    { id: 'agenda-p3-20', title: 'حقيقتين وكذبة', type: 'competition', zoneId: 'zone-new-building', startTime: '14:00', endTime: '16:00', description: 'الدور الثاني - مسابقة حقيقتان وكذبة', isVisible: true },
-    { id: 'agenda-p3-21', title: 'عرض تقديمي عن أحد الموديلات', type: 'competition', zoneId: 'zone-new-building', startTime: '14:00', endTime: '16:00', description: 'الدور الثالث - عرض تقديمي عن الموديلات', isVisible: true },
-    { id: 'agenda-p3-22', title: 'كينج الشفرات', type: 'competition', zoneId: 'zone-camp', startTime: '14:00', endTime: '16:00', description: 'مسابقة فك الشفرات', isVisible: true },
-    { id: 'agenda-p3-23', title: 'المجلة الأرضية', type: 'competition', zoneId: 'zone-camp', startTime: '14:00', endTime: '16:00', description: 'إعداد المجلة الأرضية والمعرض الكشفي', isVisible: true },
-    { id: 'agenda-p3-smart', title: 'الكاشف الذكي', type: 'competition', zoneId: 'zone-camp', startTime: '14:00', endTime: '16:00', description: 'المشروع والكاشف الذكي - ضمن برنامج الفترة الثالثة', isVisible: true },
+    { id: 'agenda-p3-carnival', title: 'الكرنفال الكشفي', type: 'ceremony', zoneId: 'zone-fountain', startTime: '14:00', endTime: '16:00', description: 'حفل الكرنفال الكشفي أمام نافورة المركز', isVisible: true },
+    { id: 'agenda-p3-model-pres', title: 'عرض تقديمي عن أحد الموديلات الكشفية', type: 'competition', zoneId: 'zone-new-building', startTime: '14:00', endTime: '16:00', description: 'الدور الثالث - عرض تقديمي عن أحد الموديلات الكشفية', isVisible: true },
+    { id: 'agenda-p3-magazine', title: 'المجلة الأرضية', type: 'competition', zoneId: 'zone-camp', startTime: '14:00', endTime: '16:00', description: 'إعداد المجلة الأرضية', isVisible: true },
+    { id: 'agenda-p3-exhibit', title: 'نصب المعرض (الساعة 3)', type: 'workshop', zoneId: 'zone-fountain', startTime: '15:00', endTime: '15:30', description: 'نصب المعرض الكشفي أمام نافورة المركز', isVisible: true },
+    { id: 'agenda-p3-smart', title: 'الكاشف الذكي (Smart Scout Detector)', type: 'competition', zoneId: 'zone-camp', startTime: '14:00', endTime: '16:00', description: 'الكاشف الذكي - مدرج في فترة البوستر', isVisible: true },
+    { id: 'agenda-p3-truths', title: 'حقيقتين وكذبة', type: 'competition', zoneId: 'zone-new-building', startTime: '14:00', endTime: '16:00', description: 'الدور الثاني - مسابقة حقيقتان وكذبة (مسابقة 1-4)', isVisible: true },
 
     // الفترة الرابعة 04:00 – 05:30 (16:00 – 17:30)
-    { id: 'agenda-p4-24', title: 'مهرجان التلاوة', type: 'ceremony', zoneId: 'zone-radio', startTime: '16:00', endTime: '17:30', description: 'مهرجان التلاوة عبر إذاعة المهرجان', isVisible: true },
-    { id: 'agenda-p4-25', title: 'من سيربح الكود', type: 'competition', zoneId: 'zone-new-building', startTime: '16:00', endTime: '17:30', description: 'الدور الثاني - مسابقة البرمجة والكود', isVisible: true },
-    { id: 'agenda-p4-26', title: 'عرض تقديمي كوميدي عن مهارة', type: 'competition', zoneId: 'zone-new-building', startTime: '16:00', endTime: '17:30', description: 'الدور الثالث - عرض كوميدي عن مهارة كشفية', isVisible: true },
-    { id: 'agenda-p4-27', title: 'مشروع الخدمة العامة', type: 'competition', zoneId: 'zone-camp', startTime: '16:00', endTime: '17:30', description: 'عرض مشروع الخدمة العامة', isVisible: true },
-    { id: 'agenda-p4-28', title: 'نشر الفيديو التوثيقي', type: 'competition', zoneId: 'zone-online', startTime: '16:00', endTime: '17:30', description: 'نشر الفيديو التوثيقي على صفحة المجموعة', isVisible: true },
+    { id: 'agenda-p4-comedy', title: 'عرض تقديمي كوميدي عن مهارة كشفية', type: 'competition', zoneId: 'zone-new-building', startTime: '16:00', endTime: '17:30', description: 'الدور الثالث - عرض تقديمي كوميدي عن مهارة كشفية', isVisible: true },
+    { id: 'agenda-p4-tilawa', title: 'مهرجان التلاوة', type: 'ceremony', zoneId: 'zone-radio', startTime: '16:00', endTime: '17:30', description: 'مهرجان التلاوة عبر إذاعة المهرجان', isVisible: true },
+    { id: 'agenda-p4-video-doc', title: 'نشر الفيديو التوثيقي', type: 'competition', zoneId: 'zone-online', startTime: '16:00', endTime: '17:30', description: 'نشر الفيديو التوثيقي على صفحة المجموعة (مسابقة 1-4)', isVisible: true },
+    { id: 'agenda-p4-prep', title: 'الاستعداد للختام', type: 'workshop', zoneId: 'zone-camp', startTime: '16:00', endTime: '17:30', description: 'استعدادات سهرة الختام والسمر', isVisible: true },
 
     // الفترة الخامسة 05:30 – 08:30 (17:30 – 20:30)
-    { id: 'agenda-p5-closing', title: 'حفل الختام والسمر', type: 'ceremony', zoneId: 'zone-camp', startTime: '17:30', endTime: '20:30', description: 'حفل الختام وسهرة السمر الكشفي', isVisible: true }
+    { id: 'agenda-p5-closing', title: 'سهرة السمر وحفل الختام', type: 'ceremony', zoneId: 'zone-camp', startTime: '17:30', endTime: '20:30', description: 'سهرة السمر وحفل الختام الختامي', isVisible: true }
   ];
 
   for (const item of officialAgendaItems) {
