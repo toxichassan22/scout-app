@@ -22,6 +22,14 @@ const DEFAULT_POSITIONS = {
   'zone-6': { top: 38.9, left: 38.3, code: 'ZONE-06' },
   'zone-7': { top: 61.6, left: 43.9, code: 'ZONE-07' },
   'zone-8': { top: 63.6, left: 32.4, code: 'ZONE-08' },
+  'zone-mosque': { top: 55.0, left: 80.0, code: 'ZONE-01' },
+  'zone-field': { top: 40.0, left: 40.0, code: 'ZONE-02' },
+  'zone-behind-mosque': { top: 50.0, left: 85.0, code: 'ZONE-03' },
+  'zone-new-building': { top: 48.0, left: 72.0, code: 'ZONE-04' },
+  'zone-camp': { top: 45.0, left: 58.0, code: 'ZONE-05' },
+  'zone-fountain': { top: 42.0, left: 65.0, code: 'ZONE-06' },
+  'zone-radio': { top: 60.0, left: 35.0, code: 'ZONE-07' },
+  'zone-online': { top: 70.0, left: 50.0, code: 'ZONE-08' },
 };
 
 const Program = () => {

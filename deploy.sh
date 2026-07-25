@@ -27,9 +27,10 @@ if command -v sudo >/dev/null 2>&1; then
   sudo nginx -t && sudo systemctl reload nginx 2>/dev/null || true
 fi
 
-echo "🔄 مزامنة الـ Schema وإعادة تشغيل الباك إند..."
+echo "🔄 مزامنة الـ Schema وتطبيق الـ Seed وإعادة تشغيل الباك إند..."
 cd server
 npx prisma db push --accept-data-loss || true
+node src/seed.js || true
 pm2 restart ecosystem.config.cjs --env production || pm2 start ecosystem.config.cjs --env production || pm2 restart all || true
 cd ..
 
