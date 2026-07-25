@@ -526,11 +526,23 @@ async function seed() {
     { id: 'agenda-p5-closing', title: 'سهرة السمر وحفل الختام', type: 'ceremony', zoneId: 'zone-camp', startTime: '17:30', endTime: '20:30', description: 'سهرة السمر وحفل الختام الختامي', isVisible: true }
   ];
 
+  const legacyZoneIds = {
+    'zone-mosque': 'zone-3',
+    'zone-field': 'zone-6',
+    'zone-behind-mosque': 'zone-2',
+    'zone-new-building': 'zone-4',
+    'zone-camp': 'zone-5',
+    'zone-fountain': 'zone-6',
+    'zone-radio': 'zone-2',
+    'zone-online': 'zone-2'
+  };
+
   for (const item of officialAgendaItems) {
+    const zoneId = legacyZoneIds[item.zoneId] || item.zoneId;
     await prisma.agendaItem.upsert({
       where: { id: item.id },
-      update: { title: item.title, type: item.type, zoneId: item.zoneId, startTime: item.startTime, endTime: item.endTime, description: item.description, isVisible: item.isVisible },
-      create: item
+      update: { title: item.title, type: item.type, zoneId, startTime: item.startTime, endTime: item.endTime, description: item.description, isVisible: item.isVisible },
+      create: { ...item, zoneId }
     });
   }
 
