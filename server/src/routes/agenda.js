@@ -13,12 +13,28 @@ router.get('/', authenticateToken, async (req, res) => {
       orderBy: { startTime: 'asc' }
     });
 
-    const activeZoneIds = new Set(allItems.map((item) => item.zoneId).filter(Boolean));
-
-    const zones = await prisma.zone.findMany({
-      where: { id: { in: Array.from(activeZoneIds) } },
+    const allZones = await prisma.zone.findMany({
       orderBy: { order: 'asc' }
     });
+
+    // The database can contain both legacy zone-* rows and the current official
+    // rows after schedule reseeding. Resolve the eight numbered locations once,
+    // preferring their official IDs, so duplicate records never create extra pins.
+    const officialZoneIds = [
+      'zone-mosque',
+      'zone-field',
+      'zone-behind-mosque',
+      'zone-new-building',
+      'zone-camp',
+      'zone-fountain',
+      'zone-radio',
+      'zone-online'
+    ];
+    const zonesByNumber = new Map(allZones.map((zone) => [zone.numberLabel, zone]));
+    const zones = officialZoneIds.map((id, index) => (
+      allZones.find((zone) => zone.id === id)
+      || zonesByNumber.get(['١', '٢', '٣', '٤', '٥', '٦', '٧', '٨'][index])
+    )).filter(Boolean);
 
     res.json({ zones, agenda: allItems });
   } catch (err) {
