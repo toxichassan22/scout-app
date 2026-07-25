@@ -462,16 +462,17 @@ async function seed() {
 
   // 7️⃣ Official Schedule Zones
   const officialZones = [
-    { id: 'zone-mosque', numberLabel: '١', name: 'المسجد', description: 'مكان الصلاة وتسميع القرآن والأحاديث', colorHex: '#10b981', order: 1 },
-    { id: 'zone-field', numberLabel: '٢', name: 'ملعب النجيلة بالمركز', description: 'المجالات الرياضية وعرض الطائرات', colorHex: '#22c55e', order: 2 },
-    { id: 'zone-behind-mosque', numberLabel: '٣', name: 'خلف المسجد', description: 'الملصق الفني والورشة الفنية', colorHex: '#f59e0b', order: 3 },
-    { id: 'zone-new-building', numberLabel: '٤', name: 'المبنى الجديد', description: 'الدور الثاني والثالث للمسابقات الرقمية والتقريرية', colorHex: '#3b82f6', order: 4 },
-    { id: 'zone-camp', numberLabel: '٥', name: 'المخيم الكشفي للمجموعات', description: 'عقد وربطات، النماذج، الشفرات والمجلات', colorHex: '#8b5cf6', order: 5 },
-    { id: 'zone-fountain', numberLabel: '٦', name: 'أمام نافورة المركز', description: 'نصب المعرض وحفل الكرنفال', colorHex: '#06b6d4', order: 6 },
-    { id: 'zone-radio', numberLabel: '٧', name: 'إذاعة المهرجان', description: 'مهرجان التلاوة والإذاعة الداخلية', colorHex: '#ec4899', order: 7 },
-    { id: 'zone-online', numberLabel: '٨', name: 'صفحة المجموعة', description: 'النشر الرقمي على صفحة المجموعة', colorHex: '#64748b', order: 8 }
+    { id: 'zone-1', numberLabel: '١', name: 'مبنى الإدارة', description: 'المقر الإداري واستقبال الوفود', colorHex: '#ef4444', order: 1 },
+    { id: 'zone-2', numberLabel: '٢', name: 'مبنى الأنشطة', description: 'منطقة الورش والمسابقات والأنشطة', colorHex: '#10b981', order: 2 },
+    { id: 'zone-3', numberLabel: '٣', name: 'المسجد', description: 'مكان الصلاة والمصلى الرئيسي', colorHex: '#f59e0b', order: 3 },
+    { id: 'zone-4', numberLabel: '٤', name: 'المبنى الجديد', description: 'قاعات المحاضرات والتقييمات', colorHex: '#3b82f6', order: 4 },
+    { id: 'zone-5', numberLabel: '٥', name: 'المخيم الكشفي', description: 'أرض المخيم والأنشطة الكشفية', colorHex: '#8b5cf6', order: 5 },
+    { id: 'zone-6', numberLabel: '٦', name: 'ملعب كرة القدم', description: 'ملعب كرة القدم والعروض الميدانية', colorHex: '#06b6d4', order: 6 },
+    { id: 'zone-7', numberLabel: '٧', name: 'ملعب كرة السلة', description: 'ملعب كرة السلة والأنشطة الرياضية', colorHex: '#ec4899', order: 7 },
+    { id: 'zone-8', numberLabel: '٨', name: 'ملعب الخماسي', description: 'ملعب الخماسي والألعاب الرياضية', colorHex: '#14b8a6', order: 8 }
   ];
 
+  // Upsert canonical rows; legacy rows are intentionally retained for admin data compatibility.
   for (const z of officialZones) {
     await prisma.zone.upsert({
       where: { id: z.id },
