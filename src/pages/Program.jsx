@@ -41,8 +41,11 @@ const Program = () => {
   const fetchAgendaData = async () => {
     try {
       const res = await getAgenda();
+      const competitions = (res.agenda || []).filter((item) => item.type === 'competition');
       setData(res);
-      if (res.agenda?.length > 0 && !selectedItem) setSelectedItem(res.agenda[0]);
+      setSelectedItem((currentItem) => (
+        competitions.find((item) => item.id === currentItem?.id) || competitions[0] || null
+      ));
     } catch (err) {
       console.error('Failed to load agenda:', err);
     } finally {
@@ -99,18 +102,20 @@ const Program = () => {
     setTimeout(() => setCopied(false), 3000);
   };
 
+  const competitionAgenda = data.agenda.filter((item) => item.type === 'competition');
+
   const handleZoneFilter = (zoneId) => {
     if (calibrating) return;
     setSelectedZone(zoneId);
-    if (zoneId !== 'all') {
-      const first = data.agenda.find(a => a.zoneId === zoneId);
-      if (first) setSelectedItem(first);
-    }
+    const firstCompetition = zoneId === 'all'
+      ? competitionAgenda[0]
+      : competitionAgenda.find((item) => item.zoneId === zoneId);
+    setSelectedItem(firstCompetition || null);
   };
 
-  const filteredAgenda = selectedZone === 'all'
-    ? data.agenda
-    : data.agenda.filter(item => item.zoneId === selectedZone);
+  const filteredCompetitions = selectedZone === 'all'
+    ? competitionAgenda
+    : competitionAgenda.filter((item) => item.zoneId === selectedZone);
 
   const activeZone = selectedItem?.zone
     || data.zones.find(z => z.id === selectedZone)
@@ -226,7 +231,7 @@ const Program = () => {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping" />
-                <span className="text-[11px] font-mono font-black text-cyan-400">برنامج المهرجان</span>
+                <span className="text-[11px] font-mono font-black text-cyan-400">مسابقات المهرجان</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -246,7 +251,7 @@ const Program = () => {
                   </button>
                 )}
                 <span className="rounded-full border border-cyan-500/30 bg-cyan-950/50 px-2.5 py-1 text-[10px] font-mono font-black text-cyan-300">
-                  {data.agenda.length}
+                  {competitionAgenda.length} مسابقات
                 </span>
               </div>
             </div>
@@ -277,11 +282,11 @@ const Program = () => {
         {/* Cards list - no timeline */}
         <div className="p-3 space-y-2">
           {loading ? (
-            <LoadingSpinner label="جاري تحميل الأنشطة..." />
-          ) : filteredAgenda.length === 0 ? (
-            <EmptyState icon={Sparkles} title="لا توجد فعاليات" hint="اختر منطقة أخرى" />
+            <LoadingSpinner label="جاري تحميل المسابقات..." />
+          ) : filteredCompetitions.length === 0 ? (
+            <EmptyState icon={Sparkles} title="لا توجد مسابقات في هذه المنطقة" hint="اختر منطقة أخرى" />
           ) : (
-            filteredAgenda.map((item) => {
+            filteredCompetitions.map((item) => {
               const meta = typeMeta[item.type] || typeMeta.competition;
               const isSelected = selectedItem?.id === item.id;
               return (
@@ -333,10 +338,10 @@ const Program = () => {
                 <Tent size={16} /> المهرجان الكشفي الإرشادي الثلاثون
               </div>
               <h1 className="mt-1 text-4xl font-black text-white">
-                برنامج المهرجان <span className="text-[#38bdf8] drop-shadow-[0_0_15px_rgba(56,189,248,0.6)]">والخريطة التفاعلية</span>
+                مسابقات المهرجان <span className="text-[#38bdf8] drop-shadow-[0_0_15px_rgba(56,189,248,0.6)]">والخريطة التفاعلية</span>
               </h1>
               <p className="mt-1 text-sm text-slate-300">
-                اختر أي مسابقة أو فعالية لعرض موقعها ومبناها فوراً على الخريطة.
+                اختر أي مسابقة لعرض موقعها ومبناها فوراً على الخريطة.
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -357,7 +362,7 @@ const Program = () => {
                 </button>
               )}
               <span className="rounded-full border border-cyan-500/30 bg-cyan-950/50 px-4 py-2 text-xs font-mono font-black text-cyan-300">
-                {data.agenda.length} فعاليات
+                {competitionAgenda.length} مسابقات
               </span>
             </div>
           </header>
@@ -371,8 +376,14 @@ const Program = () => {
             </div>
           )}
 
-          <div className="grid gap-8 lg:grid-cols-12 items-start">
-            <div className={`min-w-0 lg:col-span-7 space-y-6 transition-opacity duration-300 ${calibrating ? 'opacity-25 pointer-events-none select-none' : ''}`}>
+          <div className="grid gap-8 lg:grid-cols-12 items-start" style={{ direction: 'ltr' }}>
+            <div className="lg:col-span-5 lg:sticky lg:top-20 space-y-4" dir="rtl">
+              <div className="overflow-hidden rounded-3xl border border-cyan-500/30 bg-[#02131a] shadow-2xl">
+                <MapCanvas />
+              </div>
+            </div>
+
+            <div className={`min-w-0 lg:col-span-7 space-y-6 transition-opacity duration-300 ${calibrating ? 'opacity-25 pointer-events-none select-none' : ''}`} dir="rtl">
               <div
                 className="min-w-0 w-full overflow-x-auto overscroll-x-contain scrollbar-none pb-2 touch-pan-x"
                 dir="rtl"
@@ -400,13 +411,13 @@ const Program = () => {
               </div>
 
               {loading ? (
-                <LoadingSpinner label="جاري تحميل جدول الأنشطة..." />
-              ) : filteredAgenda.length === 0 ? (
-                <EmptyState icon={Sparkles} title="لا توجد فعاليات" hint="اختر منطقة أخرى" />
+                <LoadingSpinner label="جاري تحميل المسابقات..." />
+              ) : filteredCompetitions.length === 0 ? (
+                <EmptyState icon={Sparkles} title="لا توجد مسابقات في هذه المنطقة" hint="اختر منطقة أخرى" />
               ) : (
                 <div className="relative space-y-4 pr-4">
                   <div className="absolute right-1 top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-cyan-500 via-teal-500 to-emerald-500 opacity-40" />
-                  {filteredAgenda.map((item) => {
+                  {filteredCompetitions.map((item) => {
                     const meta = typeMeta[item.type] || typeMeta.competition;
                     const isSelected = selectedItem?.id === item.id;
                     return (
@@ -447,12 +458,6 @@ const Program = () => {
                   })}
                 </div>
               )}
-            </div>
-
-            <div className="lg:col-span-5 lg:sticky lg:top-20 space-y-4">
-              <div className="overflow-hidden rounded-3xl border border-cyan-500/30 bg-[#02131a] shadow-2xl">
-                <MapCanvas />
-              </div>
             </div>
           </div>
         </div>
