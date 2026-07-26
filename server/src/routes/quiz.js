@@ -3,7 +3,7 @@ import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { enforceNotFrozen } from '../freeze.js';
 import { startDigitalSession, saveDigitalAnswer, finalizeDigitalSession } from '../quizService.js';
-import { getAnonymousLeaderboard } from './leaderboard.js';
+import { getAnonymousLeaderboard, clearLeaderboardCache } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { validate, zString, zId, zNumber } from '../middleware/validate.js';
 
@@ -47,6 +47,7 @@ router.post('/submit', ...teamOnly, validate(submitSchema), async (req, res) => 
     if (!session || session.teamId !== req.user.id) return res.status(404).json({ error: 'جلسة المسابقة غير موجودة' });
     if (session.deviceId !== req.user.deviceId) return res.status(403).json({ error: 'الجهاز لا يطابق جلسة المسابقة' });
     const result = await finalizeDigitalSession(sessionId);
+    clearLeaderboardCache();
     await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
     res.json({ success: true, totalScore: result.totalScore, scoreId: result.score.id });
   } catch (error) {

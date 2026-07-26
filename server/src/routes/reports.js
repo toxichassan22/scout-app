@@ -62,7 +62,7 @@ router.get('/permissions', authenticateToken, requireRole(['team']), async (req,
   res.json(competitions.map(c => { const p = byComp[c.id]; const report = reportByComp[c.id]; const deadlinePassed = p?.deadline && new Date(p.deadline) < now; return { competitionId: c.id, competition: c, canSubmit: Boolean(p?.canSubmit !== false && !deadlinePassed), deadline: p?.deadline || null, reopened: Boolean(p?.reopenedAt), hasReport: Boolean(report), uploadedAt: report?.uploadedAt || null }; }));
 });
 
-router.post('/', authenticateToken, requireRole(['team']), validate(reportBodySchema), async (req, res) => {
+router.post('/', authenticateToken, requireRole(['team']), validate(reportBodySchema, { strictBody: true }), async (req, res) => {
   try {
     const { title, content, competitionId, fileName, fileBase64 } = req.body;
     validateReportFields({ title, content, fileName });
@@ -156,7 +156,7 @@ router.post('/', authenticateToken, requireRole(['team']), validate(reportBodySc
 });
 
 // Team: resubmit an existing report using the same permission checks as POST
-router.patch('/:id', authenticateToken, requireRole(['team']), validate(reportPatchSchema), async (req, res) => {
+router.patch('/:id', authenticateToken, requireRole(['team']), validate(reportPatchSchema, { strictBody: true }), async (req, res) => {
   const existing = await prisma.report.findFirst({ where: { id: req.params.id, teamId: req.user.id } });
   if (!existing || !existing.competitionId) return res.status(404).json({ error: 'التقرير غير موجود' });
   const permission = await prisma.reportPermission.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: existing.competitionId } } });

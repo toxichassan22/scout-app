@@ -26,6 +26,9 @@ jobs:
       - name: 📦 Install server dependencies
         run: npm --prefix server ci
 
+      - name: 🔧 Generate Prisma client
+        run: npm --prefix server run prisma:generate
+
       - name: 🧪 Run server tests
         run: npm --prefix server test
         env:
@@ -36,7 +39,6 @@ jobs:
     name: Deploy to Production Server
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: 🔗 Connect to Server & Deploy

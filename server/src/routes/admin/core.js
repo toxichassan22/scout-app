@@ -5,7 +5,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import prisma from '../../db.js';
-import { getAnonymousLeaderboard } from '../leaderboard.js';
+import { getAnonymousLeaderboard, clearLeaderboardCache } from '../leaderboard.js';
 import { generateFullBackup, deleteFromGoogleDrive } from '../../backup-exporter.js';
 import { boundedString, strongPassword } from '../../validation.js';
 import { validate, zString, zId, zNumber, zBoolean } from '../../middleware/validate.js';
@@ -521,6 +521,7 @@ router.patch('/scores/:id', validate(scoreOverrideSchema), async (req, res) => {
       return updated;
     });
 
+    clearLeaderboardCache();
     await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
 
     res.json(score);
@@ -678,7 +679,7 @@ router.put('/agenda/:id', validate({ params: { id: zId('الفعالية') }, bo
 
 const agendaActionSchema = {
   params: { id: zId('الفعالية') },
-  body: { action: z.enum(['start', 'stop', 'close'], { message: 'الإجراء يجب أن يكون start أو stop أو close' }) },
+  body: { action: z.enum(['start', 'stop', 'close'], { errorMap: () => ({ message: 'الإجراء يجب أن يكون start أو stop أو close' }) }) },
 };
 router.post('/agenda/:id/action', validate(agendaActionSchema), async (req, res) => {
   try {
@@ -805,6 +806,7 @@ router.post('/clean-slate', validate(cleanSlateSchema), async (req, res) => {
       prisma.report.deleteMany({})
     ]);
 
+    clearLeaderboardCache();
     await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
     req.io?.to('admin').emit('system:clean-slate');
 
@@ -823,24 +825,6 @@ router.post('/backup/trigger', async (req, res) => {
   } catch (err) {
     req.log.error({ err }, 'admin backup trigger failed');
     res.status(500).json({ success: false, error: 'فشل في تشغيل المزامنة والنسخ الاحتياطي', requestId: req.requestId, timestamp: new Date().toISOString() });
-  }
-});
-
-// Admin Manual Git Pull Deploy Endpoint
-router.post('/deploy/git-pull', async (req, res) => {
-  const { exec } = await import('child_process');
-  try {
-    const deployScriptPath = '/var/www/scout-app/deploy.sh';
-    exec(`chmod +x ${deployScriptPath} && ${deployScriptPath}`, (error, stdout, stderr) => {
-      if (error) {
-        req.log.error({ error, stderr }, 'admin deploy failed');
-        return res.status(500).json({ success: false, error: 'حدث خطأ أثناء التحديث', details: stderr || error.message, requestId: req.requestId, timestamp: new Date().toISOString() });
-      }
-      res.json({ success: true, message: 'تم سحب وتحديث السيرفر بنجاح من GitHub!', log: stdout });
-    });
-  } catch (err) {
-    req.log.error({ err }, 'admin deploy exec failed');
-    res.status(500).json({ success: false, error: 'فشل في تشغيل سكريبت النشر', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

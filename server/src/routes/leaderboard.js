@@ -33,11 +33,11 @@ export async function getAnonymousLeaderboard() {
     }),
   ]);
 
-  const totals = new Map(teams.map(t => [t.id, { totalScore: 0, latestSubmission: Infinity }]));
+  const totals = new Map(teams.map(t => [t.id, { totalScore: 0, latestSubmission: 0 }]));
   for (const row of teamScores) {
     totals.set(row.teamId, {
       totalScore: Number(row._sum.total || 0),
-      latestSubmission: row._max.submittedAt ? new Date(row._max.submittedAt).getTime() : Infinity,
+      latestSubmission: row._max.submittedAt ? new Date(row._max.submittedAt).getTime() : 0,
     });
   }
 

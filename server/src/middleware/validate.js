@@ -1,22 +1,28 @@
 import { z } from 'zod/v3';
 
-function normalizeSchema(schema, part) {
+function normalizeSchema(schema, part, strictBody = false) {
   if (schema && typeof schema.safeParseAsync === 'function') return schema;
   if (schema && typeof schema === 'object') {
     const obj = z.object(schema);
-    return part === 'body' ? obj.strict() : obj;
+    return part === 'body' && strictBody ? obj.strict() : obj;
   }
   return schema;
 }
 
 export function validate(schemas, options = {}) {
+  const normalized = {
+    body: normalizeSchema(schemas.body, 'body', options.strictBody),
+    query: normalizeSchema(schemas.query, 'query'),
+    params: normalizeSchema(schemas.params, 'params'),
+  };
+
   return async (req, res, next) => {
     const parts = ['body', 'query', 'params'];
     const errors = [];
     try {
       for (const part of parts) {
         if (!schemas[part]) continue;
-        const schema = normalizeSchema(schemas[part], part);
+        const schema = normalized[part];
         const result = await schema.safeParseAsync(req[part]);
         if (!result.success) {
           const issues = result.error.issues || result.error.errors || [];

@@ -3,7 +3,7 @@ process.env.SCOUT_NO_AUTOSTART = '1';
 import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
 import prisma, { databaseReady } from '../src/db.js';
-import { app, server, startServer } from '../src/index.js';
+import { server, startServer } from '../src/index.js';
 
 await databaseReady;
 

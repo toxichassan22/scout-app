@@ -135,8 +135,7 @@ app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
   const status = error.statusCode || error.status || (error.message === 'Origin is not allowed by CORS' ? 403 : 500);
   const expose = status < 500 ? error.message : 'Internal server error';
-  (req.log || logger).error(error, 'request error');
-  (req.log || logger).debug({ path: req.path, method: req.method, status }, 'request error context');
+  (req.log || logger).error({ err: error, path: req.path, method: req.method, status }, 'request error');
   if (error.type === 'entity.too.large') return res.status(413).json({ success: false, error: 'Payload too large', requestId: req.requestId, timestamp: new Date().toISOString() });
   if (error.message === 'Origin is not allowed by CORS') return res.status(403).json({ success: false, error: 'Origin is not allowed', requestId: req.requestId, timestamp: new Date().toISOString() });
   return res.status(status).json({ success: false, error: expose, details: error.details, requestId: req.requestId, timestamp: new Date().toISOString() });

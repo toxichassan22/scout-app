@@ -18,6 +18,7 @@
     "test:health": "node scripts/health-check.mjs",
     "test:operational": "npm run db:ready && npm run db:drift",
     "test": "npm run prisma:validate && npm run prisma:generate && npm run test:integration",
+    "lint": "eslint --config .eslintrc.json --ext .js,.mjs src scripts",
     "seed": "node src/seed.js"
   },
   "dependencies": {

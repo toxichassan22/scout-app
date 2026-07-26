@@ -3,7 +3,7 @@ import prisma from '../db.js';
 import { createMemoryRateLimiter } from '../security.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { enforceNotFrozen } from '../freeze.js';
-import { getAnonymousLeaderboard } from './leaderboard.js';
+import { getAnonymousLeaderboard, clearLeaderboardCache } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { validate, zString, zId, zNumber } from '../middleware/validate.js';
 import { z } from 'zod/v3';
@@ -197,6 +197,7 @@ router.post('/scores', enforceNotFrozen, validate(scoreSchema), async (req, res)
       return score;
     });
 
+    clearLeaderboardCache();
     await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
     req.io?.to('admin').emit('admin:score:new', { scoreRecord, teamId, competitionId });
 

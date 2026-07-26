@@ -4,7 +4,7 @@ import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { enforceNotFrozen } from '../freeze.js';
 import { startDigitalSession } from '../quizService.js';
-import { getAnonymousLeaderboard } from './leaderboard.js';
+import { getAnonymousLeaderboard, clearLeaderboardCache } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { normalizeArabicText } from '../textNormalization.js';
 import { validate, zString, zNumber } from '../middleware/validate.js';
@@ -390,6 +390,7 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enfor
       score = await prisma.score.findUnique({ where: { competitionId_teamId: { competitionId: competition.id, teamId: req.user.id } } });
     }
 
+    clearLeaderboardCache();
     await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
 
     res.json({
