@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { JWT_SECRET, createMemoryRateLimiter } from '../security.js';
+import { boundedString } from '../validation.js';
 
 const router = Router();
 const loginLimiter = createMemoryRateLimiter({
@@ -14,167 +15,62 @@ const loginLimiter = createMemoryRateLimiter({
 });
 router.use(['/team/login', '/judge/login', '/admin/login'], loginLimiter);
 
-// Team Login
+const accountSelect = { id: true, username: true, passwordHash: true, authVersion: true };
+const signToken = (claims) => jwt.sign(claims, JWT_SECRET, { algorithm: 'HS256', expiresIn: '24h' });
+
 router.post('/team/login', async (req, res) => {
   try {
-    const { username, password, deviceId, userAgent } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ error: 'اسم المستخدم وكلمة السر مطلوبان' });
-    }
+    const username = boundedString(req.body?.username, 'username', { min: 1, max: 80 });
+    const password = boundedString(req.body?.password, 'password', { min: 1, max: 256, trim: false });
+    const deviceId = boundedString(req.body?.deviceId || req.headers['x-device-id'], 'deviceId', { min: 16, max: 200 });
+    const userAgent = String(req.body?.userAgent || req.headers['user-agent'] || 'Unknown Device').slice(0, 500);
+    const team = await prisma.team.findUnique({ where: { username }, select: { ...accountSelect, label: true, maxDevices: true } });
+    if (!team || !(await bcrypt.compare(password, team.passwordHash))) return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
 
-    const team = await prisma.team.findUnique({ where: { username } });
-    if (!team) {
-      return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
-    }
-
-    const validPassword = await bcrypt.compare(password, team.passwordHash);
-    if (!validPassword) {
-      return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
-    }
-
-    // ─── Device Registration & 24-Device Limit Enforcement ───
-    const finalDeviceId = deviceId || `unknown_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-    const finalUserAgent = userAgent || req.headers['user-agent'] || 'Unknown Device';
-
-    // Check if this device is already registered for this team
-    let deviceRecord = await prisma.teamDevice.findUnique({
-      where: { teamId_deviceId: { teamId: team.id, deviceId: finalDeviceId } }
+    let created = false;
+    const device = await prisma.$transaction(async tx => {
+      const current = await tx.teamDevice.findUnique({ where: { teamId_deviceId: { teamId: team.id, deviceId } } });
+      if (current?.revokedAt) throw Object.assign(new Error('revoked'), { status: 401 });
+      if (current) return tx.teamDevice.update({ where: { id: current.id }, data: { lastLoginAt: new Date(), userAgent } });
+      const count = await tx.teamDevice.count({ where: { teamId: team.id, revokedAt: null } });
+      if (count >= team.maxDevices) throw Object.assign(new Error('limit'), { status: 403 });
+      created = true;
+      return tx.teamDevice.create({ data: { teamId: team.id, deviceId, userAgent } });
     });
 
-    if (!deviceRecord) {
-      // New device — check if team already has 24 registered devices
-      const deviceCount = await prisma.teamDevice.count({ where: { teamId: team.id } });
-      const maxDevices = Number.isInteger(team.maxDevices) ? team.maxDevices : 24;
-      if (deviceCount >= maxDevices) {
-        return res.status(403).json({
-          error: `عفواً، وصل الفريق للحد الأقصى للأجهزة المسموح بها (${maxDevices} جهازاً). يرجى مراجعة إدارة المهرجان.`,
-          maxDevicesReached: true,
-          maxDevices
-        });
-      }
-
-      // Register the new device
-      deviceRecord = await prisma.teamDevice.create({
-        data: {
-          teamId: team.id,
-          deviceId: finalDeviceId,
-          userAgent: finalUserAgent,
-          lastLoginAt: new Date()
-        }
-      });
-      console.log(`[Device Registered] Team ${team.username} — Device ${finalDeviceId} (${deviceCount + 1}/${team.maxDevices})`);
-
-      // Emit real-time event so admin panel updates live
-      if (req.io) {
-        req.io.emit('device:registered', { teamId: team.id, username: team.username });
-      }
-    } else {
-      // Existing device — update last login timestamp
-      await prisma.teamDevice.update({
-        where: { id: deviceRecord.id },
-        data: { lastLoginAt: new Date(), userAgent: finalUserAgent }
-      });
-    }
-
-    const token = jwt.sign(
-      { id: team.id, username: team.username, role: 'team', label: team.label },
-      JWT_SECRET,
-      { algorithm: 'HS256', expiresIn: '24h' }
-    );
-
-    res.json({
-      token,
-      user: { id: team.id, username: team.username, role: 'team', label: team.label }
-    });
+    if (created) req.io?.emit('device:registered', { teamId: team.id, username: team.username });
+    const token = signToken({ id: team.id, username: team.username, role: 'team', label: team.label, deviceId, deviceVersion: device.tokenVersion, authVersion: team.authVersion });
+    res.json({ token, user: { id: team.id, username: team.username, role: 'team', label: team.label } });
   } catch (err) {
-    console.error(err);
+    if (err.message === 'limit') return res.status(403).json({ error: 'وصل الفريق للحد الأقصى للأجهزة المسموح بها', maxDevicesReached: true });
+    if (err.message === 'revoked') return res.status(401).json({ error: 'تم إلغاء اعتماد هذا الجهاز', forceLogout: true, deviceRevoked: true });
+    if (err.status === 400) return res.status(400).json({ error: err.message });
+    console.error('[Team Login]', err);
     res.status(500).json({ error: 'خطأ في السيرفر عند تسجيل الدخول' });
   }
 });
 
-// Judge Login
-router.post('/judge/login', async (req, res) => {
+async function roleLogin(req, res, role) {
   try {
-    const { username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ error: 'اسم المستخدم وكلمة السر مطلوبان' });
-    }
-
-    const judge = await prisma.judge.findUnique({ where: { username } });
-    if (!judge) {
-      return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
-    }
-
-    const validPassword = await bcrypt.compare(password, judge.passwordHash);
-    if (!validPassword) {
-      return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
-    }
-
-    const token = jwt.sign(
-      { id: judge.id, name: judge.name, username: judge.username, role: 'judge' },
-      JWT_SECRET,
-      { algorithm: 'HS256', expiresIn: '24h' }
-    );
-
-    res.json({
-      token,
-      user: { id: judge.id, name: judge.name, username: judge.username, role: 'judge' }
-    });
+    const username = boundedString(req.body?.username, 'username', { min: 1, max: 80 });
+    const password = boundedString(req.body?.password, 'password', { min: 1, max: 256, trim: false });
+    const model = role === 'judge' ? prisma.judge : prisma.admin;
+    const select = role === 'judge' ? { ...accountSelect, name: true } : accountSelect;
+    const account = await model.findUnique({ where: { username }, select });
+    if (!account || !(await bcrypt.compare(password, account.passwordHash))) return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
+    const user = role === 'judge'
+      ? { id: account.id, name: account.name, username: account.username, role }
+      : { id: account.id, username: account.username, role };
+    res.json({ token: signToken({ ...user, authVersion: account.authVersion }), user });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'خطأ في السيرفر عند تسجيل دخول المحكم' });
+    if (err.status === 400) return res.status(400).json({ error: err.message });
+    console.error(`[${role} Login]`, err);
+    res.status(500).json({ error: 'خطأ في السيرفر عند تسجيل الدخول' });
   }
-});
+}
 
-// Admin Login
-router.post('/admin/login', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ error: 'اسم المستخدم وكلمة السر مطلوبان' });
-    }
-
-    const admin = await prisma.admin.findUnique({ where: { username } });
-    if (!admin) {
-      return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
-    }
-
-    const validPassword = await bcrypt.compare(password, admin.passwordHash);
-    if (!validPassword) {
-      return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
-    }
-
-    const token = jwt.sign(
-      { id: admin.id, username: admin.username, role: 'admin' },
-      JWT_SECRET,
-      { algorithm: 'HS256', expiresIn: '24h' }
-    );
-
-    res.json({
-      token,
-      user: { id: admin.id, username: admin.username, role: 'admin' }
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'خطأ في السيرفر عند تسجيل دخول الأدمن' });
-  }
-});
-
-// Current User Info
-router.get('/me', authenticateToken, async (req, res) => {
-  // If team role, verify device is still registered (not revoked)
-  if (req.user.role === 'team') {
-    const deviceId = req.headers['x-device-id'];
-    if (deviceId) {
-      const device = await prisma.teamDevice.findUnique({
-        where: { teamId_deviceId: { teamId: req.user.id, deviceId } }
-      });
-      if (!device) {
-        return res.status(401).json({ error: 'تم إلغاء اعتماد هذا الجهاز من قبل الإدارة', forceLogout: true, deviceRevoked: true });
-      }
-    }
-  }
-  res.json({ user: req.user });
-});
+router.post('/judge/login', (req, res) => roleLogin(req, res, 'judge'));
+router.post('/admin/login', (req, res) => roleLogin(req, res, 'admin'));
+router.get('/me', authenticateToken, (req, res) => res.json({ user: req.user }));
 
 export default router;

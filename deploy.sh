@@ -1,40 +1,66 @@
 #!/bin/bash
+set -Eeuo pipefail
+
+APP_DIR="${APP_DIR:-/var/www/scout-app}"
+HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:5000/api/ready}"
 
 echo "========================================"
-echo "  🚀 Scout App - Auto Deploy Script"
+echo "  Scout App - Safe Deploy"
 echo "========================================"
 
-# Load NVM and Node/NPM/PM2 PATH for non-interactive SSH
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-export PATH="$PATH:/usr/local/bin:/usr/bin:/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin:$HOME/.npm-global/bin"
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-cd /var/www/scout-app || exit 1
+cd "$APP_DIR"
 
-echo "📥 تنزيل آخر تحديثات من GitHub..."
-git fetch origin main && git reset --hard origin/main
+echo "Fetching origin/main..."
+git fetch --prune origin main
+git reset --hard origin/main
 
-echo "📦 تثبيت الـ Packages..."
-npm install --production=false || true
-cd server && npm install && npx prisma generate && cd ..
+echo "Installing reproducible dependencies..."
+npm ci
+npm --prefix server ci
 
-echo "🔨 بناء ملفات الفرونت إند..."
-npm run build || true
+echo "Generating and validating Prisma client..."
+npm --prefix server run prisma:validate
+npm --prefix server run prisma:generate
 
-echo "⚡ تطبيق إعدادات Nginx المحسّنة للضغط والتخزين..."
-if command -v sudo >/dev/null 2>&1; then
-  sudo cp /var/www/scout-app/nginx-optimized.conf /etc/nginx/sites-available/scout-app 2>/dev/null || true
-  sudo nginx -t && sudo systemctl reload nginx 2>/dev/null || true
+echo "Checking SQLite readiness and schema drift before restart..."
+npm --prefix server run db:ready
+npm --prefix server run db:drift
+if [ "${APPLY_PRISMA_MIGRATIONS:-false}" = "true" ]; then
+  echo "Applying safe Prisma migrations..."
+  npm --prefix server exec prisma migrate deploy
 fi
 
-echo "🔄 مزامنة الـ Schema وتطبيق الـ Seed وإعادة تشغيل الباك إند..."
-cd server
-npx prisma db push --accept-data-loss || true
-node src/seed.js || true
-pm2 restart ecosystem.config.cjs --env production || pm2 start ecosystem.config.cjs --env production || pm2 restart all || true
-cd ..
+echo "Building frontend..."
+npm run build
 
-echo ""
-echo "========================================"
-echo "  ✅ تم النشر والتحديث بنجاح!"
-echo "========================================"
+echo "Restarting backend..."
+if pm2 describe scout-app >/dev/null 2>&1; then
+  pm2 restart server/ecosystem.config.cjs --env production --update-env
+else
+  pm2 start server/ecosystem.config.cjs --env production
+fi
+
+echo "Waiting for readiness..."
+for attempt in $(seq 1 30); do
+  if curl --fail --silent --show-error "$HEALTH_URL" >/dev/null; then
+    break
+  fi
+  if [ "$attempt" -eq 30 ]; then
+    echo "Deployment failed: backend did not become ready." >&2
+    pm2 logs scout-app --lines 100 --nostream || true
+    exit 1
+  fi
+  sleep 2
+done
+
+echo "Validating and reloading Nginx..."
+if command -v sudo >/dev/null 2>&1; then
+  sudo cp "$APP_DIR/nginx-optimized.conf" /etc/nginx/sites-available/scout-app
+  sudo nginx -t
+  sudo systemctl reload nginx
+fi
+
+echo "Deployment completed successfully and readiness was verified."

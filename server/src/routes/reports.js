@@ -6,6 +6,7 @@ import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { uploadToGoogleDrive } from '../backup-exporter.js';
 import { MAX_UPLOAD_BYTES, safeStoredName, validateBase64Upload } from '../uploadSecurity.js';
+import { isEmergencyFrozen } from '../freeze.js';
 
 const router = Router();
 
@@ -134,9 +135,27 @@ router.patch('/:id', authenticateToken, requireRole(['team']), async (req, res) 
   if (!existing || !existing.competitionId) return res.status(404).json({ error: 'التقرير غير موجود' });
   const permission = await prisma.reportPermission.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: existing.competitionId } } });
   if (permission && (permission.canSubmit === false || (permission.deadline && new Date(permission.deadline) < new Date()))) return res.status(403).json({ error: 'إعادة الإرسال غير مسموحة حالياً' });
-  const { title, content, fileUrl, fileName } = req.body || {};
-  const report = await prisma.report.update({ where: { id: existing.id }, data: { ...(title !== undefined && { title }), ...(content !== undefined && { content }), ...(fileUrl !== undefined && { fileUrl }), ...(fileName !== undefined && { fileName }), uploadedAt: new Date() } });
+  const { title, content, fileName } = req.body || {};
+  if (title !== undefined && (typeof title !== 'string' || title.length > 300)) return res.status(400).json({ error: 'عنوان التقرير غير صالح' });
+  if (content !== undefined && (typeof content !== 'string' || content.length > MAX_UPLOAD_BYTES)) return res.status(400).json({ error: 'محتوى التقرير أكبر من الحد المسموح' });
+  if (await isEmergencyFrozen()) return res.status(423).json({ error: 'تم إيقاف العمليات مؤقتاً', frozen: true });
+  const report = await prisma.report.update({ where: { id: existing.id }, data: { ...(title !== undefined && { title }), ...(content !== undefined && { content }), ...(fileName !== undefined && { fileName: String(fileName).slice(0, 255) }), uploadedAt: new Date() } });
   res.json({ success: true, report });
+});
+
+// Authorized report download; the public static upload route is intentionally absent.
+router.get('/:id/download', authenticateToken, async (req, res) => {
+  const report = await prisma.report.findUnique({ where: { id: req.params.id }, select: { id: true, teamId: true, fileUrl: true, fileName: true, competitionId: true } });
+  if (!report) return res.status(404).json({ error: 'التقرير غير موجود' });
+  let allowed = req.user.role === 'admin' || report.teamId === req.user.id;
+  if (req.user.role === 'judge' && report.competitionId) {
+    allowed = Boolean(await prisma.judgeCompetition.findUnique({ where: { judgeId_competitionId: { judgeId: req.user.id, competitionId: report.competitionId } }, select: { id: true } }));
+  }
+  if (!allowed) return res.status(403).json({ error: 'غير مصرح بتحميل هذا التقرير' });
+  const fileName = path.basename(report.fileUrl || '');
+  const filePath = path.join(uploadsDir, fileName);
+  if (!fileName || !filePath.startsWith(`${uploadsDir}${path.sep}`) || !fs.existsSync(filePath)) return res.status(404).json({ error: 'ملف التقرير غير موجود' });
+  return res.download(filePath, report.fileName || fileName);
 });
 
 // Team: list own reports

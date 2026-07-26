@@ -1,6 +1,5 @@
-import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
-import { JWT_SECRET } from '../security.js';
+import { verifyAuthenticatedUser } from './auth.js';
 
 export const authenticateSocket = async (socket, next) => {
     try {
@@ -11,12 +10,8 @@ export const authenticateSocket = async (socket, next) => {
             socket.user = { role: 'guest', id: null };
             return next();
         }
-        const user = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+        const user = await verifyAuthenticatedUser(token);
         if (!['team', 'judge', 'admin'].includes(user.role) || !user.id) return next(new Error('Invalid authentication role'));
-
-        if (user.role === 'team') await prisma.team.findUniqueOrThrow({ where: { id: user.id }, select: { id: true } });
-        if (user.role === 'judge') await prisma.judge.findUniqueOrThrow({ where: { id: user.id }, select: { id: true } });
-        if (user.role === 'admin') await prisma.admin.findUniqueOrThrow({ where: { id: user.id }, select: { id: true } });
         socket.user = user;
         next();
     } catch (error) {

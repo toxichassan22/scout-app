@@ -5,30 +5,37 @@ import prisma from './db.js';
 import { OFFICIAL_AGENDA, OFFICIAL_ZONES } from './agendaCanonical.js';
 
 async function seed() {
-  console.log('[Seed] Idempotent seed: ensuring core accounts, competitions and base data exist...');
+  const explicitlyAllowed = process.env.ALLOW_PRODUCTION_SEED === 'I_UNDERSTAND_THIS_MODIFIES_DATA';
+  if (process.env.NODE_ENV === 'production' && !explicitlyAllowed) {
+    throw new Error('Production seed refused. Set ALLOW_PRODUCTION_SEED explicitly for a planned maintenance operation.');
+  }
+  const adminPassword = process.env.INITIAL_ADMIN_PASSWORD;
+  const judgePassword = process.env.INITIAL_JUDGE_PASSWORD;
+  const teamPassword = process.env.INITIAL_TEAM_PASSWORD;
+  if (!adminPassword || !judgePassword || !teamPassword || [adminPassword, judgePassword, teamPassword].some(value => value.length < 12)) {
+    throw new Error('Seed requires env-provided initial passwords of at least 12 characters; no default credentials are allowed.');
+  }
+  console.log('[Seed] Explicitly authorized idempotent seed...');
 
   // 1️⃣ Admin Account
-  const adminPassword = await bcrypt.hash('admin123', 10);
+  const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
   await prisma.admin.upsert({
-    where: { username: 'admin' },
+    where: { username: process.env.INITIAL_ADMIN_USERNAME || 'admin' },
     update: {},
     create: {
-      username: 'admin',
-      passwordHash: adminPassword
+      username: process.env.INITIAL_ADMIN_USERNAME || 'admin',
+      passwordHash: adminPasswordHash
     }
   });
 
   // 2️⃣ Official Sample Teams
-  const sampleTeams = [
-    { username: 'team1', label: 'الكتيبة الأولى', pass: 'team123' },
-    { username: 'team2', label: 'فريق الصقور', pass: 'team123' },
-    { username: 'team3', label: 'فريق النسر الفضي', pass: 'team123' },
-    { username: 'team4', label: 'فريق الفرسان', pass: 'team123' },
-    { username: 'team5', label: 'فريق الشعلة', pass: 'team123' }
-  ];
+  const sampleTeams = [{
+    username: process.env.INITIAL_TEAM_USERNAME || 'team1',
+    label: process.env.INITIAL_TEAM_LABEL || 'فريق تجريبي'
+  }];
 
   for (const t of sampleTeams) {
-    const passwordHash = await bcrypt.hash(t.pass, 10);
+    const passwordHash = await bcrypt.hash(teamPassword, 12);
     const team = await prisma.team.upsert({
       where: { username: t.username },
       update: {},
@@ -54,15 +61,15 @@ async function seed() {
     }
   }
 
-  // 3️⃣ Official Sample Judge
-  const judgePassword = await bcrypt.hash('judge123', 10);
+  // 3️⃣ Official Judge bootstrap account
+  const judgePasswordHash = await bcrypt.hash(judgePassword, 12);
   await prisma.judge.upsert({
-    where: { username: 'judge1' },
+    where: { username: process.env.INITIAL_JUDGE_USERNAME || 'judge1' },
     update: {},
     create: {
-      name: 'د. أحمد المحكّم',
-      username: 'judge1',
-      passwordHash: judgePassword
+      name: 'محكم أول',
+      username: process.env.INITIAL_JUDGE_USERNAME || 'judge1',
+      passwordHash: judgePasswordHash
     }
   });
 

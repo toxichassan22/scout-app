@@ -1,52 +1,48 @@
 import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
 import { JWT_SECRET } from '../security.js';
+import { isEmergencyFrozen } from '../freeze.js';
 
-export const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+const modelByRole = { team: 'team', judge: 'judge', admin: 'admin' };
 
-  if (!token) {
-    return res.status(401).json({ error: 'لم يتم تقديم توكن المصادقة', forceLogout: true });
+export async function verifyAuthenticatedUser(token) {
+  const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+  const modelName = modelByRole[payload.role];
+  if (!modelName || !payload.id || !Number.isInteger(payload.authVersion)) throw new Error('invalid_claims');
+  const account = await prisma[modelName].findUnique({ where: { id: payload.id }, select: { id: true, authVersion: true } });
+  if (!account || account.authVersion !== payload.authVersion) throw new Error('revoked');
+  if (payload.role === 'team') {
+    if (!payload.deviceId || !Number.isInteger(payload.deviceVersion)) throw new Error('device_required');
+    const device = await prisma.teamDevice.findUnique({ where: { teamId_deviceId: { teamId: payload.id, deviceId: payload.deviceId } }, select: { tokenVersion: true, revokedAt: true } });
+    if (!device || device.revokedAt || device.tokenVersion !== payload.deviceVersion) throw new Error('device_revoked');
   }
+  return payload;
+}
 
-  jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }, async (err, user) => {
-    if (err) {
-      return res.status(401).json({ error: 'التوكن غير صالح أو انتهت صلاحيته', forceLogout: true });
+export const authenticateToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) return res.status(401).json({ error: 'لم يتم تقديم توكن المصادقة', forceLogout: true });
+  try {
+    const user = await verifyAuthenticatedUser(token);
+    if (user.role === 'team' && req.headers['x-device-id'] && req.headers['x-device-id'] !== user.deviceId) {
+      return res.status(401).json({ error: 'معرف الجهاز لا يطابق الجلسة', forceLogout: true, deviceRevoked: true });
     }
-
-    try {
-      if (user.role === 'team') {
-        const team = await prisma.team.findUnique({ where: { id: user.id } });
-        if (!team) {
-          return res.status(401).json({ error: 'تم حذف هذا الفريق من قاعدة البيانات', forceLogout: true });
-        }
-      } else if (user.role === 'judge') {
-        const judge = await prisma.judge.findUnique({ where: { id: user.id } });
-        if (!judge) {
-          return res.status(401).json({ error: 'تم حذف حساب المحكم هذا', forceLogout: true });
-        }
-      } else if (user.role === 'admin') {
-        const admin = await prisma.admin.findUnique({ where: { id: user.id } });
-        if (!admin) {
-          return res.status(401).json({ error: 'حساب الأدمن غير موجود', forceLogout: true });
-        }
-      }
-
-      req.user = user;
-      next();
-    } catch (dbErr) {
-      console.error('[Auth] Database verification failed:', dbErr.message);
-      return res.status(503).json({ error: 'تعذر التحقق من حساب المصادقة حالياً' });
+    if (user.role !== 'admin' && await isEmergencyFrozen()) {
+      return res.status(423).json({ error: 'تم إيقاف العمليات مؤقتاً بواسطة إدارة المهرجان', frozen: true });
     }
-  });
+    req.user = user;
+    next();
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' || ['invalid_claims', 'revoked', 'device_required', 'device_revoked'].includes(error.message)) {
+      return res.status(401).json({ error: 'الجلسة غير صالحة أو تم إلغاؤها', forceLogout: true, deviceRevoked: error.message === 'device_revoked' });
+    }
+    console.error('[Auth] Database verification failed:', error.message);
+    return res.status(503).json({ error: 'تعذر التحقق من حساب المصادقة حالياً' });
+  }
 };
 
-export const requireRole = (allowedRoles) => {
-  return (req, res, next) => {
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'غير مصرح لك للقيام بهذا الإجراء' });
-    }
-    next();
-  };
+export const requireRole = allowedRoles => (req, res, next) => {
+  if (!req.user || !allowedRoles.includes(req.user.role)) return res.status(403).json({ error: 'غير مصرح لك للقيام بهذا الإجراء' });
+  next();
 };

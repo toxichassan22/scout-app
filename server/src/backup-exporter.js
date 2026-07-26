@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'url';
 import prisma from './db.js';
 
@@ -7,22 +8,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const BACKUP_ROOT = path.join(__dirname, '..', '..', 'scout-backups');
-const GDRIVE_WEBHOOK_URL = process.env.GDRIVE_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycbzHD74T61yvqwmYXReiDoO74vIQ_bRMuxylQy_QhGO37whehtCmzDAGHFvx1Nuf1RCyzA/exec';
+const GDRIVE_WEBHOOK_URL = String(process.env.GDRIVE_WEBHOOK_URL || '').trim();
+const GDRIVE_BEARER = String(process.env.GDRIVE_WEBHOOK_BEARER_TOKEN || '').trim();
+const GDRIVE_SIGNING_SECRET = String(process.env.GDRIVE_WEBHOOK_SIGNING_SECRET || '').trim();
 
 /**
  * Upload a file buffer to Google Drive with structured subfolder path support
  */
 export async function uploadToGoogleDrive(fileName, mimeType, fileBuffer, folderPath = '') {
+  if (!GDRIVE_WEBHOOK_URL) return { skipped: true, reason: 'GDRIVE_WEBHOOK_URL is not configured' };
   try {
     const fileData = fileBuffer.toString('base64');
-    const response = await fetch(GDRIVE_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileName, mimeType, fileData, folderPath })
-    });
-    const result = await response.json().catch(() => ({}));
-    console.log(`[Google Drive Sync] Uploaded ${folderPath ? folderPath + '/' : ''}${fileName}:`, result.result);
-    return result;
+    const body = JSON.stringify({ fileName, mimeType, fileData, folderPath });
+    const headers = { 'Content-Type': 'application/json' };
+    if (GDRIVE_BEARER) headers.Authorization = `Bearer ${GDRIVE_BEARER}`;
+    if (GDRIVE_SIGNING_SECRET) headers['X-Webhook-Signature'] = crypto.createHmac('sha256', GDRIVE_SIGNING_SECRET).update(body).digest('hex');
+    const response = await fetch(GDRIVE_WEBHOOK_URL, { method: 'POST', headers, body });
+    if (!response.ok) throw new Error(`Drive webhook returned HTTP ${response.status}`);
+    return await response.json().catch(() => ({}));
   } catch (err) {
     console.error(`[Google Drive Error] Failed to upload ${fileName}:`, err.message);
     return null;
@@ -33,12 +36,14 @@ export async function uploadToGoogleDrive(fileName, mimeType, fileBuffer, folder
  * Delete / Trash a file or team folder from Google Drive via Webhook
  */
 export async function deleteFromGoogleDrive(fileName = '', folderPath = '', action = 'delete_file') {
+  if (!GDRIVE_WEBHOOK_URL) return { skipped: true, reason: 'GDRIVE_WEBHOOK_URL is not configured' };
   try {
-    const response = await fetch(GDRIVE_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, fileName, folderPath })
-    });
+    const body = JSON.stringify({ action, fileName, folderPath });
+    const headers = { 'Content-Type': 'application/json' };
+    if (GDRIVE_BEARER) headers.Authorization = `Bearer ${GDRIVE_BEARER}`;
+    if (GDRIVE_SIGNING_SECRET) headers['X-Webhook-Signature'] = crypto.createHmac('sha256', GDRIVE_SIGNING_SECRET).update(body).digest('hex');
+    const response = await fetch(GDRIVE_WEBHOOK_URL, { method: 'POST', headers, body });
+    if (!response.ok) throw new Error(`Drive webhook returned HTTP ${response.status}`);
     const result = await response.json().catch(() => ({}));
     console.log(`[Google Drive Delete Sync] ${action} ${folderPath ? folderPath + '/' : ''}${fileName}:`, result.result);
     return result;
@@ -69,23 +74,28 @@ export async function generateFullBackup() {
     fs.mkdirSync(teamsBackupDir, { recursive: true });
     fs.mkdirSync(summaryDir, { recursive: true });
 
-    // 1️⃣ Backup Living SQLite Database File
-    const sourceDbPath = path.join(__dirname, '..', 'prisma', 'dev.db');
+    // 1️⃣ Create a verified SQLite snapshot; never copy a live WAL database file directly.
+    const sourceDbPath = path.resolve(process.env.SQLITE_DATABASE_PATH || path.join(__dirname, '..', 'prisma', 'dev.db'));
     if (fs.existsSync(sourceDbPath)) {
       const timestampedDbName = `dev-backup-${timestamp}.db`;
       const destDbPath = path.join(dbBackupDir, 'dev.db');
       const timestampedDbPath = path.join(dbBackupDir, timestampedDbName);
-      fs.copyFileSync(sourceDbPath, destDbPath);
-      fs.copyFileSync(sourceDbPath, timestampedDbPath);
+      const snapshot = await prisma.$queryRawUnsafe(`VACUUM INTO '${timestampedDbPath.replace(/'/g, "''")}'`);
+      if (!snapshot) throw new Error('SQLite snapshot could not be created');
+      fs.copyFileSync(timestampedDbPath, destDbPath);
 
       // Upload DB backup to Google Drive folder: 01_DATABASE
-      const dbBuffer = fs.readFileSync(sourceDbPath);
+      const dbBuffer = fs.readFileSync(timestampedDbPath);
       await uploadToGoogleDrive(timestampedDbName, 'application/x-sqlite3', dbBuffer, '01_DATABASE');
     }
 
     // 2️⃣ Fetch All Teams, Scores, Competitions & Reports
     const teams = await prisma.team.findMany({
-      include: {
+      select: {
+        id: true,
+        username: true,
+        label: true,
+        createdAt: true,
         scores: { include: { competition: true } },
         reports: true
       }
@@ -168,7 +178,7 @@ export async function generateFullBackup() {
     }
 
     console.log('[Backup] Structured Backup & Google Drive Folders Sync completed!');
-    return { success: true, timestamp, totalTeams: teams.length, gdriveSynced: true };
+    return { success: true, timestamp, totalTeams: teams.length, gdriveSynced: Boolean(GDRIVE_WEBHOOK_URL) };
 
   } catch (err) {
     console.error('[Backup Error]:', err);

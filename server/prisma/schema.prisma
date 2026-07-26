@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
 
 model Team {
@@ -13,6 +13,7 @@ model Team {
   passwordHash String
   label        String
   maxDevices   Int      @default(24)
+  authVersion  Int      @default(0)
   createdAt    DateTime @default(now())
 
   scores            Score[]
@@ -22,6 +23,7 @@ model Team {
   scoreAudits       ScoreAudit[]
   members           TeamMember[]
   devices           TeamDevice[]
+  competitionAccess CompetitionAccess[]
 }
 
 model TeamMember {
@@ -34,13 +36,15 @@ model TeamMember {
 }
 
 model TeamDevice {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   teamId      String
-  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
   deviceId    String // Unique browser/device fingerprint from localStorage
-  userAgent   String   @default("")
-  lastLoginAt DateTime @default(now())
-  createdAt   DateTime @default(now())
+  userAgent   String    @default("")
+  tokenVersion Int      @default(0)
+  revokedAt   DateTime?
+  lastLoginAt DateTime  @default(now())
+  createdAt   DateTime  @default(now())
 
   @@unique([teamId, deviceId])
 }
@@ -49,6 +53,7 @@ model Admin {
   id           String   @id @default(uuid())
   username     String   @unique
   passwordHash String
+  authVersion  Int      @default(0)
   createdAt    DateTime @default(now())
 }
 
@@ -57,6 +62,7 @@ model Judge {
   name         String
   username     String   @unique
   passwordHash String
+  authVersion  Int      @default(0)
   createdAt    DateTime @default(now())
 
   scores      Score[]
@@ -85,6 +91,19 @@ model Competition {
   judgeAssignments  JudgeCompetition[]
   judgeScores       JudgeScore[]
   scoreAudits       ScoreAudit[]
+  teamAccess        CompetitionAccess[]
+}
+
+model CompetitionAccess {
+  id            String      @id @default(uuid())
+  teamId        String
+  team          Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  grantedAt     DateTime    @default(now())
+  expiresAt     DateTime?
+
+  @@unique([teamId, competitionId])
 }
 
 model Question {

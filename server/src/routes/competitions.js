@@ -125,6 +125,9 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), async (r
     if (!competition.isOpen) {
       return res.status(400).json({ error: 'المسابقة مغلقة حالياً' });
     }
+    if (competition.entryCode && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) {
+      return res.status(403).json({ error: 'يجب إدخال كود المسابقة أولاً' });
+    }
 
     const existing = await prisma.score.findUnique({
       where: {
@@ -239,6 +242,9 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), async
     if (!competition.isOpen) {
       return res.status(400).json({ error: 'المسابقة مغلقة حالياً' });
     }
+    if (competition.entryCode && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) {
+      return res.status(403).json({ error: 'يجب إدخال كود المسابقة أولاً' });
+    }
     if (competition.type !== 'auto_digital' && competition.slug !== 'geography') {
       return res.status(400).json({ error: 'هذه المسابقة لا تُصحَّح تلقائياً' });
     }
@@ -287,13 +293,18 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), async
       }
     }
 
-    const score = await upsertScore({
+    const score = await prisma.$transaction(async tx => {
+      const current = await tx.score.findUnique({ where: { competitionId_teamId: { competitionId: competition.id, teamId: req.user.id } } });
+      if (current) return current;
+      return tx.score.create({ data: { competitionId: competition.id, teamId: req.user.id, total, values: JSON.stringify({ mode: 'auto', detail }), judgeId: null } });
+    });
+    /* const score = await upsertScore({
       competitionId: competition.id,
       teamId: req.user.id,
       total,
       values: { mode: 'auto', detail },
       judgeId: null,
-    });
+    }); */
 
     await emitLeaderboard(req);
 

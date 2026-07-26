@@ -48,8 +48,19 @@ coverage/
 tmp/
 temp/
 scout-backups/
-server/prisma/*.db-wal
-server/prisma/*.db-shm
+
+# Runtime databases and SQLite sidecars (never commit production/local data)
+server/prisma/*.db
+server/prisma/*.db-*
+server/prisma/*.sqlite
+server/prisma/*.sqlite-*
+
+# Runtime secrets and private key material
+config/secret_key
+config/secret_key.*
+!config/secret_key.example
+*.pem
+*.key
 
 # Playwright
 .playwright-mcp/

@@ -32,13 +32,13 @@ app.set('trust proxy', isProduction ? 1 : false);
 app.use(requestId);
 app.use(securityHeaders);
 app.use(cors(corsOptions));
-app.use(express.json({ limit: '55mb', strict: true }));
-app.use(express.urlencoded({ limit: '55mb', extended: false, parameterLimit: 1000 }));
+app.use(express.json({ limit: `${Number(process.env.JSON_BODY_LIMIT_BYTES) || 12 * 1024 * 1024}b`, strict: true }));
+app.use(express.urlencoded({ limit: `${Number(process.env.URLENCODED_BODY_LIMIT_BYTES) || 12 * 1024 * 1024}b`, extended: false, parameterLimit: 1000 }));
 
 const io = new Server(server, {
   cors: corsOptions,
   transports: ['websocket', 'polling'],
-  maxHttpBufferSize: 55 * 1024 * 1024,
+  maxHttpBufferSize: Number(process.env.SOCKET_MAX_BUFFER_BYTES) || 12 * 1024 * 1024,
 });
 io.use(authenticateSocket);
 
@@ -67,13 +67,7 @@ app.get('/api/version', (req, res) => {
   res.json({ branch: process.env.APP_BRANCH || 'main', version: process.env.APP_VERSION || '1.0.0' });
 });
 
-app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
-  dotfiles: 'deny',
-  fallthrough: false,
-  immutable: true,
-  maxAge: '1d',
-  setHeaders: res => res.setHeader('X-Content-Type-Options', 'nosniff'),
-}));
+// Uploads are private; report routes perform authorization before streaming files.
 
 app.use('/api/auth', authRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);

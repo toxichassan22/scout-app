@@ -2,16 +2,28 @@ import fs from 'fs';
 import path from 'path';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { getAnonymousLeaderboard } from './leaderboard.js';
 import { generateFullBackup, deleteFromGoogleDrive } from '../backup-exporter.js';
+import { createMemoryRateLimiter } from '../security.js';
 
+const adminMutationLimiter = createMemoryRateLimiter({
+  windowMs: Number(process.env.MUTATION_RATE_WINDOW_MS) || 60 * 1000,
+  max: Number(process.env.ADMIN_MUTATION_RATE_MAX) || 60,
+  keyGenerator: req => `${req.ip}:${req.user?.id || 'anonymous'}`,
+  message: 'طلبات الإدارة كثيرة؛ حاول مرة أخرى لاحقاً',
+});
 const router = Router();
 
-// Apply admin authentication to all admin endpoints
+// Apply admin authentication and a bounded per-admin mutation limiter.
 router.use(authenticateToken);
 router.use(requireRole(['admin']));
+router.use((req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  return adminMutationLimiter(req, res, next);
+});
 
 // Full Leaderboard (with internal team labels)
 router.get('/leaderboard', async (req, res) => {
@@ -148,8 +160,10 @@ router.delete('/devices/:deviceId', async (req, res) => {
   try {
     const { deviceId } = req.params;
     const device = await prisma.teamDevice.findUnique({ where: { id: deviceId } });
-    await prisma.teamDevice.delete({
-      where: { id: deviceId }
+    if (!device) return res.status(404).json({ error: 'الجهاز غير موجود' });
+    await prisma.teamDevice.update({
+      where: { id: deviceId },
+      data: { revokedAt: new Date(), tokenVersion: { increment: 1 } }
     });
 
     // Emit real-time event so the revoked device gets force-logged out
@@ -186,8 +200,9 @@ router.patch('/teams/:id', async (req, res) => {
     if (username !== undefined) data.username = String(username).trim();
     if (label !== undefined) data.label = String(label).trim();
     if (password !== undefined) {
-      if (String(password).length < 4) return res.status(400).json({ error: 'كلمة السر قصيرة جداً' });
-      data.passwordHash = await bcrypt.hash(String(password), 10);
+      if (String(password).length < 12) return res.status(400).json({ error: 'كلمة السر يجب ألا تقل عن 12 حرفاً' });
+      data.passwordHash = await bcrypt.hash(String(password), 12);
+      data.authVersion = { increment: 1 };
     }
     if (maxDevices !== undefined) {
       const n = Number(maxDevices);
@@ -397,7 +412,7 @@ router.patch('/competitions/:id', async (req, res) => {
 
 router.post('/competitions/:id/passcode', async (req, res) => {
   try {
-    const randomCode = Math.floor(1000 + Math.random() * 9000).toString();
+    const randomCode = crypto.randomInt(100000, 1000000).toString();
     const comp = await prisma.competition.update({
       where: { id: req.params.id },
       data: { passcode: randomCode, isOpen: true }
@@ -854,7 +869,7 @@ router.delete('/judges/:judgeId/assignments/:competitionId', async (req, res) =>
 router.patch('/judges/:id', async (req, res) => {
   const { name, username, password } = req.body || {}; const data = {};
   if (name !== undefined) data.name = String(name).trim(); if (username !== undefined) data.username = String(username).trim();
-  if (password !== undefined) data.passwordHash = await bcrypt.hash(String(password), 10);
+  if (password !== undefined) { if (String(password).length < 12) return res.status(400).json({ error: 'كلمة السر يجب ألا تقل عن 12 حرفاً' }); data.passwordHash = await bcrypt.hash(String(password), 12); data.authVersion = { increment: 1 }; }
   res.json(await prisma.judge.update({ where: { id: req.params.id }, data }));
 });
 
