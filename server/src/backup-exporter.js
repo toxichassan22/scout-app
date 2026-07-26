@@ -46,16 +46,29 @@ export async function uploadToGoogleDrive(fileName, mimeType, fileBuffer, folder
 }
 
 let runningWorkers = 0;
+const LEASE_MS = 120_000;
+
+function backoffMs(retryCount) {
+  return 2 ** retryCount * 30_000;
+}
 
 async function claimNextPendingUpload(tx) {
+  const now = new Date();
   const pending = await tx.pendingUpload.findFirst({
-    where: { status: 'pending', retryCount: { lt: GDRIVE_UPLOAD_MAX_RETRIES } },
+    where: {
+      retryCount: { lt: GDRIVE_UPLOAD_MAX_RETRIES },
+      nextAttemptAt: { lte: now },
+      OR: [
+        { status: 'pending' },
+        { status: 'processing', leasedUntil: { lt: now } },
+      ],
+    },
     orderBy: { createdAt: 'asc' },
   });
   if (!pending) return null;
   const updated = await tx.pendingUpload.updateMany({
-    where: { id: pending.id, status: 'pending' },
-    data: { status: 'processing' },
+    where: { id: pending.id, status: { in: ['pending', 'processing'] } },
+    data: { status: 'processing', leasedUntil: new Date(Date.now() + LEASE_MS) },
   });
   if (updated.count === 0) return null;
   return pending;
@@ -68,12 +81,19 @@ async function processOneUpload() {
     const fileBuffer = await readFile(job.filePath);
     await uploadToGoogleDrive(job.fileName, job.mimeType, fileBuffer, job.folderPath);
     await prisma.pendingUpload.update({ where: { id: job.id }, data: { status: 'completed' } });
+    await unlink(job.filePath);
   } catch (err) {
     console.error(`[Drive Queue] Failed to upload ${job.fileName}:`, err.message);
     const retryCount = job.retryCount + 1;
+    const failed = retryCount >= GDRIVE_UPLOAD_MAX_RETRIES;
     await prisma.pendingUpload.update({
       where: { id: job.id },
-      data: { status: retryCount >= GDRIVE_UPLOAD_MAX_RETRIES ? 'failed' : 'pending', retryCount },
+      data: {
+        status: failed ? 'failed' : 'pending',
+        retryCount,
+        leasedUntil: null,
+        nextAttemptAt: failed ? null : new Date(Date.now() + backoffMs(retryCount)),
+      },
     });
   }
   return true;
@@ -98,7 +118,7 @@ export async function startUploadWorkers() {
 export async function queueUploadToGoogleDrive(fileName, mimeType, filePath, folderPath = '') {
   if (!GDRIVE_WEBHOOK_URL) return { skipped: true, reason: 'GDRIVE_WEBHOOK_URL is not configured' };
   await prisma.pendingUpload.create({
-    data: { fileName, filePath, mimeType, folderPath, status: 'pending', retryCount: 0 },
+    data: { fileName, filePath, mimeType, folderPath, status: 'pending', retryCount: 0, nextAttemptAt: new Date() },
   });
   startUploadWorkers();
 }

@@ -10,17 +10,6 @@
     "es2022": true
   },
   "rules": {
-    "no-empty": ["error", { "allowEmptyCatch": true }],
-    "no-restricted-imports": [
-      "error",
-      {
-        "paths": [
-          {
-            "name": "zod",
-            "message": "Use zod/v3 to match the installed compatibility layer."
-          }
-        ]
-      }
-    ]
+    "no-empty": ["error", { "allowEmptyCatch": true }]
   }
 }

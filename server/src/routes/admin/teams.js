@@ -6,7 +6,7 @@ import prisma from '../../db.js';
 import { deleteFromGoogleDrive } from '../../backup-exporter.js';
 import { boundedString, strongPassword } from '../../validation.js';
 import { validate, zString, zId, zNumber } from '../../middleware/validate.js';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { parsePagination, paginatedResponse } from '../../pagination.js';
 
 const safeTeamSelect = { id: true, username: true, label: true, maxDevices: true, authVersion: true, createdAt: true };

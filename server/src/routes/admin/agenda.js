@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import prisma from '../../db.js';
 import { validate, zString, zId, zNumber } from '../../middleware/validate.js';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 
 const router = Router();
 

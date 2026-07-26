@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import prisma from '../../db.js';
 import { boundedString } from '../../validation.js';
 import { validate, zString, zId, zNumber, zBoolean } from '../../middleware/validate.js';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { parsePagination, paginatedResponse } from '../../pagination.js';
 
 const router = Router();

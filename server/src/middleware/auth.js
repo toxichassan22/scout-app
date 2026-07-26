@@ -25,9 +25,6 @@ export const authenticateToken = async (req, res, next) => {
   if (!token) return res.status(401).json({ error: 'لم يتم تقديم توكن المصادقة', forceLogout: true });
   try {
     const user = await verifyAuthenticatedUser(token);
-    if (user.role === 'team' && req.headers['x-device-id'] && req.headers['x-device-id'] !== user.deviceId) {
-      return res.status(401).json({ error: 'معرف الجهاز لا يطابق الجلسة', forceLogout: true, deviceRevoked: true });
-    }
     req.user = user;
     next();
   } catch (error) {

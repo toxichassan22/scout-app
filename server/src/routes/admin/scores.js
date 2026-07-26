@@ -4,7 +4,7 @@ import prisma from '../../db.js';
 import { getAnonymousLeaderboard, clearLeaderboardCache } from '../leaderboard.js';
 import { recalculateTeamStanding } from '../../teamStanding.js';
 import { validate, zString, zId, zNumber } from '../../middleware/validate.js';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 
 const router = Router();
 

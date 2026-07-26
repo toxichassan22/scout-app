@@ -9,7 +9,7 @@ import { normalizeArabicText } from '../textNormalization.js';
 import { recalculateTeamStanding } from '../teamStanding.js';
 import { idempotent } from '../middleware/idempotent.js';
 import { validate, zString } from '../middleware/validate.js';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { parsePagination, paginatedResponse } from '../pagination.js';
 
 const router = Router();

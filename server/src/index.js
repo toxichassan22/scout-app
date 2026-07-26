@@ -1,6 +1,7 @@
 import express, { Router } from 'express';
 import 'express-async-errors';
 import http from 'http';
+import crypto from 'node:crypto';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import 'dotenv/config';
@@ -79,12 +80,43 @@ healthRouter.use(publicApiLimiter);
 healthRouter.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'Digital Scout Camp API', requestId: req.requestId, time: new Date().toISOString() });
 });
-healthRouter.get('/ready', async (req, res) => {
+
+let readyCache = null;
+let readyCacheAt = 0;
+const READY_CACHE_MS = 5000;
+
+function requireReadinessToken(req, res, next) {
+  const expected = String(process.env.READINESS_TOKEN || '').trim();
+  if (!expected) return next(); // bypass in dev if not configured
+  const provided = req.headers['x-readiness-token'];
+  if (typeof provided !== 'string' || provided.length !== expected.length) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    if (!crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected))) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+  } catch {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  next();
+}
+
+healthRouter.get('/ready', requireReadinessToken, async (req, res) => {
+  const now = Date.now();
+  if (readyCache && now - readyCacheAt < READY_CACHE_MS) {
+    if (readyCache.ok) return res.json({ status: 'ready', checks: { database: 'ok' }, requestId: req.requestId, time: new Date().toISOString() });
+    return res.status(503).json({ status: 'not_ready', checks: { database: 'failed' }, requestId: req.requestId, time: new Date().toISOString() });
+  }
   try {
     await prisma.$queryRaw`SELECT 1`;
+    readyCache = { ok: true };
+    readyCacheAt = now;
     res.json({ status: 'ready', checks: { database: 'ok' }, requestId: req.requestId, time: new Date().toISOString() });
   } catch (error) {
     req.log.error({ error }, 'readiness check failed');
+    readyCache = { ok: false };
+    readyCacheAt = now;
     res.status(503).json({ status: 'not_ready', checks: { database: 'failed' }, requestId: req.requestId, time: new Date().toISOString() });
   }
 });
@@ -170,6 +202,14 @@ export async function startServer(port = PORT) {
     idempotencyTimer = startIdempotencyCleanup();
   } catch (err) {
     logger.warn({ err }, 'failed to start idempotency cleanup');
+  }
+  try {
+    await prisma.pendingUpload.updateMany({
+      where: { status: 'processing' },
+      data: { status: 'pending', leasedUntil: null },
+    });
+  } catch (err) {
+    logger.warn({ err }, 'failed to reset upload queue on startup');
   }
   try {
     startUploadWorkers();

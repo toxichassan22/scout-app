@@ -357,15 +357,18 @@ model TeamStanding {
 }
 
 model PendingUpload {
-  id         String   @id @default(uuid())
-  fileName   String
-  filePath   String
-  mimeType   String
-  folderPath String
-  status     String   @default("pending")
-  retryCount Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id            String    @id @default(uuid())
+  fileName      String
+  filePath      String
+  mimeType      String
+  folderPath    String
+  status        String    @default("pending")
+  retryCount    Int       @default(0)
+  leasedUntil   DateTime?
+  nextAttemptAt DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  @@index([status, createdAt])
+  @@index([status, leasedUntil])
+  @@index([status, nextAttemptAt])
 }
