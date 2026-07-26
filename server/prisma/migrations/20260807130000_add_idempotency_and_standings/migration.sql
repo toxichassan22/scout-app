@@ -24,3 +24,10 @@ CREATE INDEX "IdempotencyKey_scope_actorId_idx" ON "IdempotencyKey"("scope", "ac
 
 -- CreateIndex
 CREATE INDEX "TeamStanding_totalScore_latestSubmitted_idx" ON "TeamStanding"("totalScore", "latestSubmitted");
+
+-- Seed standings from existing scores so the leaderboard stays correct immediately after deploy.
+INSERT INTO "TeamStanding" ("teamId", "totalScore", "latestSubmitted", "updatedAt")
+SELECT t.id, COALESCE(SUM(s.total), 0), MAX(s."submittedAt"), CURRENT_TIMESTAMP
+FROM "Team" t
+LEFT JOIN "Score" s ON s."teamId" = t.id
+GROUP BY t.id;

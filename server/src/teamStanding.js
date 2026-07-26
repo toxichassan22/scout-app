@@ -1,3 +1,5 @@
+import prisma from './db.js';
+
 export async function recalculateTeamStanding(teamId, tx) {
   const aggregate = await tx.score.aggregate({
     where: { teamId },
@@ -37,6 +39,12 @@ export async function recalculateAllTeamStandings(tx) {
   );
 
   if (updates.length > 0) {
-    await tx.teamStanding.createMany({ data: updates, skipDuplicates: true });
+    await tx.teamStanding.createMany({ data: updates });
   }
+}
+
+export async function ensureTeamStandings(prismaClient = prisma) {
+  const count = await prismaClient.teamStanding.count();
+  if (count > 0) return;
+  await prismaClient.$transaction(async (tx) => recalculateAllTeamStandings(tx));
 }

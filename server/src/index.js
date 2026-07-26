@@ -17,6 +17,7 @@ import quizRoutes from './routes/quiz.js';
 import reportsRoutes from './routes/reports.js';
 import competitionsRoutes from './routes/competitions.js';
 import prisma, { databaseReady } from './db.js';
+import { ensureTeamStandings } from './teamStanding.js';
 import { createCorsOptions, createMemoryRateLimiter, isProduction, requestId, securityHeaders } from './security.js';
 import { authenticateSocket, canJoinRoom, startSocketRevocationMonitor } from './middleware/socketAuth.js';
 import { joinPublicRealtimeRooms } from './realtime.js';
@@ -139,6 +140,11 @@ export { app, server, io };
 
 export async function startServer(port = PORT) {
   await databaseReady;
+  try {
+    await ensureTeamStandings();
+  } catch (err) {
+    logger.warn({ err }, 'failed to seed team standings on startup');
+  }
   return new Promise((resolve, reject) => {
     const onError = (error) => {
       server.off('listening', onListening);

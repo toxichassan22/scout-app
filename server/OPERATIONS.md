@@ -74,6 +74,21 @@ npx prisma migrate resolve --applied 00000000000000_init
 
 Then enable migration application in `deploy.sh` by setting `APPLY_PRISMA_MIGRATIONS=true` on the server. New installations may run `npx prisma migrate deploy` directly.
 
+### Leaderboard zero-check after deploy
+
+The server now auto-seeds `TeamStanding` on startup if the table is empty (`src/teamStanding.js::ensureTeamStandings`). If it ever looks wrong, recalculate manually:
+
+```sh
+cd server
+node scripts/seed-team-standings.mjs
+```
+
+Or directly with SQLite:
+
+```sh
+sqlite3 prisma/dev.db "INSERT INTO TeamStanding (teamId, totalScore, latestSubmitted, updatedAt) SELECT t.id, COALESCE(SUM(s.total),0), MAX(s.submittedAt), CURRENT_TIMESTAMP FROM Team t LEFT JOIN Score s ON s.teamId=t.id GROUP BY t.id;"
+```
+
 ## Festival day runbook
 
 ### Before the event
