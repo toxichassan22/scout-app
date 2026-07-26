@@ -2,7 +2,7 @@ import prisma from '../db.js';
 
 const MAX_KEY_LENGTH = 64;
 const TTL_MS = Number(process.env.IDEMPOTENCY_TTL_MS) || 24 * 60 * 60 * 1000; // 24h
-const IN_PROGRESS_TTL_MS = Number(process.env.IDEMPOTENCY_IN_PROGRESS_TTL_MS) || 5 * 60 * 1000; // 5m
+const IN_PROGRESS_TTL_MS = Number(process.env.IDEMPOTENCY_IN_PROGRESS_TTL_MS) || 60 * 1000; // 60s
 
 function actorId(req) {
   return req.user?.id || req.user?.username || req.ip || 'anonymous';
