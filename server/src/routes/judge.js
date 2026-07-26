@@ -117,7 +117,9 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
           select: { total: true, isFinal: true }
         },
         reports: {
+          where: { competitionId },
           orderBy: { uploadedAt: 'desc' },
+          take: 1,
           select: { id: true, competitionId: true, title: true, content: true, fileUrl: true, uploadedAt: true }
         }
       }
@@ -127,10 +129,7 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
 
     // Format list with submission status and matched competition report
     const formattedTeams = teams.map(t => {
-      // Find report specifically for this competition ID or by matching title
-      const compReport = (t.reports || []).find(
-        r => r.competitionId === competitionId || (competition && r.title === competition.name)
-      );
+      const compReport = t.reports[0] || null;
 
       const finalized = Boolean(t.scores[0]?.isFinal);
       return {
