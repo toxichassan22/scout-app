@@ -21,6 +21,7 @@ import { ensureTeamStandings } from './teamStanding.js';
 import { finalizeExpiredSessions } from './quizService.js';
 import { purgeIdempotencyKeys, startIdempotencyCleanup } from './middleware/idempotent.js';
 import { createCorsOptions, createMemoryRateLimiter, requestId, securityHeaders, subjectId } from './security.js';
+import { authenticateToken } from './middleware/auth.js';
 import { authenticateSocket, canJoinRoom, startSocketRevocationMonitor } from './middleware/socketAuth.js';
 import { joinPublicRealtimeRooms } from './realtime.js';
 
@@ -84,22 +85,24 @@ healthRouter.get('/version', (req, res) => {
 app.use('/api', healthRouter);
 app.use('/api/v1', healthRouter);
 
-// Uploads are private; report routes perform authorization before streaming files.
+// Public authentication endpoints carry their own limiters.
+app.use('/api/auth', authRoutes);
+app.use('/api/v1/auth', authRoutes);
 
-app.use('/api', apiLimiter);
-
-const apiRouter = Router();
-apiRouter.use('/auth', authRoutes);
-apiRouter.use('/leaderboard', leaderboardRoutes);
-apiRouter.use('/news', newsRoutes);
-apiRouter.use('/agenda', agendaRoutes);
-apiRouter.use('/judge', judgeRoutes);
-apiRouter.use('/admin', adminRoutes);
-apiRouter.use('/quiz', quizRoutes);
-apiRouter.use('/reports', reportsRoutes);
-apiRouter.use('/competitions', competitionsRoutes);
-app.use('/api', apiRouter);
-app.use('/api/v1', apiRouter);
+// Protected API routes: authenticate first, then apply the global per-user rate limiter.
+const protectedApiRouter = Router();
+protectedApiRouter.use(authenticateToken);
+protectedApiRouter.use(apiLimiter);
+protectedApiRouter.use('/leaderboard', leaderboardRoutes);
+protectedApiRouter.use('/news', newsRoutes);
+protectedApiRouter.use('/agenda', agendaRoutes);
+protectedApiRouter.use('/judge', judgeRoutes);
+protectedApiRouter.use('/admin', adminRoutes);
+protectedApiRouter.use('/quiz', quizRoutes);
+protectedApiRouter.use('/reports', reportsRoutes);
+protectedApiRouter.use('/competitions', competitionsRoutes);
+app.use('/api', protectedApiRouter);
+app.use('/api/v1', protectedApiRouter);
 
 io.on('connection', (socket) => {
   socket.log = logger.child({ socketId: socket.id, role: socket.user?.role, userId: socket.user?.id });
@@ -198,10 +201,10 @@ async function shutdown(signal) {
   if (idempotencyTimer) clearInterval(idempotencyTimer);
 
   io?.close?.();
-  server.closeAllConnections?.();
 
   const forceExit = setTimeout(() => {
-    logger.error('graceful shutdown timed out; forcing exit');
+    logger.error('graceful shutdown timed out; forcing connections closed');
+    server.closeAllConnections?.();
     process.exit(1);
   }, 10000).unref?.();
 

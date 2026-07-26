@@ -26,7 +26,11 @@ const roleLoginSchema = {
 const loginLimiter = createMemoryRateLimiter({
   windowMs: Number(process.env.LOGIN_RATE_WINDOW_MS) || 15 * 60 * 1000,
   max: Number(process.env.LOGIN_RATE_MAX) || 20,
-  keyGenerator: req => String(req.body?.username || '').trim().toLowerCase() || req.ip || 'unknown',
+  keyGenerator: (req) => {
+    const user = String(req.body?.username || '').trim().toLowerCase();
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+    return user ? `${user}:${ip}` : ip;
+  },
   message: 'محاولات تسجيل دخول كثيرة؛ حاول مرة أخرى لاحقاً',
 });
 router.use(['/team/login', '/judge/login', '/admin/login'], loginLimiter);
@@ -62,7 +66,8 @@ router.post('/team/login', validate(loginSchema), async (req, res) => {
           await tx.teamDevice.update({ where: { id: d.id }, data: { revokedAt: new Date(), tokenVersion: { increment: 1 } } });
           evictedDevices.push({ deviceId: d.id, fingerprint: d.deviceId, teamId: d.teamId });
         }
-        count -= evictedDevices.length;
+        // Recount in case another transaction raced and created devices while we were evicting.
+        count = await tx.teamDevice.count({ where: { teamId: team.id, revokedAt: null } });
       }
       if (count >= team.maxDevices) throw Object.assign(new Error('limit'), { status: 403 });
       created = true;

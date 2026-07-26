@@ -19,6 +19,7 @@ export async function verifyAuthenticatedUser(token) {
 }
 
 export const authenticateToken = async (req, res, next) => {
+  if (req.user) return next();
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'لم يتم تقديم توكن المصادقة', forceLogout: true });

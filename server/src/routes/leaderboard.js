@@ -3,6 +3,14 @@ import prisma from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { parsePagination, paginatedResponse } from '../pagination.js';
 
+function formatStandingRow(item, previous) {
+  const points = Math.round(Number(item.totalScore || 0) * 10) / 10;
+  const gapToNext = previous
+    ? Math.round((Number(previous.totalScore || 0) - points) * 10) / 10
+    : 0;
+  return { points, gapToNext };
+}
+
 const router = Router();
 
 export function clearLeaderboardCache() {
@@ -22,12 +30,35 @@ async function fetchAllStandings() {
 
   return rows.map((item, index) => {
     const rank = index + 1;
-    const points = Math.round(Number(item.totalScore || 0) * 10) / 10;
-    const gapToNext = index > 0
-      ? Math.round((Number(rows[index - 1].totalScore || 0) - points) * 10) / 10
-      : 0;
+    const { points, gapToNext } = formatStandingRow(item, index > 0 ? rows[index - 1] : null);
     return { rank, points, gapToNext };
   });
+}
+
+async function fetchStandingsPage(skip, limit) {
+  const includePrev = skip > 0;
+  const offset = includePrev ? skip - 1 : 0;
+  const sqlLimit = includePrev ? limit + 1 : limit;
+  const rows = await prisma.$queryRaw`
+    SELECT t.id as teamId, COALESCE(s.totalScore, 0) as totalScore, s.latestSubmitted
+    FROM Team t
+    LEFT JOIN TeamStanding s ON t.id = s.teamId
+    ORDER BY totalScore DESC,
+             CASE WHEN s.latestSubmitted IS NULL THEN 1 ELSE 0 END ASC,
+             s.latestSubmitted ASC
+    LIMIT ${sqlLimit} OFFSET ${offset}
+  `;
+  const start = includePrev ? 1 : 0;
+  const dataRows = rows.slice(start);
+  const prevRow = includePrev ? rows[0] : null;
+  const data = dataRows.map((item, index) => {
+    const rank = skip + index + 1;
+    const previous = index === 0 ? prevRow : dataRows[index - 1];
+    const { points, gapToNext } = formatStandingRow(item, previous);
+    return { rank, points, gapToNext };
+  });
+  const total = await prisma.team.count();
+  return { data, total };
 }
 
 /**
@@ -43,9 +74,8 @@ export async function getAnonymousLeaderboard() {
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
-    const all = await getAnonymousLeaderboard();
-    const data = all.slice(skip, skip + limit);
-    res.json(paginatedResponse({ data, page, limit, total: all.length }));
+    const { data, total } = await fetchStandingsPage(skip, limit);
+    res.json(paginatedResponse({ data, page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'failed to fetch leaderboard');
     res.status(500).json({ success: false, error: 'فشل في جلب الترتيب العام', requestId: req.requestId, timestamp: new Date().toISOString() });

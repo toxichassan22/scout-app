@@ -47,11 +47,15 @@ export function idempotent(scope) {
     const actor = actorId(req);
     const whereUnique = { scope_actorId_key: { scope, actorId: actor, key } };
 
-    try {
-      // Race-safe create-first: the unique index serializes concurrent requests.
-      await prisma.idempotencyKey.create({
+    async function tryCreate() {
+      return prisma.idempotencyKey.create({
         data: { scope, actorId: actor, key, status: null, response: null },
       });
+    }
+
+    try {
+      // Race-safe create-first: the unique index serializes concurrent requests.
+      await tryCreate();
     } catch (err) {
       if (err.code === 'P2002') {
         const existing = await prisma.idempotencyKey.findUnique({ where: whereUnique });
@@ -64,9 +68,23 @@ export function idempotent(scope) {
             return res.status(existing.status).json({ success: false, error: 'رد مؤقت تالف', requestId: req.requestId, timestamp: new Date().toISOString() });
           }
         }
-        return res.status(409).json({ error: 'طلب بنفس مفتاح التكرار قيد التنفيذ' });
+        const stale = existing && existing.status == null && (Date.now() - new Date(existing.createdAt).getTime()) > IN_PROGRESS_TTL_MS;
+        if (stale) {
+          try { await prisma.idempotencyKey.delete({ where: whereUnique }); } catch { /* another request finished it */ }
+          try {
+            await tryCreate();
+          } catch (retryErr) {
+            if (retryErr.code === 'P2002') {
+              return res.status(409).json({ error: 'طلب بنفس مفتاح التكرار قيد التنفيذ' });
+            }
+            throw retryErr;
+          }
+        } else {
+          return res.status(409).json({ error: 'طلب بنفس مفتاح التكرار قيد التنفيذ' });
+        }
+      } else {
+        throw err;
       }
-      throw err;
     }
 
     res.locals.idempotencyKey = { key, scope, actorId: actor };

@@ -3,7 +3,7 @@ import logger from './logger.js';
 
 const prisma = new PrismaClient();
 
-const DEFAULT_TX_MAX_WAIT = 2000;
+const DEFAULT_TX_MAX_WAIT = 30000;
 const DEFAULT_TX_TIMEOUT = 30000;
 const TX_MAX_RETRIES = 3;
 
@@ -13,7 +13,6 @@ function isSqliteBusyError(err) {
   const message = String(err.message || '');
   if (message.includes('SQLITE_BUSY')) return true;
   if (message.includes('database is locked')) return true;
-  if (message.includes('busy')) return true;
   return false;
 }
 
@@ -44,7 +43,7 @@ prisma.$transaction = async function withRetry(arg, options) {
 export async function initDatabase(client = prisma) {
   await client.$queryRawUnsafe('PRAGMA journal_mode=WAL;');
   await client.$queryRawUnsafe('PRAGMA foreign_keys=ON;');
-  await client.$queryRawUnsafe('PRAGMA busy_timeout=5000;');
+  await client.$queryRawUnsafe('PRAGMA busy_timeout=30000;');
   await client.$queryRawUnsafe('PRAGMA synchronous=NORMAL;');
   await client.$queryRaw`SELECT 1`;
   await client.team.findFirst({ select: { id: true } });

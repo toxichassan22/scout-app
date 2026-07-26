@@ -2,7 +2,7 @@ import prisma from './db.js';
 
 export async function recalculateTeamStanding(teamId, tx) {
   const aggregate = await tx.score.aggregate({
-    where: { teamId },
+    where: { teamId, isFinal: true },
     _sum: { total: true },
     _max: { submittedAt: true },
   });
@@ -26,7 +26,7 @@ export async function recalculateAllTeamStandings(tx) {
   const updates = await Promise.all(
     teams.map(async ({ id }) => {
       const aggregate = await tx.score.aggregate({
-        where: { teamId: id },
+        where: { teamId: id, isFinal: true },
         _sum: { total: true },
         _max: { submittedAt: true },
       });

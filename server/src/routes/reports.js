@@ -59,6 +59,17 @@ const reportBodySchema = {
     competitionId: zString('المسابقة', { min: 1, max: 100 }),
     fileName: zString('اسم الملف', { max: 255 }).optional(),
     fileBase64: zString('الملف', { max: 10000000 }).optional(),
+    mimeType: zString('نوع الملف', { max: 100, optional: true }),
+    fileMime: zString('نوع الملف', { max: 100, optional: true }),
+  },
+};
+
+const multipartReportSchema = {
+  body: {
+    title: zString('عنوان التقرير', { max: 300, optional: true }),
+    content: zString('محتوى التقرير', { max: 100000, optional: true }),
+    competitionId: zString('المسابقة', { min: 1, max: 100 }),
+    fileName: zString('اسم الملف', { max: 255, optional: true }),
   },
 };
 
@@ -203,7 +214,7 @@ router.post('/', authenticateToken, requireRole(['team']), rejectFileUrl, valida
 });
 
 // Team uploads a report via multipart/streaming file upload
-router.post('/upload', authenticateToken, requireRole(['team']), rejectFileUrl, idempotent('report:upload'), upload.single('file'), async (req, res) => {
+router.post('/upload', authenticateToken, requireRole(['team']), idempotent('report:upload'), upload.single('file'), rejectFileUrl, validate(multipartReportSchema), async (req, res) => {
   try {
     const { title = '', content = '', competitionId } = req.body || {};
     const file = req.file;

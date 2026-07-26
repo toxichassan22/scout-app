@@ -46,13 +46,9 @@ const videoPatchSchema = {
   body: { videoUrl: zString('رابط الفيديو', { max: 2048 }) },
 };
 
-function computeAttemptCount(comp, myScore, videoAttemptCount) {
-  if (typeof videoAttemptCount === 'number') return videoAttemptCount;
+function computeAttemptCount(comp, videoAttemptCount) {
   if (!isVideoCompetition(comp)) return 0;
-  if (myScore && myScore.values) {
-    return (parseJson(myScore.values, {}).attempts || []).length;
-  }
-  return 0;
+  return typeof videoAttemptCount === 'number' ? videoAttemptCount : 0;
 }
 
 const publicCompetition = (comp, myScore = null, videoAttemptCount) => ({
@@ -66,7 +62,7 @@ const publicCompetition = (comp, myScore = null, videoAttemptCount) => ({
   hasEntryCode: Boolean(comp.entryCode),
   completed: Boolean(myScore),
   myTotal: myScore ? myScore.total : null,
-  attemptCount: computeAttemptCount(comp, myScore, videoAttemptCount),
+  attemptCount: computeAttemptCount(comp, videoAttemptCount),
 });
 
 // List competitions for teams
