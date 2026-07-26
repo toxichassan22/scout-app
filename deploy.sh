@@ -45,6 +45,12 @@ printf '%s\n' 'Ensuring SQLite schema exists and pushing database changes...'
 (cd server && npx prisma db push --accept-data-loss --skip-generate)
 
 if [ "${APPLY_PRISMA_MIGRATIONS:-false}" = true ]; then
+  # One-time baseline for databases that predate Prisma Migrate.
+  # Set SCOUT_MIGRATION_BASELINE=true once per environment, then leave it unset.
+  if [ "${SCOUT_MIGRATION_BASELINE:-false}" = true ]; then
+    printf '%s\n' 'Marking baseline migration as applied...'
+    (cd server && npx prisma migrate resolve --applied 00000000000000_init) || true
+  fi
   printf '%s\n' 'Applying safe Prisma migrations...'
   (cd server && npx prisma migrate deploy)
 fi

@@ -29,6 +29,9 @@ jobs:
       - name: 🔧 Generate Prisma client
         run: npm --prefix server run prisma:generate
 
+      - name: 🔍 Check migration drift
+        run: npm --prefix server exec -- prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --exit-code
+
       - name: 🧹 Lint server
         run: npm --prefix server run lint
 

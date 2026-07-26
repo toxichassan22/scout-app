@@ -5,6 +5,7 @@ import { enforceNotFrozen } from '../freeze.js';
 import { startDigitalSession, saveDigitalAnswer, finalizeDigitalSession } from '../quizService.js';
 import { getAnonymousLeaderboard, clearLeaderboardCache } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
+import { idempotent } from '../middleware/idempotent.js';
 import { validate, zString, zId, zNumber } from '../middleware/validate.js';
 
 const router = Router();
@@ -40,7 +41,7 @@ router.post('/save-answer', ...teamOnly, validate(answerSchema), async (req, res
   }
 });
 
-router.post('/submit', ...teamOnly, validate(submitSchema), async (req, res) => {
+router.post('/submit', ...teamOnly, idempotent('quiz:submit'), validate(submitSchema), async (req, res) => {
   try {
     const { sessionId } = req.body || {};
     const session = await prisma.quizSession.findUnique({ where: { id: sessionId }, select: { teamId: true, deviceId: true } });

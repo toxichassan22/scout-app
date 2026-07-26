@@ -7,6 +7,8 @@ import { startDigitalSession } from '../quizService.js';
 import { getAnonymousLeaderboard, clearLeaderboardCache } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { normalizeArabicText } from '../textNormalization.js';
+import { recalculateTeamStanding } from '../teamStanding.js';
+import { idempotent } from '../middleware/idempotent.js';
 import { validate, zString } from '../middleware/validate.js';
 import { z } from 'zod/v3';
 import { parsePagination, paginatedResponse } from '../pagination.js';
@@ -297,7 +299,7 @@ function validateSubmissionAnswers(answers, competition) {
 }
 
 // Submit auto-digital answers (server grades)
-router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enforceNotFrozen, validate(submitSchema), async (req, res) => {
+router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enforceNotFrozen, idempotent('competition:submit'), validate(submitSchema), async (req, res) => {
   try {
     const key = req.params.idOrSlug;
     const { answers } = req.body;
@@ -383,6 +385,7 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enfor
         if (current) return current;
         const created = await tx.score.create({ data: { competitionId: competition.id, teamId: req.user.id, total, values: JSON.stringify({ mode: 'auto', sessionId: session.id, detail }), judgeId: null } });
         await tx.quizSession.update({ where: { id: session.id }, data: { isCompleted: true, completedAt: new Date() } });
+        await recalculateTeamStanding(req.user.id, tx);
         return created;
       });
     } catch (error) {

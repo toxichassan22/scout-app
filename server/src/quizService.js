@@ -1,4 +1,5 @@
 import prisma from './db.js';
+import { recalculateTeamStanding } from './teamStanding.js';
 
 const MAX_ATTEMPTS = 3;
 
@@ -47,6 +48,7 @@ export async function finalizeDigitalSession(sessionId) {
             const totalScore = session.draftAnswers.reduce((sum, answer) => sum + answer.pointsEarned, 0);
             const score = await tx.score.create({ data: { competitionId: session.competitionId, teamId: session.teamId, total: totalScore, values: JSON.stringify({ mode: 'quiz_session', sessionId }), isFinal: true } });
             await tx.quizSession.updateMany({ where: { id: session.id, isCompleted: false }, data: { isCompleted: true, completedAt: new Date() } });
+            await recalculateTeamStanding(session.teamId, tx);
             return { totalScore, score, idempotent: false };
         });
     } catch (error) {

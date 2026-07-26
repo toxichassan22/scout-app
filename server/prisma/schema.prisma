@@ -24,6 +24,7 @@ model Team {
   members           TeamMember[]
   devices           TeamDevice[]
   competitionAccess CompetitionAccess[]
+  standing          TeamStanding?
 }
 
 model TeamMember {
@@ -304,4 +305,25 @@ model DraftAnswer {
 model SystemSetting {
   key   String @id
   value String
+}
+
+model IdempotencyKey {
+  key       String   @id
+  scope     String
+  actorId   String
+  response  String // JSON of the first response
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([scope, actorId])
+}
+
+model TeamStanding {
+  teamId          String    @id
+  team            Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  totalScore      Float     @default(0)
+  latestSubmitted DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  @@index([totalScore, latestSubmitted])
 }

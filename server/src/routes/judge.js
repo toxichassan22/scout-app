@@ -5,6 +5,8 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { enforceNotFrozen } from '../freeze.js';
 import { getAnonymousLeaderboard, clearLeaderboardCache } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
+import { recalculateTeamStanding } from '../teamStanding.js';
+import { idempotent } from '../middleware/idempotent.js';
 import { validate, zString, zId, zNumber } from '../middleware/validate.js';
 import { z } from 'zod/v3';
 import { parsePagination, paginatedResponse } from '../pagination.js';
@@ -155,7 +157,7 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
 });
 
 // Submit score
-router.post('/scores', enforceNotFrozen, validate(scoreSchema), async (req, res) => {
+router.post('/scores', enforceNotFrozen, idempotent('judge:score'), validate(scoreSchema), async (req, res) => {
   try {
     const { competitionId, teamId, values, total } = req.body;
     const judgeId = req.user.id;
@@ -194,6 +196,7 @@ router.post('/scores', enforceNotFrozen, validate(scoreSchema), async (req, res)
       const score = await tx.score.create({ data: { competitionId, teamId, judgeId, values: serializedValues, total: calculated, isFinal: true } });
       await tx.judgeScore.create({ data: { scoreId: score.id, competitionId, teamId, judgeId, values: serializedValues, total: calculated } });
       await tx.scoreAudit.create({ data: { scoreId: score.id, competitionId, teamId, judgeId, action: 'judge_submit', newData: JSON.stringify({ values: parsedValues, total: calculated }) } });
+      await recalculateTeamStanding(teamId, tx);
       return score;
     });
 

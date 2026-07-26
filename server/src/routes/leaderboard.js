@@ -5,69 +5,55 @@ import { parsePagination, paginatedResponse } from '../pagination.js';
 
 const router = Router();
 
-const LEADERBOARD_CACHE_TTL_MS = Number(process.env.LEADERBOARD_CACHE_TTL_MS) || 2000;
-let leaderboardCache = null;
-let leaderboardCacheExpiry = 0;
-
 export function clearLeaderboardCache() {
-  leaderboardCache = null;
-  leaderboardCacheExpiry = 0;
+  // Cache removed; TeamStanding is now the single source of truth.
 }
 
-/**
- * Helper to calculate anonymous leaderboard with Speed Tie-Breaker
- * When scores are equal, team with earlier submission time / faster completion ranks higher!
- */
-export async function getAnonymousLeaderboard() {
-  const now = Date.now();
-  if (leaderboardCache && now < leaderboardCacheExpiry) {
-    return leaderboardCache;
-  }
-
-  const [teams, teamScores] = await Promise.all([
+async function fetchAllStandings() {
+  const [standings, teams] = await Promise.all([
+    prisma.teamStanding.findMany(),
     prisma.team.findMany({ select: { id: true } }),
-    prisma.score.groupBy({
-      by: ['teamId'],
-      _sum: { total: true },
-      _max: { submittedAt: true },
-    }),
   ]);
 
-  const totals = new Map(teams.map(t => [t.id, { totalScore: 0, latestSubmission: 0 }]));
-  for (const row of teamScores) {
-    totals.set(row.teamId, {
-      totalScore: Number(row._sum.total || 0),
-      latestSubmission: row._max.submittedAt ? new Date(row._max.submittedAt).getTime() : 0,
-    });
-  }
+  const standingIds = new Set(standings.map((s) => s.teamId));
+  const missing = teams
+    .filter((t) => !standingIds.has(t.id))
+    .map((t) => ({
+      id: t.id,
+      totalScore: 0,
+      latestSubmission: 0,
+    }));
 
-  const teamTotals = [...totals.entries()].map(([id, data]) => ({ id, totalScore: data.totalScore, latestSubmission: data.latestSubmission }));
+  const teamTotals = [
+    ...standings.map((s) => ({
+      id: s.teamId,
+      totalScore: Number(s.totalScore || 0),
+      latestSubmission: s.latestSubmitted ? new Date(s.latestSubmitted).getTime() : 0,
+    })),
+    ...missing,
+  ];
 
   // Sort descending by totalScore, then ascending by submission time (speed tie-breaker)
   teamTotals.sort((a, b) => {
-    if (b.totalScore !== a.totalScore) {
-      return b.totalScore - a.totalScore;
-    }
-    // Tie-breaker: earlier submission wins!
+    if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
     return a.latestSubmission - b.latestSubmission;
   });
 
-  // Map to anonymous structure with ranks and gap to next
-  const leaderboard = teamTotals.map((item, index) => {
+  return teamTotals.map((item, index) => {
     const rank = index + 1;
     const points = Math.round(item.totalScore * 10) / 10;
     const gapToNext = index > 0 ? Math.round((teamTotals[index - 1].totalScore - item.totalScore) * 10) / 10 : 0;
-
-    return {
-      rank,
-      points,
-      gapToNext
-    };
+    return { rank, points, gapToNext };
   });
+}
 
-  leaderboardCache = leaderboard;
-  leaderboardCacheExpiry = now + LEADERBOARD_CACHE_TTL_MS;
-  return leaderboard;
+/**
+ * Helper to calculate anonymous leaderboard from the TeamStanding table.
+ * The standings are maintained inside the same transactions that write scores,
+ * so the leaderboard is always up to date and indexed for fast reads.
+ */
+export async function getAnonymousLeaderboard() {
+  return fetchAllStandings();
 }
 
 // GET /api/leaderboard

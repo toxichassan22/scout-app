@@ -7,6 +7,7 @@ export function normalizeArabicText(value) {
     return String(value)
         .trim()
         .replace(/[\u064B-\u065F\u0670]/g, '')
+        .replace(/\u0640/g, '')
         .replace(/[أإآٱ]/g, 'ا')
         .replace(/ة/g, 'ه')
         .replace(/[٠-٩]/g, digit => String(digit.charCodeAt(0) - ARABIC_INDIC_ZERO))

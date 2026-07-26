@@ -1,0 +1,15 @@
+# Litestream continuous backup configuration template.
+# Replace ACCESS_KEY_ID, SECRET_ACCESS_KEY, and BUCKET with real values,
+# then run: litestream replicate -config server/litestream.yml
+
+dbs:
+  - path: ${SQLITE_DATABASE_PATH:-/var/www/scout-app/server/prisma/dev.db}
+    replicas:
+      - type: s3
+        bucket: ${LITESTREAM_S3_BUCKET:-scout-app-backups}
+        path: scout-app/db
+        region: ${LITESTREAM_S3_REGION:-ap-beijing}
+        endpoint: ${LITESTREAM_S3_ENDPOINT:-}
+        access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
+        secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
+        force-path-style: ${LITESTREAM_FORCE_PATH_STYLE:-true}

@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import prisma from '../../db.js';
 import { getAnonymousLeaderboard, clearLeaderboardCache } from '../leaderboard.js';
 import { generateFullBackup, deleteFromGoogleDrive } from '../../backup-exporter.js';
+import { recalculateTeamStanding, recalculateAllTeamStandings } from '../../teamStanding.js';
 import { boundedString, strongPassword } from '../../validation.js';
 import { validate, zString, zId, zNumber, zBoolean } from '../../middleware/validate.js';
 import { z } from 'zod/v3';
@@ -518,6 +519,7 @@ router.patch('/scores/:id', validate(scoreOverrideSchema), async (req, res) => {
     const score = await prisma.$transaction(async tx => {
       const updated = await tx.score.update({ where: { id: existing.id }, data: { total: numericTotal, ...(values !== undefined && { values: typeof values === 'string' ? values : JSON.stringify(values) }), editedByAdminId: adminId, editedAt: new Date(), isFinal: true } });
       await tx.scoreAudit.create({ data: { scoreId: existing.id, competitionId: existing.competitionId, teamId: existing.teamId, adminId, action: 'admin_correction', reason: String(reason).trim(), previousData: JSON.stringify(existing), newData: JSON.stringify(updated) } });
+      await recalculateTeamStanding(existing.teamId, tx);
       return updated;
     });
 
@@ -799,12 +801,14 @@ router.post('/clean-slate', validate(cleanSlateSchema), async (req, res) => {
     }
 
     // Wipe scores, draft answers, quiz sessions, and test reports
-    await prisma.$transaction([
-      prisma.draftAnswer.deleteMany({}),
-      prisma.quizSession.deleteMany({}),
-      prisma.score.deleteMany({}),
-      prisma.report.deleteMany({})
-    ]);
+    await prisma.$transaction(async tx => {
+      await tx.draftAnswer.deleteMany({});
+      await tx.quizSession.deleteMany({});
+      await tx.score.deleteMany({});
+      await tx.report.deleteMany({});
+      await tx.teamStanding.deleteMany({});
+      await recalculateAllTeamStandings(tx);
+    });
 
     clearLeaderboardCache();
     await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);

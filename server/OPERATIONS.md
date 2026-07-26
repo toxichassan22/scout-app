@@ -57,3 +57,40 @@ For each future schema change:
 6. Never use `prisma migrate reset` or `prisma db push --accept-data-loss` in production.
 
 Until that exact-schema baseline is reviewed on the server, drift checking is the safe strategy; this change deliberately does not fabricate or mark a migration as applied.
+
+## Prisma Migrate baseline (production)
+
+The repository now ships with migration history under `prisma/migrations/`:
+
+- `00000000000000_init` creates the baseline tables.
+- `20260807130000_add_idempotency_and_standings` adds `IdempotencyKey` and `TeamStanding`.
+
+On a database that already contains the tables, mark the baseline as applied **once** before the first `migrate deploy`:
+
+```sh
+cd server
+npx prisma migrate resolve --applied 00000000000000_init
+```
+
+Then enable migration application in `deploy.sh` by setting `APPLY_PRISMA_MIGRATIONS=true` on the server. New installations may run `npx prisma migrate deploy` directly.
+
+## Festival day runbook
+
+### Before the event
+1. Run `npm run db:ready` and `npm run db:backup` on production.
+2. Verify `JWT_SECRET`, `DATABASE_URL`, `NODE_ENV=production`.
+3. Enable continuous replication: `litestream replicate -config server/litestream.yml`.
+4. Set `ALLOW_PRODUCTION_SEED=I_UNDERSTAND_THIS_MODIFIES_DATA` only if re-seeding is intended.
+5. Freeze deployments: do not push to `main` during the event.
+
+### During the event
+- **WiFi cut mid-submission:** ask the team to wait; the idempotency key (`Idempotency-Key` header) lets them retry the same submission safely.
+- **Wrong score claim:** search `ScoreAudit` by `teamId` and `competitionId` for the full history.
+- **Server not responding:** check `/api/ready`, then `pm2 logs scout-backend`, then `pm2 restart scout-backend` only if needed.
+- **Lost judge device:** revoke the device in the admin panel and regenerate a new passcode.
+- **Read-only mode:** use `POST /api/admin/emergency-freeze { frozen: true }` to stop writes immediately.
+
+### After the event
+1. Run `npm run db:backup` and `node server/scripts/backup-verify.mjs`.
+2. Disable `ALLOW_PRODUCTION_SEED`.
+3. Schedule a `k6` load test from `k6/festival-peak.js` before the next festival.
