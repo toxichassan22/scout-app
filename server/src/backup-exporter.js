@@ -21,6 +21,7 @@ const BACKUP_ROOT = path.resolve(process.env.SQLITE_BACKUP_DIR || path.join(__di
 const GDRIVE_WEBHOOK_URL = String(process.env.GDRIVE_WEBHOOK_URL || '').trim();
 const GDRIVE_BEARER = String(process.env.GDRIVE_WEBHOOK_BEARER_TOKEN || '').trim();
 const GDRIVE_SIGNING_SECRET = String(process.env.GDRIVE_WEBHOOK_SIGNING_SECRET || '').trim();
+const GDRIVE_UPLOAD_CONCURRENCY = Math.max(1, Number(process.env.GDRIVE_UPLOAD_CONCURRENCY) || 3);
 
 /**
  * Upload a file buffer to Google Drive with structured subfolder path support
@@ -40,6 +41,42 @@ export async function uploadToGoogleDrive(fileName, mimeType, fileBuffer, folder
     console.error(`[Google Drive Error] Failed to upload ${fileName}:`, err.message);
     return null;
   }
+}
+
+class DriveUploadQueue {
+  constructor(concurrency) {
+    this.concurrency = concurrency;
+    this.running = 0;
+    this.queue = [];
+  }
+
+  enqueue(fn) {
+    return new Promise((resolve, reject) => {
+      this.queue.push({ fn, resolve, reject });
+      this.process();
+    });
+  }
+
+  process() {
+    if (this.running >= this.concurrency || this.queue.length === 0) return;
+    const { fn, resolve, reject } = this.queue.shift();
+    this.running += 1;
+    Promise.resolve()
+      .then(fn)
+      .then(resolve)
+      .catch(reject)
+      .finally(() => {
+        this.running -= 1;
+        this.process();
+      });
+    this.process();
+  }
+}
+
+const driveUploadQueue = new DriveUploadQueue(GDRIVE_UPLOAD_CONCURRENCY);
+
+export function queueUploadToGoogleDrive(fileName, mimeType, fileBuffer, folderPath = '') {
+  return driveUploadQueue.enqueue(() => uploadToGoogleDrive(fileName, mimeType, fileBuffer, folderPath));
 }
 
 /**

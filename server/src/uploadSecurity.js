@@ -45,6 +45,15 @@ export function safeStoredName(fileName, ext) {
     return `${Date.now()}-${crypto.randomUUID()}-${base}${ext}`;
 }
 
+export function validateBufferUpload(buffer, fileName, mimeType) {
+    if (!Buffer.isBuffer(buffer) || !buffer.length || buffer.length > MAX_UPLOAD_BYTES) throw new Error('الملف فارغ أو أكبر من الحد المسموح');
+    const ext = path.extname(String(fileName || '')).toLowerCase();
+    if (!UPLOAD_TYPES[ext]) throw new Error('امتداد الملف غير مسموح');
+    if (!UPLOAD_TYPES[ext].includes(mimeType)) throw new Error('نوع الملف لا يطابق امتداده');
+    if (!MAGIC[ext](buffer)) throw new Error('محتوى الملف لا يطابق نوعه');
+    return { buffer, mime: mimeType, ext };
+}
+
 export function isSafeUploadName(name) {
     return typeof name === 'string' && path.basename(name) === name && !name.includes('..') && /^[a-zA-Z0-9._\-\u0600-\u06FF]+$/.test(name);
 }

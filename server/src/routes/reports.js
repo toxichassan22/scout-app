@@ -2,10 +2,12 @@ import { Router } from 'express';
 import fs from 'node:fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import multer from 'multer';
+import logger from '../logger.js';
 import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
-import { uploadToGoogleDrive } from '../backup-exporter.js';
-import { MAX_UPLOAD_BYTES, safeStoredName, validateBase64Upload } from '../uploadSecurity.js';
+import { queueUploadToGoogleDrive } from '../backup-exporter.js';
+import { MAX_UPLOAD_BYTES, safeStoredName, validateBase64Upload, validateBufferUpload, UPLOAD_TYPES } from '../uploadSecurity.js';
 import { isEmergencyFrozen } from '../freeze.js';
 import { validate, zString, zId } from '../middleware/validate.js';
 import { idempotent } from '../middleware/idempotent.js';
@@ -19,6 +21,29 @@ const uploadsDir = path.join(__dirname, '../../uploads');
 
 const uploadsReady = fs.mkdir(uploadsDir, { recursive: true });
 const safeCompetitionSelect = { id: true, name: true, slug: true, type: true, description: true, isOpen: true, duration: true, createdAt: true };
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: async (req, file, cb) => {
+      try {
+        await uploadsReady;
+        cb(null, uploadsDir);
+      } catch (err) {
+        cb(err);
+      }
+    },
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase();
+      cb(null, safeStoredName(file.originalname, ext));
+    },
+  }),
+  limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 10 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (UPLOAD_TYPES[ext]) return cb(null, true);
+    cb(new Error('امتداد الملف غير مسموح'));
+  },
+});
 
 function rejectFileUrl(req, res, next) {
   if (Object.hasOwn(req.body || {}, 'fileUrl')) {
@@ -59,6 +84,75 @@ async function removeStoredFile(fileUrl) {
   if (name) await fs.unlink(path.join(uploadsDir, name)).catch(() => { });
 }
 
+async function finalizeReport(req, res, { title, content, competitionId, storedName, fileName, fileUrl }) {
+  if (!competitionId) return res.status(400).json({ error: 'competitionId مطلوب للتقارير الجديدة' });
+  const competition = await prisma.competition.findFirst({ where: { OR: [{ id: String(competitionId) }, { slug: String(competitionId) }] } });
+  if (!competition) return res.status(404).json({ error: 'المسابقة غير موجودة' });
+  const permission = await prisma.reportPermission.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } });
+  if (permission && (permission.canSubmit === false || (permission.deadline && new Date(permission.deadline) < new Date()))) return res.status(403).json({ error: 'لا تملك صلاحية إرسال التقرير حالياً' });
+
+  const validCompId = competition.id;
+  const displayName = fileName || storedName;
+
+  const existingReport = await prisma.report.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: validCompId } } });
+  let report;
+  try {
+    report = existingReport ? await prisma.report.update({ where: { id: existingReport.id }, data: { title: title || '', content: content || '', fileUrl, fileName: displayName, uploadedAt: new Date() } }) : await prisma.report.create({
+      data: { teamId: req.user.id, competitionId: validCompId, title: title || '', content: content || '', fileUrl, fileName: displayName },
+    });
+  } catch (databaseError) {
+    await removeStoredFile(fileUrl);
+    throw databaseError;
+  }
+  if (existingReport?.fileUrl && existingReport.fileUrl !== fileUrl) await removeStoredFile(existingReport.fileUrl);
+
+  // Google Drive Cloud Upload (queued with concurrency limit)
+  (async () => {
+    try {
+      const team = await prisma.team.findUnique({ where: { id: req.user.id } });
+      const teamLabel = team ? team.label : req.user.username;
+      const safeFolderName = `Team_${req.user.username}_${teamLabel.replace(/[/\\?%*:|"<>]/g, '_')}`;
+      const folderPath = `03_TEAMS_DATA/${safeFolderName}/reports`;
+
+      const diskPath = path.join(uploadsDir, storedName);
+      try {
+        const fileBuffer = await fs.readFile(diskPath);
+        const ext = path.extname(storedName).toLowerCase();
+        let mimeType = 'application/pdf';
+        if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+        else if (ext === '.png') mimeType = 'image/png';
+        else if (ext === '.mp4') mimeType = 'video/mp4';
+        else if (ext === '.zip') mimeType = 'application/zip';
+        else if (ext === '.txt') mimeType = 'text/plain';
+
+        const uploadRes = await queueUploadToGoogleDrive(storedName, mimeType, fileBuffer, folderPath);
+        req.log.info({ storedName, folderPath, result: uploadRes?.result }, 'report uploaded to Google Drive');
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+    } catch (driveErr) {
+      req.log.error({ driveErr }, 'report Google Drive upload failed');
+    }
+  })();
+
+  if (req.io) {
+    req.io.to('admin').emit('admin:report:new', { reportId: report.id });
+  }
+
+  return res.status(201).json({ success: true, report });
+}
+
+function handleUploadError(err, res, req) {
+  (req.log || logger).error({ err }, 'report upload failed');
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ success: false, error: 'حجم الملف أكبر من الحد المسموح', requestId: req.requestId, timestamp: new Date().toISOString() });
+    return res.status(400).json({ success: false, error: 'فشل في رفع الملف', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
+  const status = err.statusCode || err.status || 500;
+  const message = status < 500 ? err.message : 'فشل في رفع التقرير';
+  res.status(status).json({ success: false, error: message, requestId: req.requestId, timestamp: new Date().toISOString() });
+}
+
 // Team uploads a report (base64 file optional)
 router.get('/permissions', authenticateToken, requireRole(['team']), async (req, res) => {
   const competitions = await prisma.competition.findMany({ orderBy: { createdAt: 'asc' }, select: safeCompetitionSelect });
@@ -70,6 +164,7 @@ router.get('/permissions', authenticateToken, requireRole(['team']), async (req,
   res.json(competitions.map(c => { const p = byComp[c.id]; const report = reportByComp[c.id]; const deadlinePassed = p?.deadline && new Date(p.deadline) < now; return { competitionId: c.id, competition: c, canSubmit: Boolean(p?.canSubmit !== false && !deadlinePassed), deadline: p?.deadline || null, reopened: Boolean(p?.reopenedAt), hasReport: Boolean(report), uploadedAt: report?.uploadedAt || null }; }));
 });
 
+// Team uploads a report (base64 file optional)
 router.post('/', authenticateToken, requireRole(['team']), rejectFileUrl, validate(reportBodySchema), idempotent('report:upload'), async (req, res) => {
   try {
     const { title, content, competitionId, fileName, fileBase64 } = req.body;
@@ -81,84 +176,69 @@ router.post('/', authenticateToken, requireRole(['team']), rejectFileUrl, valida
       return res.status(400).json({ error: 'أدخل عنواناً أو محتوى أو ملفاً' });
     }
 
-    if (!competitionId) return res.status(400).json({ error: 'competitionId مطلوب للتقارير الجديدة' });
-    const competition = await prisma.competition.findFirst({ where: { OR: [{ id: String(competitionId) }, { slug: String(competitionId) }] } });
-    if (!competition) return res.status(404).json({ error: 'المسابقة غير موجودة' });
-    const permission = await prisma.reportPermission.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } });
-    if (permission && (permission.canSubmit === false || (permission.deadline && new Date(permission.deadline) < new Date()))) return res.status(403).json({ error: 'لا تملك صلاحية إرسال التقرير حالياً' });
-
-    const validCompId = competition.id;
-    let storedName = fileName || 'report.txt';
-    let fileUrl = '';
+    let storedName;
+    let fileUrl;
+    let displayName;
 
     if (fileBase64) {
-      try {
-        const validated = validateBase64Upload(fileBase64, fileName, req.body?.mimeType || req.body?.fileMime);
-        storedName = safeStoredName(fileName, validated.ext);
-        const diskPath = path.join(uploadsDir, storedName);
-        await fs.writeFile(diskPath, validated.buffer, { flag: 'wx' });
-        fileUrl = `/uploads/${storedName}`;
-      } catch (uploadError) {
-        return res.status(400).json({ error: uploadError.message });
-      }
+      const validated = validateBase64Upload(fileBase64, fileName, req.body?.mimeType || req.body?.fileMime);
+      storedName = safeStoredName(fileName, validated.ext);
+      const diskPath = path.join(uploadsDir, storedName);
+      await fs.writeFile(diskPath, validated.buffer, { flag: 'wx' });
+      fileUrl = `/uploads/${storedName}`;
+      displayName = fileName || storedName;
     } else {
-      // Text-only report saved as .txt
       storedName = safeStoredName('report.txt', '.txt');
       const body = `العنوان: ${title || ''}\n\n${content || ''}`;
       if (Buffer.byteLength(body, 'utf8') > MAX_UPLOAD_BYTES) return res.status(400).json({ error: 'حجم التقرير أكبر من الحد المسموح' });
       await fs.writeFile(path.join(uploadsDir, storedName), body, { encoding: 'utf8', flag: 'wx' });
       fileUrl = `/uploads/${storedName}`;
+      displayName = fileName || storedName;
     }
 
-    const existingReport = await prisma.report.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: validCompId } } });
-    let report;
-    try {
-      report = existingReport ? await prisma.report.update({ where: { id: existingReport.id }, data: { title: title || '', content: content || '', fileUrl, fileName: fileName || storedName, uploadedAt: new Date() } }) : await prisma.report.create({
-        data: { teamId: req.user.id, competitionId: validCompId, title: title || '', content: content || '', fileUrl, fileName: fileName || storedName },
-      });
-    } catch (databaseError) {
-      await removeStoredFile(fileUrl);
-      throw databaseError;
-    }
-    if (existingReport?.fileUrl && existingReport.fileUrl !== fileUrl) await removeStoredFile(existingReport.fileUrl);
-
-    // 🚀 Instant Google Drive Cloud Upload for Submitted Team Report
-    (async () => {
-      try {
-        const team = await prisma.team.findUnique({ where: { id: req.user.id } });
-        const teamLabel = team ? team.label : req.user.username;
-        const safeFolderName = `Team_${req.user.username}_${teamLabel.replace(/[/\\?%*:|"<>]/g, '_')}`;
-        const folderPath = `03_TEAMS_DATA/${safeFolderName}/reports`;
-
-        const diskPath = path.join(uploadsDir, storedName);
-        try {
-          const fileBuffer = await fs.readFile(diskPath);
-          const ext = path.extname(storedName).toLowerCase();
-          let mimeType = 'application/pdf';
-          if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
-          else if (ext === '.png') mimeType = 'image/png';
-          else if (ext === '.mp4') mimeType = 'video/mp4';
-          else if (ext === '.zip') mimeType = 'application/zip';
-          else if (ext === '.txt') mimeType = 'text/plain';
-
-          const uploadRes = await uploadToGoogleDrive(storedName, mimeType, fileBuffer, folderPath);
-          req.log.info({ storedName, folderPath, result: uploadRes?.result }, 'report uploaded to Google Drive');
-        } catch (error) {
-          if (error.code !== 'ENOENT') throw error;
-        }
-      } catch (driveErr) {
-        req.log.error({ driveErr }, 'report Google Drive upload failed');
-      }
-    })();
-
-    if (req.io) {
-      req.io.to('admin').emit('admin:report:new', { reportId: report.id });
-    }
-
-    res.status(201).json({ success: true, report });
+    return await finalizeReport(req, res, { title, content, competitionId, storedName, fileName: displayName, fileUrl });
   } catch (err) {
-    req.log.error({ err }, 'report upload failed');
-    res.status(err.statusCode || err.status || 500).json({ success: false, error: err.statusCode || err.status ? err.message : 'فشل في رفع التقرير', requestId: req.requestId, timestamp: new Date().toISOString() });
+    return handleUploadError(err, res, req);
+  }
+});
+
+// Team uploads a report via multipart/streaming file upload
+router.post('/upload', authenticateToken, requireRole(['team']), rejectFileUrl, idempotent('report:upload'), upload.single('file'), async (req, res) => {
+  try {
+    const { title = '', content = '', competitionId } = req.body || {};
+    const file = req.file;
+    const originalFileName = file?.originalname || req.body?.fileName || '';
+    validateReportFields({ title, content, fileName: originalFileName });
+    if (await isEmergencyFrozen()) return res.status(423).json({ error: 'تم إيقاف العمليات مؤقتاً', frozen: true });
+    await uploadsReady;
+
+    if (!title && !content && !file) {
+      return res.status(400).json({ error: 'أدخل عنواناً أو محتوى أو ملفاً' });
+    }
+
+    let storedName;
+    let fileUrl;
+    let displayName;
+
+    if (file) {
+      const buffer = await fs.readFile(file.path);
+      validateBufferUpload(buffer, file.originalname, file.mimetype);
+      storedName = file.filename;
+      fileUrl = `/uploads/${storedName}`;
+      displayName = file.originalname;
+    } else {
+      storedName = safeStoredName('report.txt', '.txt');
+      const body = `العنوان: ${title || ''}\n\n${content || ''}`;
+      if (Buffer.byteLength(body, 'utf8') > MAX_UPLOAD_BYTES) return res.status(400).json({ error: 'حجم التقرير أكبر من الحد المسموح' });
+      await fs.writeFile(path.join(uploadsDir, storedName), body, { encoding: 'utf8', flag: 'wx' });
+      fileUrl = `/uploads/${storedName}`;
+      displayName = req.body?.fileName || storedName;
+    }
+
+    return await finalizeReport(req, res, { title, content, competitionId, storedName, fileName: displayName, fileUrl });
+  } catch (err) {
+    if (req.file?.path) await fs.unlink(req.file.path).catch(() => { });
+    return handleUploadError(err, res, req);
   }
 });
 
