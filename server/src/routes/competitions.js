@@ -355,13 +355,19 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enfor
     const expectedAnswerCount = await prisma.geographyCountry.count();
     if (answers.length > expectedAnswerCount) return res.status(400).json({ error: 'Answer count exceeds competition question count' });
 
-    const session = await prisma.quizSession.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } });
     let detail = [];
     let score;
     try {
       score = await prisma.$transaction(async tx => {
         const current = await tx.score.findUnique({ where: { competitionId_teamId: { competitionId: competition.id, teamId: req.user.id } } });
         if (current) return current;
+
+        const session = await tx.quizSession.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } });
+        if (!session) throw Object.assign(new Error('يجب بدء جلسة المسابقة أولاً'), { status: 409 });
+        if (session.deviceId !== req.user.deviceId) throw Object.assign(new Error('المسابقة مقفلة على جهاز آخر'), { status: 403 });
+        if (session.isCompleted) throw Object.assign(new Error('انتهت جلسة المسابقة'), { status: 409 });
+        if (new Date() >= session.expiresAt) throw Object.assign(new Error('انتهى وقت المسابقة'), { status: 409 });
+
         const countries = await tx.geographyCountry.findMany();
         const byId = Object.fromEntries(countries.map((c) => [c.id, c]));
         let computed = 0;
@@ -375,13 +381,14 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enfor
           detail.push({ countryId: item.countryId, correct, points });
         }
         const created = await tx.score.create({
-          data: { competitionId: competition.id, teamId: req.user.id, total: computed, values: JSON.stringify({ mode: 'geography', sessionId: session ? session.id : null, detail }), judgeId: null },
+          data: { competitionId: competition.id, teamId: req.user.id, total: computed, values: JSON.stringify({ mode: 'geography', sessionId: session.id, detail }), judgeId: null },
         });
-        if (session) await tx.quizSession.update({ where: { id: session.id }, data: { isCompleted: true, completedAt: new Date() } });
+        await tx.quizSession.update({ where: { id: session.id }, data: { isCompleted: true, completedAt: new Date() } });
         await recalculateTeamStanding(req.user.id, tx);
         return created;
       });
     } catch (error) {
+      if (error.status || error.statusCode) throw error;
       if (error.code !== 'P2002') throw error;
       score = await prisma.score.findUnique({ where: { competitionId_teamId: { competitionId: competition.id, teamId: req.user.id } } });
     }
@@ -396,7 +403,9 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enfor
     });
   } catch (err) {
     req.log.error({ err }, 'failed to submit competition answers');
-    res.status(500).json({ success: false, error: 'فشل في تسجيل النتيجة', requestId: req.requestId, timestamp: new Date().toISOString() });
+    const status = err.status || err.statusCode || 500;
+    const message = status < 500 ? err.message : 'فشل في تسجيل النتيجة';
+    res.status(status).json({ success: false, error: message, requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
