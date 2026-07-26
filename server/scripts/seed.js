@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
-import prisma from './db.js';
-import { OFFICIAL_AGENDA, OFFICIAL_ZONES } from './agendaCanonical.js';
+import prisma from '../src/db.js';
+import { OFFICIAL_AGENDA, OFFICIAL_ZONES } from '../src/agendaCanonical.js';
 
 async function seed() {
   const explicitlyAllowed = process.env.ALLOW_PRODUCTION_SEED === 'I_UNDERSTAND_THIS_MODIFIES_DATA';

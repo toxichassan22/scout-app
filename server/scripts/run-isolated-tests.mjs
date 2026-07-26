@@ -92,6 +92,10 @@ try {
     ]);
 
     await run(process.execPath, [
+        path.join(scriptDirectory, 'integration-video-attempt-race.mjs')
+    ]);
+
+    await run(process.execPath, [
         path.join(scriptDirectory, 'integration-http.mjs')
     ]);
 } finally {

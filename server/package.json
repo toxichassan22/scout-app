@@ -19,7 +19,7 @@
     "test:operational": "npm run db:ready && npm run db:drift",
     "test": "node scripts/run-isolated-tests.mjs",
     "lint": "eslint --config .eslintrc.json --ext .js,.mjs src scripts",
-    "seed": "node src/seed.js"
+    "seed": "node scripts/seed.js"
   },
   "dependencies": {
     "@prisma/client": "^5.14.0",

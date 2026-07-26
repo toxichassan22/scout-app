@@ -54,6 +54,11 @@ server/prisma/*.db
 server/prisma/*.db-*
 server/prisma/*.sqlite
 server/prisma/*.sqlite-*
+server/prisma/prisma/
+server/uploads/
+
+# Local backup archives
+scout-app.zip
 
 # Runtime secrets and private key material
 config/secret_key
