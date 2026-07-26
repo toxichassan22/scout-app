@@ -103,6 +103,14 @@ try {
     ]);
 
     await run(process.execPath, [
+        path.join(scriptDirectory, 'integration-finalize-session-race.mjs')
+    ]);
+
+    await run(process.execPath, [
+        path.join(scriptDirectory, 'integration-rate-limit-race.mjs')
+    ]);
+
+    await run(process.execPath, [
         path.join(scriptDirectory, 'integration-http.mjs')
     ]);
 } finally {
