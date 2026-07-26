@@ -3,7 +3,7 @@ import { Router } from 'express';
 import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { enforceNotFrozen } from '../freeze.js';
-import { startDigitalSession } from '../quizService.js';
+import { startDigitalSession, finalizeDigitalSession } from '../quizService.js';
 import { getAnonymousLeaderboard, clearLeaderboardCache } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { normalizeArabicText } from '../textNormalization.js';
@@ -33,7 +33,7 @@ const entryCodeSchema = { params: { idOrSlug: zSlug }, body: { entryCode: zStrin
 const playSchema = { params: { idOrSlug: zSlug } };
 const submitSchema = {
   params: { idOrSlug: zSlug },
-  body: { answers: z.array(z.record(z.any())).max(MAX_SUBMISSION_ANSWERS, 'عدد الإجابات أكبر من المسموح') },
+  body: { answers: z.array(z.record(z.any())).max(MAX_SUBMISSION_ANSWERS, 'عدد الإجابات أكبر من المسموح').optional() },
 };
 const videoAttemptSchema = {
   params: { idOrSlug: zSlug },
@@ -122,7 +122,7 @@ router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforc
       });
     }
 
-    const existing = await prisma.score.findUnique({
+    let existing = await prisma.score.findUnique({
       where: {
         competitionId_teamId: {
           competitionId: competition.id,
@@ -140,19 +140,27 @@ router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforc
       });
     }
 
-    let session = null;
+    const sessionInfo = {};
     if (competition.type === 'auto_digital') {
-      session = await startDigitalSession({
+      const result = await startDigitalSession({
         teamId: req.user.id,
         competitionId: competition.id,
         deviceId: req.user.deviceId,
         entryCode,
       });
+      if (result.finalized || result.kind === 'finalized') {
+        existing = result.score;
+        sessionInfo.completed = true;
+        sessionInfo.myTotal = result.score.total;
+      } else {
+        sessionInfo.sessionId = result.session.id;
+        sessionInfo.remainingSeconds = Math.max(0, Math.floor((new Date(result.session.expiresAt) - Date.now()) / 1000));
+      }
     }
     res.json({
       ok: true,
       competition: publicCompetition(competition, existing),
-      ...(session && { sessionId: session.id, remainingSeconds: Math.max(0, Math.floor((new Date(session.expiresAt) - Date.now()) / 1000)) }),
+      ...sessionInfo,
     });
   } catch (err) {
     req.log.error({ err }, 'failed to enter competition');
@@ -180,11 +188,13 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
     }
 
     let session = null;
+    let expired = false;
     if (competition.type === 'auto_digital') {
       session = await prisma.quizSession.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } });
       if (!session) return res.status(409).json({ error: 'يجب بدء جلسة المسابقة أولاً', sessionRequired: true });
       if (session.deviceId !== req.user.deviceId) return res.status(403).json({ error: 'المسابقة مقفلة على جهاز آخر' });
-      if (session.isCompleted || new Date() >= session.expiresAt) return res.status(409).json({ error: 'انتهت جلسة المسابقة' });
+      if (session.isCompleted) return res.status(409).json({ error: 'انتهت جلسة المسابقة', completed: true });
+      expired = new Date() >= session.expiresAt;
     }
 
     const existing = await prisma.score.findUnique({
@@ -248,7 +258,11 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
     res.json({
       competition: publicCompetition(competition, existing),
       questions,
-      ...(session && { sessionId: session.id, remainingSeconds: Math.max(0, Math.floor((new Date(session.expiresAt) - Date.now()) / 1000)) }),
+      ...(session && {
+        sessionId: session.id,
+        remainingSeconds: expired ? 0 : Math.max(0, Math.floor((new Date(session.expiresAt) - Date.now()) / 1000)),
+        expired,
+      }),
     });
   } catch (err) {
     req.log.error({ err }, 'failed to load competition content');
@@ -298,11 +312,11 @@ function validateSubmissionAnswers(answers, competition) {
   return null;
 }
 
-// Submit auto-digital answers (server grades)
-router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enforceNotFrozen, idempotent('competition:submit'), validate(submitSchema), async (req, res) => {
+// Submit auto-digital answers (server grades from drafts; geography still accepts client answers)
+router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enforceNotFrozen, validate(submitSchema), idempotent('competition:submit'), async (req, res) => {
   try {
     const key = req.params.idOrSlug;
-    const { answers } = req.body;
+    const { answers } = req.body || {};
 
     const competition = await prisma.competition.findFirst({
       where: { OR: [{ id: key }, { slug: key }] },
@@ -322,69 +336,48 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enfor
       return res.status(400).json({ error: 'هذه المسابقة لا تُصحَّح تلقائياً' });
     }
 
+    // Unified path for non-geography auto-digital competitions: grade from server-side drafts.
+    if (competition.type === 'auto_digital' && competition.slug !== 'geography') {
+      const session = await prisma.quizSession.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } });
+      if (!session) return res.status(409).json({ error: 'يجب بدء جلسة المسابقة أولاً', sessionRequired: true });
+      const result = await finalizeDigitalSession(session.id, req.user.id, req.user.deviceId);
+      clearLeaderboardCache();
+      await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
+      return res.json({ success: true, total: result.totalScore, scoreId: result.score.id });
+    }
+
+    // Geography path: client submits answers in one batch (text answers are not saved as drafts).
+    if (!answers || !Array.isArray(answers) || answers.length === 0) {
+      return res.status(400).json({ error: 'الإجابات مطلوبة' });
+    }
     const answerValidationError = validateSubmissionAnswers(answers, competition);
     if (answerValidationError) return res.status(400).json({ error: answerValidationError });
-    const expectedAnswerCount = competition.slug === 'geography'
-      ? await prisma.geographyCountry.count()
-      : competition.questions.length;
+    const expectedAnswerCount = await prisma.geographyCountry.count();
     if (answers.length > expectedAnswerCount) return res.status(400).json({ error: 'Answer count exceeds competition question count' });
 
     const session = await prisma.quizSession.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } });
-    if (!session) return res.status(409).json({ error: 'يجب بدء جلسة المسابقة أولاً', sessionRequired: true });
-    if (session.deviceId !== req.user.deviceId) return res.status(403).json({ error: 'الجهاز لا يطابق جلسة المسابقة' });
-    if (session.isCompleted || new Date() >= session.expiresAt) return res.status(409).json({ error: 'انتهت جلسة المسابقة' });
-
-    const existing = await prisma.score.findUnique({
-      where: {
-        competitionId_teamId: {
-          competitionId: competition.id,
-          teamId: req.user.id,
-        },
-      },
-    });
-    if (existing) {
-      return res.status(400).json({ error: 'تم تسجيل إجابتك مسبقاً', total: existing.total });
-    }
-
-    let total = 0;
-    const detail = [];
-
-    if (competition.slug === 'geography') {
-      const countries = await prisma.geographyCountry.findMany();
-      const byId = Object.fromEntries(countries.map((c) => [c.id, c]));
-      const answerList = answers;
-
-      for (const item of answerList) {
-        const country = byId[item.countryId];
-        if (!country) continue;
-        const correct =
-          normalizeArabicText(item.answer) === normalizeArabicText(country.name);
-        const points = correct ? 10 : 0;
-        total += points;
-        detail.push({ countryId: item.countryId, correct, points });
-      }
-    } else {
-      const byId = Object.fromEntries(competition.questions.map((q) => [q.id, q]));
-      const answerList = answers;
-
-      for (const item of answerList) {
-        const q = byId[item.questionId];
-        if (!q) continue;
-        const selected = parseInt(item.selectedIndex, 10);
-        const correct = selected === q.correctOption;
-        const points = correct ? Number(q.points || 0) : 0;
-        total += points;
-        detail.push({ questionId: q.id, correct, points });
-      }
-    }
-
+    let detail = [];
     let score;
     try {
       score = await prisma.$transaction(async tx => {
         const current = await tx.score.findUnique({ where: { competitionId_teamId: { competitionId: competition.id, teamId: req.user.id } } });
         if (current) return current;
-        const created = await tx.score.create({ data: { competitionId: competition.id, teamId: req.user.id, total, values: JSON.stringify({ mode: 'auto', sessionId: session.id, detail }), judgeId: null } });
-        await tx.quizSession.update({ where: { id: session.id }, data: { isCompleted: true, completedAt: new Date() } });
+        const countries = await tx.geographyCountry.findMany();
+        const byId = Object.fromEntries(countries.map((c) => [c.id, c]));
+        let computed = 0;
+        detail = [];
+        for (const item of answers) {
+          const country = byId[item.countryId];
+          if (!country) continue;
+          const correct = normalizeArabicText(item.answer) === normalizeArabicText(country.name);
+          const points = correct ? 10 : 0;
+          computed += points;
+          detail.push({ countryId: item.countryId, correct, points });
+        }
+        const created = await tx.score.create({
+          data: { competitionId: competition.id, teamId: req.user.id, total: computed, values: JSON.stringify({ mode: 'geography', sessionId: session ? session.id : null, detail }), judgeId: null },
+        });
+        if (session) await tx.quizSession.update({ where: { id: session.id }, data: { isCompleted: true, completedAt: new Date() } });
         await recalculateTeamStanding(req.user.id, tx);
         return created;
       });

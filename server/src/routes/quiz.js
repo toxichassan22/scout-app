@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { enforceNotFrozen } from '../freeze.js';
 import { startDigitalSession, saveDigitalAnswer, finalizeDigitalSession } from '../quizService.js';
@@ -20,7 +19,11 @@ router.post('/start', ...teamOnly, validate(startSchema), async (req, res) => {
   try {
     const { competitionId, entryCode } = req.body || {};
     if (!competitionId) return res.status(400).json({ error: 'المسابقة مطلوبة' });
-    const session = await startDigitalSession({ teamId: req.user.id, competitionId, deviceId: req.user.deviceId, entryCode });
+    const result = await startDigitalSession({ teamId: req.user.id, competitionId, deviceId: req.user.deviceId, entryCode });
+    if (result.finalized || result.kind === 'finalized') {
+      return res.json({ success: true, finalized: true, completed: true, totalScore: result.score.total, scoreId: result.score.id });
+    }
+    const session = result.session;
     res.json({ sessionId: session.id, remainingSeconds: Math.max(0, Math.floor((new Date(session.expiresAt) - Date.now()) / 1000)), isCompleted: session.isCompleted, draftAnswers: Object.fromEntries(session.draftAnswers.map(a => [a.questionId, a.selectedIndex])) });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ success: false, error: error.message, requestId: req.requestId, timestamp: new Date().toISOString() });
@@ -41,13 +44,10 @@ router.post('/save-answer', ...teamOnly, validate(answerSchema), async (req, res
   }
 });
 
-router.post('/submit', ...teamOnly, idempotent('quiz:submit'), validate(submitSchema), async (req, res) => {
+router.post('/submit', ...teamOnly, validate(submitSchema), idempotent('quiz:submit'), async (req, res) => {
   try {
     const { sessionId } = req.body || {};
-    const session = await prisma.quizSession.findUnique({ where: { id: sessionId }, select: { teamId: true, deviceId: true } });
-    if (!session || session.teamId !== req.user.id) return res.status(404).json({ error: 'جلسة المسابقة غير موجودة' });
-    if (session.deviceId !== req.user.deviceId) return res.status(403).json({ error: 'الجهاز لا يطابق جلسة المسابقة' });
-    const result = await finalizeDigitalSession(sessionId);
+    const result = await finalizeDigitalSession(sessionId, req.user.id, req.user.deviceId);
     clearLeaderboardCache();
     await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
     res.json({ success: true, totalScore: result.totalScore, scoreId: result.score.id });

@@ -70,7 +70,7 @@ router.get('/permissions', authenticateToken, requireRole(['team']), async (req,
   res.json(competitions.map(c => { const p = byComp[c.id]; const report = reportByComp[c.id]; const deadlinePassed = p?.deadline && new Date(p.deadline) < now; return { competitionId: c.id, competition: c, canSubmit: Boolean(p?.canSubmit !== false && !deadlinePassed), deadline: p?.deadline || null, reopened: Boolean(p?.reopenedAt), hasReport: Boolean(report), uploadedAt: report?.uploadedAt || null }; }));
 });
 
-router.post('/', authenticateToken, requireRole(['team']), idempotent('report:upload'), rejectFileUrl, validate(reportBodySchema), async (req, res) => {
+router.post('/', authenticateToken, requireRole(['team']), rejectFileUrl, validate(reportBodySchema), idempotent('report:upload'), async (req, res) => {
   try {
     const { title, content, competitionId, fileName, fileBase64 } = req.body;
     validateReportFields({ title, content, fileName });

@@ -18,7 +18,9 @@ import reportsRoutes from './routes/reports.js';
 import competitionsRoutes from './routes/competitions.js';
 import prisma, { databaseReady } from './db.js';
 import { ensureTeamStandings } from './teamStanding.js';
-import { createCorsOptions, createMemoryRateLimiter, isProduction, requestId, securityHeaders } from './security.js';
+import { finalizeExpiredSessions } from './quizService.js';
+import { purgeIdempotencyKeys, startIdempotencyCleanup } from './middleware/idempotent.js';
+import { createCorsOptions, createMemoryRateLimiter, requestId, securityHeaders } from './security.js';
 import { authenticateSocket, canJoinRoom, startSocketRevocationMonitor } from './middleware/socketAuth.js';
 import { joinPublicRealtimeRooms } from './realtime.js';
 
@@ -27,7 +29,8 @@ const server = http.createServer(app);
 const corsOptions = createCorsOptions();
 
 app.disable('x-powered-by');
-app.set('trust proxy', isProduction ? 1 : false);
+const trustProxyValue = process.env.TRUST_PROXY ? Number(process.env.TRUST_PROXY) : false;
+app.set('trust proxy', Number.isFinite(trustProxyValue) && trustProxyValue > 0 ? trustProxyValue : false);
 app.use(requestId);
 app.use(pinoHttp({
   logger,
@@ -145,6 +148,20 @@ export async function startServer(port = PORT) {
   } catch (err) {
     logger.warn({ err }, 'failed to seed team standings on startup');
   }
+  try {
+    await purgeIdempotencyKeys();
+    startIdempotencyCleanup();
+  } catch (err) {
+    logger.warn({ err }, 'failed to start idempotency cleanup');
+  }
+  const FINALIZE_INTERVAL_MS = Number(process.env.FINALIZE_EXPIRED_SESSIONS_MS) || 30_000;
+  setInterval(async () => {
+    try {
+      await finalizeExpiredSessions();
+    } catch (err) {
+      logger.warn({ err }, 'expired session finalizer failed');
+    }
+  }, FINALIZE_INTERVAL_MS).unref?.();
   return new Promise((resolve, reject) => {
     const onError = (error) => {
       server.off('listening', onListening);

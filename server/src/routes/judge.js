@@ -157,7 +157,7 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
 });
 
 // Submit score
-router.post('/scores', enforceNotFrozen, idempotent('judge:score'), validate(scoreSchema), async (req, res) => {
+router.post('/scores', enforceNotFrozen, validate(scoreSchema), idempotent('judge:score'), async (req, res) => {
   try {
     const { competitionId, teamId, values, total } = req.body;
     const judgeId = req.user.id;

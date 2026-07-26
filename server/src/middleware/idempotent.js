@@ -1,6 +1,38 @@
 import prisma from '../db.js';
 
 const MAX_KEY_LENGTH = 64;
+const TTL_MS = Number(process.env.IDEMPOTENCY_TTL_MS) || 24 * 60 * 60 * 1000; // 24h
+const IN_PROGRESS_TTL_MS = Number(process.env.IDEMPOTENCY_IN_PROGRESS_TTL_MS) || 5 * 60 * 1000; // 5m
+
+function actorId(req) {
+  return req.user?.id || req.user?.username || req.ip || 'anonymous';
+}
+
+async function cleanupIdempotencyKeys() {
+  try {
+    const now = new Date();
+    const completedCutoff = new Date(now.getTime() - TTL_MS);
+    const inProgressCutoff = new Date(now.getTime() - IN_PROGRESS_TTL_MS);
+    await prisma.idempotencyKey.deleteMany({
+      where: {
+        OR: [
+          { status: { not: null }, createdAt: { lt: completedCutoff } },
+          { status: null, createdAt: { lt: inProgressCutoff } },
+        ],
+      },
+    });
+  } catch (err) {
+    // logged by callers if needed; cleanup must not crash the server
+  }
+}
+
+export function startIdempotencyCleanup(intervalMs = 60 * 60 * 1000) {
+  return setInterval(cleanupIdempotencyKeys, intervalMs);
+}
+
+export async function purgeIdempotencyKeys() {
+  await cleanupIdempotencyKeys();
+}
 
 export function idempotent(scope) {
   return async (req, res, next) => {
@@ -10,33 +42,53 @@ export function idempotent(scope) {
     const key = String(rawKey).trim().slice(0, MAX_KEY_LENGTH);
     if (!key) return next();
 
+    const actor = actorId(req);
+    const whereUnique = { scope_actorId_key: { scope, actorId: actor, key } };
+
     try {
-      const existing = await prisma.idempotencyKey.findUnique({ where: { key } });
-      if (existing) {
-        const { status, body } = JSON.parse(existing.response);
-        return res.status(Number(status || 200)).json(body);
-      }
+      // Race-safe create-first: the unique index serializes concurrent requests.
+      await prisma.idempotencyKey.create({
+        data: { scope, actorId: actor, key, status: null, response: null },
+      });
     } catch (err) {
-      req.log?.warn({ err, key }, 'failed to lookup idempotency key');
+      if (err.code === 'P2002') {
+        const existing = await prisma.idempotencyKey.findUnique({ where: whereUnique });
+        if (existing && existing.status != null && existing.status >= 200 && existing.status < 300) {
+          try {
+            const body = existing.response ? JSON.parse(existing.response) : {};
+            return res.status(existing.status).json(body);
+          } catch (parseErr) {
+            req.log?.warn({ parseErr, key }, 'failed to parse cached idempotency response');
+            return res.status(existing.status).json({ success: false, error: 'رد مؤقت تالف', requestId: req.requestId, timestamp: new Date().toISOString() });
+          }
+        }
+        return res.status(409).json({ error: 'طلب بنفس مفتاح التكرار قيد التنفيذ' });
+      }
+      throw err;
     }
 
-    res.locals.idempotencyKey = { key, scope, actorId: req.user?.id || req.user?.username || 'anonymous' };
+    res.locals.idempotencyKey = { key, scope, actorId: actor };
 
     const originalJson = res.json.bind(res);
-    res.json = function (body) {
+    res.json = async function (body) {
       const meta = res.locals?.idempotencyKey;
       if (meta && !meta.saved) {
         meta.saved = true;
-        prisma.idempotencyKey.create({
-          data: {
-            key: meta.key,
-            scope: meta.scope,
-            actorId: meta.actorId,
-            response: JSON.stringify({ status: res.statusCode, body }),
-          },
-        }).catch((err) => {
-          req.log?.warn({ err, key: meta.key }, 'failed to save idempotency key');
-        });
+        const status = res.statusCode;
+        try {
+          if (status >= 200 && status < 300) {
+            await prisma.idempotencyKey.update({
+              where: { scope_actorId_key: { scope: meta.scope, actorId: meta.actorId, key: meta.key } },
+              data: { status, response: JSON.stringify(body) },
+            });
+          } else {
+            await prisma.idempotencyKey.delete({
+              where: { scope_actorId_key: { scope: meta.scope, actorId: meta.actorId, key: meta.key } },
+            });
+          }
+        } catch (saveErr) {
+          req.log?.warn({ saveErr, key: meta.key }, 'failed to finalize idempotency key');
+        }
       }
       return originalJson(body);
     };

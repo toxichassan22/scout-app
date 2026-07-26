@@ -308,14 +308,16 @@ model SystemSetting {
 }
 
 model IdempotencyKey {
-  key       String   @id
+  id        String   @id @default(cuid())
   scope     String
   actorId   String
-  response  String // JSON of the first response
+  key       String
+  status    Int?     // null means in-progress; 200..299 stores a replayable response
+  response  String?  // JSON of the first response
   createdAt DateTime @default(now())
 
+  @@unique([scope, actorId, key])
   @@index([createdAt])
-  @@index([scope, actorId])
 }
 
 model TeamStanding {

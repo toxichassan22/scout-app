@@ -1,11 +1,16 @@
 -- CreateTable
 CREATE TABLE "IdempotencyKey" (
-    "key" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL PRIMARY KEY,
     "scope" TEXT NOT NULL,
     "actorId" TEXT NOT NULL,
-    "response" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "status" INTEGER,
+    "response" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "IdempotencyKey_scope_actorId_key_key" ON "IdempotencyKey"("scope", "actorId", "key");
 
 -- CreateTable
 CREATE TABLE "TeamStanding" (
