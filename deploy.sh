@@ -42,7 +42,7 @@ npm --prefix server run prisma:generate
 
 printf '%s\n' 'Ensuring SQLite schema exists and pushing database changes...'
 # دفع الـ Schema لقاعدة البيانات لإنشاء الجداول فوراً إذا كانت مفقودة
-npm --prefix server exec prisma db push -- --accept-data-loss --skip-generate
+npm --prefix server exec -- prisma db push --schema server/prisma/schema.prisma --accept-data-loss --skip-generate
 
 if [ "${APPLY_PRISMA_MIGRATIONS:-false}" = true ]; then
   printf '%s\n' 'Applying safe Prisma migrations...'
