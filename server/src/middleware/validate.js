@@ -1,6 +1,6 @@
 import { z } from 'zod/v3';
 
-function normalizeSchema(schema, part, strictBody = false) {
+function normalizeSchema(schema, part, strictBody = true) {
   if (schema && typeof schema.safeParseAsync === 'function') return schema;
   if (schema && typeof schema === 'object') {
     const obj = z.object(schema);
