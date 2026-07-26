@@ -61,6 +61,14 @@ try {
     ]);
 
     await run(process.execPath, [
+        path.join(scriptDirectory, 'unit-agendaCanonical.mjs')
+    ]);
+
+    await run(process.execPath, [
+        path.join(scriptDirectory, 'unit-quizService.mjs')
+    ]);
+
+    await run(process.execPath, [
         path.join(scriptDirectory, 'integration-permissions.mjs')
     ]);
 

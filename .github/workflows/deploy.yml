@@ -29,10 +29,10 @@ jobs:
       - name: 🔧 Generate Prisma client
         run: npm --prefix server run prisma:generate
 
-      - name: � Lint server
+      - name: 🧹 Lint server
         run: npm --prefix server run lint
 
-      - name: �🧪 Run server tests
+      - name: 🧪 Run server tests
         run: npm --prefix server test
         env:
           DATABASE_URL: file:./test.db

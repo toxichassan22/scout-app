@@ -1,0 +1,410 @@
+openapi: 3.0.3
+info:
+  title: Digital Scout Camp API
+  description: Backend API for the Digital Scout Camp festival management system.
+  version: 1.0.0
+  contact:
+    name: Digital Scout Camp Team
+servers:
+  - url: /api/v1
+    description: Versioned API
+  - url: /api
+    description: Backward-compatible alias
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [System]
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  service: { type: string }
+                  time: { type: string, format: date-time }
+  /ready:
+    get:
+      summary: Readiness check
+      tags: [System]
+      responses:
+        '200':
+          description: Ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  checks: { type: object }
+  /auth/team/login:
+    post:
+      summary: Team login
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username: { type: string }
+                password: { type: string }
+                deviceId: { type: string }
+              required: [username, password, deviceId]
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  user: { type: object }
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /auth/me:
+    get:
+      summary: Get current user
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { type: object }
+  /leaderboard:
+    get:
+      summary: Anonymous leaderboard
+      tags: [Leaderboard]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Paginated leaderboard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse'
+  /competitions:
+    get:
+      summary: List competitions
+      tags: [Competitions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Paginated competitions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse'
+  /competitions/{idOrSlug}/enter:
+    post:
+      summary: Enter a competition
+      tags: [Competitions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: idOrSlug
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entryCode: { type: string }
+      responses:
+        '200':
+          description: Competition entered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  total: { type: number }
+                  scoreId: { type: string }
+  /quiz/start:
+    post:
+      summary: Start a digital quiz session
+      tags: [Quiz]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                competitionId: { type: string, format: uuid }
+                entryCode: { type: string }
+              required: [competitionId]
+      responses:
+        '200':
+          description: Quiz session started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId: { type: string }
+                  expiresAt: { type: string, format: date-time }
+  /quiz/save-answer:
+    post:
+      summary: Save a quiz answer
+      tags: [Quiz]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionId: { type: string }
+                questionId: { type: string }
+                selectedIndex: { type: integer }
+              required: [sessionId, questionId, selectedIndex]
+      responses:
+        '200':
+          description: Answer saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isCorrect: { type: boolean }
+                  pointsEarned: { type: number }
+  /quiz/submit:
+    post:
+      summary: Finalize quiz session
+      tags: [Quiz]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionId: { type: string }
+              required: [sessionId]
+      responses:
+        '200':
+          description: Session submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  totalScore: { type: number }
+                  scoreId: { type: string }
+  /reports:
+    get:
+      summary: List my reports
+      tags: [Reports]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Reports list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object }
+    post:
+      summary: Upload a report
+      tags: [Reports]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                content: { type: string }
+                competitionId: { type: string }
+                fileName: { type: string }
+                fileBase64: { type: string }
+      responses:
+        '201':
+          description: Report uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  report: { type: object }
+  /agenda:
+    get:
+      summary: Festival agenda
+      tags: [Agenda]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Agenda items
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object }
+  /admin/teams:
+    get:
+      summary: List teams
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Paginated teams
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse'
+  /admin/scores:
+    post:
+      summary: Admin score correction
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scoreId: { type: string }
+                total: { type: number }
+                reason: { type: string }
+      responses:
+        '200':
+          description: Score updated
+  /judge/scores:
+    post:
+      summary: Judge submits score
+      tags: [Judge]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                competitionId: { type: string }
+                teamId: { type: string }
+                values: { type: object }
+                total: { type: number }
+              required: [competitionId, teamId, values, total]
+      responses:
+        '200':
+          description: Score recorded
+        '409':
+          description: Score already final
+  /news:
+    get:
+      summary: List news
+      tags: [News]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Paginated news
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    PaginatedResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data: { type: array, items: { type: object } }
+        pagination:
+          type: object
+          properties:
+            page: { type: integer }
+            limit: { type: integer }
+            total: { type: integer }
+            totalPages: { type: integer }
+        requestId: { type: string }
+        timestamp: { type: string, format: date-time }
+    ValidationError:
+      type: object
+      properties:
+        success: { type: boolean }
+        error: { type: string }
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              message: { type: string }
+              location: { type: string }
+        requestId: { type: string }
+        timestamp: { type: string, format: date-time }
+  responses:
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string }
+              forceLogout: { type: boolean }

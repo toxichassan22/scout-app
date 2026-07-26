@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import bcrypt from 'bcryptjs';
 import prisma from './db.js';
 import { OFFICIAL_AGENDA, OFFICIAL_ZONES } from './agendaCanonical.js';

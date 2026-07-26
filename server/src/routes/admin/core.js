@@ -836,7 +836,6 @@ router.post('/seed-agenda', async (req, res) => {
     zones.forEach(z => { zoneMap[z.numberLabel] = z.id; });
 
     const existing = await prisma.agendaItem.findMany();
-    const existingTitles = new Set(existing.map(e => e.title));
 
     // Clear old agenda items to re-seed with expanded list
     if (existing.length > 0) {

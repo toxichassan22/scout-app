@@ -58,7 +58,11 @@ try {
   assert.equal(start.response.status, 200, `quiz start should succeed: ${JSON.stringify(start.data)}`);
   assert.ok(start.data.sessionId, 'quiz start response should contain a sessionId');
 
-  console.log('Smoke tests passed: team login and quiz start');
+  const emptyBody = await request(base, 'POST', '/api/auth/team/login', {});
+  assert.equal(emptyBody.response.status, 400, 'empty body should return 400');
+  assert.ok(Array.isArray(emptyBody.data.details) && emptyBody.data.details.length > 0, 'validation details should be present');
+
+  console.log('Smoke tests passed: team login, quiz start, and empty body validation');
 } finally {
   await new Promise((resolve) => server.close(() => resolve()));
   await prisma.draftAnswer.deleteMany({ where: { questionId: question?.id } }).catch(() => {});

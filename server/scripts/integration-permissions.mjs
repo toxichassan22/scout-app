@@ -17,7 +17,7 @@ try {
     await prisma.judgeCompetition.create({ data: { judgeId: judge.id, competitionId: competition.id } });
     const permission = await prisma.reportPermission.create({ data: { teamId: team.id, competitionId: competition.id, canSubmit: true } });
     assert.equal(permission.canSubmit, true);
-    const report = await prisma.report.create({ data: { teamId: team.id, competitionId: competition.id, title: 'First', fileUrl: '/uploads/test.txt', fileName: 'test.txt' } });
+    await prisma.report.create({ data: { teamId: team.id, competitionId: competition.id, title: 'First', fileUrl: '/uploads/test.txt', fileName: 'test.txt' } });
     await assert.rejects(() => prisma.report.create({ data: { teamId: team.id, competitionId: competition.id, title: 'Duplicate', fileUrl: '/uploads/test2.txt', fileName: 'test2.txt' } }));
     const score = await prisma.score.create({ data: { teamId: team.id, competitionId: competition.id, judgeId: judge.id, values: '{"quality":8}', total: 8, isFinal: true } });
     await prisma.judgeScore.create({ data: { scoreId: score.id, ...ids, values: score.values, total: score.total } });
