@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import jwt from 'jsonwebtoken';
 
 const DEVELOPMENT_SECRET = 'digital_scout_camp_local_development_only_2026';
 const PLACEHOLDER_SECRETS = new Set([
@@ -81,6 +82,21 @@ export function securityHeaders(req, res, next) {
 }
 
 const stores = new Set();
+
+export function subjectId(req) {
+    if (req.user?.id) return req.user.id;
+    const auth = req.headers?.authorization;
+    if (auth) {
+        try {
+            const token = auth.replace(/^Bearer\s+/i, '');
+            const decoded = jwt.decode(token);
+            if (decoded && typeof decoded === 'object' && decoded.id) return decoded.id;
+        } catch {
+            // ignore invalid tokens; auth middleware will reject them later
+        }
+    }
+    return req.ip || req.socket?.remoteAddress || 'unknown';
+}
 
 export function createMemoryRateLimiter({ windowMs, max, keyGenerator, message = 'Too many requests; please try again later.' }) {
     const hits = new Map();

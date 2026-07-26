@@ -7,7 +7,7 @@ const router = Router();
 const adminMutationLimiter = createMemoryRateLimiter({
   windowMs: Number(process.env.MUTATION_RATE_WINDOW_MS) || 60 * 1000,
   max: Number(process.env.ADMIN_MUTATION_RATE_MAX) || 60,
-  keyGenerator: req => `${req.ip}:${req.user?.id || 'anonymous'}`,
+  keyGenerator: req => req.user?.id || 'anonymous',
   message: 'طلبات الإدارة كثيرة؛ حاول مرة أخرى لاحقاً',
 });
 

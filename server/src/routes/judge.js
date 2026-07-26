@@ -30,7 +30,7 @@ router.use(requireRole(['judge']));
 router.use(createMemoryRateLimiter({
   windowMs: Number(process.env.MUTATION_RATE_WINDOW_MS) || 60 * 1000,
   max: Number(process.env.JUDGE_MUTATION_RATE_MAX) || 30,
-  keyGenerator: req => `${req.ip}:${req.user?.id || 'anonymous'}`,
+  keyGenerator: req => req.user?.id || 'anonymous',
   message: 'طلبات التعديل كثيرة؛ حاول مرة أخرى لاحقاً',
 }));
 

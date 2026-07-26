@@ -26,7 +26,7 @@ const roleLoginSchema = {
 const loginLimiter = createMemoryRateLimiter({
   windowMs: Number(process.env.LOGIN_RATE_WINDOW_MS) || 15 * 60 * 1000,
   max: Number(process.env.LOGIN_RATE_MAX) || 20,
-  keyGenerator: req => `${req.ip}:${String(req.body?.username || '').trim().toLowerCase()}`,
+  keyGenerator: req => String(req.body?.username || '').trim().toLowerCase() || req.ip || 'unknown',
   message: 'محاولات تسجيل دخول كثيرة؛ حاول مرة أخرى لاحقاً',
 });
 router.use(['/team/login', '/judge/login', '/admin/login'], loginLimiter);

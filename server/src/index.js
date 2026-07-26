@@ -20,7 +20,7 @@ import prisma, { databaseReady } from './db.js';
 import { ensureTeamStandings } from './teamStanding.js';
 import { finalizeExpiredSessions } from './quizService.js';
 import { purgeIdempotencyKeys, startIdempotencyCleanup } from './middleware/idempotent.js';
-import { createCorsOptions, createMemoryRateLimiter, requestId, securityHeaders } from './security.js';
+import { createCorsOptions, createMemoryRateLimiter, requestId, securityHeaders, subjectId } from './security.js';
 import { authenticateSocket, canJoinRoom, startSocketRevocationMonitor } from './middleware/socketAuth.js';
 import { joinPublicRealtimeRooms } from './realtime.js';
 
@@ -56,7 +56,7 @@ const PORT = process.env.PORT || 5000;
 const apiLimiter = createMemoryRateLimiter({
   windowMs: Number(process.env.API_RATE_WINDOW_MS) || 60 * 1000,
   max: Number(process.env.API_RATE_MAX) || 120,
-  keyGenerator: (req) => req.ip || req.socket?.remoteAddress || 'unknown',
+  keyGenerator: (req) => subjectId(req),
   message: 'طلبات كثيرة؛ حاول مرة أخرى لاحقاً',
 });
 
