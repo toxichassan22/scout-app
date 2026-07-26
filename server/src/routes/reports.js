@@ -19,6 +19,13 @@ const uploadsDir = path.join(__dirname, '../../uploads');
 const uploadsReady = fs.mkdir(uploadsDir, { recursive: true });
 const safeCompetitionSelect = { id: true, name: true, slug: true, type: true, description: true, isOpen: true, duration: true, createdAt: true };
 
+function rejectFileUrl(req, res, next) {
+  if (Object.hasOwn(req.body || {}, 'fileUrl')) {
+    return res.status(400).json({ success: false, error: 'لا يمكن تعيين رابط الملف مباشرة', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
+  next();
+}
+
 const reportBodySchema = {
   body: {
     title: zString('عنوان التقرير', { max: 300 }).optional(),
@@ -62,11 +69,10 @@ router.get('/permissions', authenticateToken, requireRole(['team']), async (req,
   res.json(competitions.map(c => { const p = byComp[c.id]; const report = reportByComp[c.id]; const deadlinePassed = p?.deadline && new Date(p.deadline) < now; return { competitionId: c.id, competition: c, canSubmit: Boolean(p?.canSubmit !== false && !deadlinePassed), deadline: p?.deadline || null, reopened: Boolean(p?.reopenedAt), hasReport: Boolean(report), uploadedAt: report?.uploadedAt || null }; }));
 });
 
-router.post('/', authenticateToken, requireRole(['team']), validate(reportBodySchema, { strictBody: true }), async (req, res) => {
+router.post('/', authenticateToken, requireRole(['team']), rejectFileUrl, validate(reportBodySchema), async (req, res) => {
   try {
     const { title, content, competitionId, fileName, fileBase64 } = req.body;
     validateReportFields({ title, content, fileName });
-    if (Object.hasOwn(req.body || {}, 'fileUrl')) return res.status(400).json({ error: 'لا يمكن تعيين رابط الملف مباشرة' });
     if (await isEmergencyFrozen()) return res.status(423).json({ error: 'تم إيقاف العمليات مؤقتاً', frozen: true });
     await uploadsReady;
 
@@ -156,13 +162,12 @@ router.post('/', authenticateToken, requireRole(['team']), validate(reportBodySc
 });
 
 // Team: resubmit an existing report using the same permission checks as POST
-router.patch('/:id', authenticateToken, requireRole(['team']), validate(reportPatchSchema, { strictBody: true }), async (req, res) => {
+router.patch('/:id', authenticateToken, requireRole(['team']), rejectFileUrl, validate(reportPatchSchema), async (req, res) => {
   const existing = await prisma.report.findFirst({ where: { id: req.params.id, teamId: req.user.id } });
   if (!existing || !existing.competitionId) return res.status(404).json({ error: 'التقرير غير موجود' });
   const permission = await prisma.reportPermission.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: existing.competitionId } } });
   if (permission && (permission.canSubmit === false || (permission.deadline && new Date(permission.deadline) < new Date()))) return res.status(403).json({ error: 'إعادة الإرسال غير مسموحة حالياً' });
   const { title, content, fileName } = req.body || {};
-  if (Object.hasOwn(req.body || {}, 'fileUrl')) return res.status(400).json({ error: 'لا يمكن تعيين رابط الملف مباشرة' });
   try { validateReportFields({ title, content, fileName }); } catch (error) { return res.status(error.status).json({ error: error.message }); }
   if (await isEmergencyFrozen()) return res.status(423).json({ error: 'تم إيقاف العمليات مؤقتاً', frozen: true });
   const report = await prisma.report.update({ where: { id: existing.id }, data: { ...(title !== undefined && { title }), ...(content !== undefined && { content }), ...(fileName !== undefined && { fileName: String(fileName).slice(0, 255) }), uploadedAt: new Date() } });
