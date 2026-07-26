@@ -127,7 +127,6 @@ async function finalizeReport(req, res, { title, content, competitionId, storedN
 
       const diskPath = path.join(uploadsDir, storedName);
       try {
-        const fileBuffer = await fs.readFile(diskPath);
         const ext = path.extname(storedName).toLowerCase();
         let mimeType = 'application/pdf';
         if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
@@ -136,7 +135,7 @@ async function finalizeReport(req, res, { title, content, competitionId, storedN
         else if (ext === '.zip') mimeType = 'application/zip';
         else if (ext === '.txt') mimeType = 'text/plain';
 
-        const uploadRes = await queueUploadToGoogleDrive(storedName, mimeType, fileBuffer, folderPath);
+        const uploadRes = await queueUploadToGoogleDrive(storedName, mimeType, diskPath, folderPath);
         req.log.info({ storedName, folderPath, result: uploadRes?.result }, 'report uploaded to Google Drive');
       } catch (error) {
         if (error.code !== 'ENOENT') throw error;

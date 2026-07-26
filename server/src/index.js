@@ -20,6 +20,7 @@ import prisma, { databaseReady } from './db.js';
 import { ensureTeamStandings } from './teamStanding.js';
 import { finalizeExpiredSessions } from './quizService.js';
 import { purgeIdempotencyKeys, startIdempotencyCleanup } from './middleware/idempotent.js';
+import { startUploadWorkers } from './backup-exporter.js';
 import { createCorsOptions, createMemoryRateLimiter, requestId, securityHeaders, subjectId } from './security.js';
 import { authenticateToken } from './middleware/auth.js';
 import { authenticateSocket, canJoinRoom, startSocketRevocationMonitor } from './middleware/socketAuth.js';
@@ -169,6 +170,11 @@ export async function startServer(port = PORT) {
     idempotencyTimer = startIdempotencyCleanup();
   } catch (err) {
     logger.warn({ err }, 'failed to start idempotency cleanup');
+  }
+  try {
+    startUploadWorkers();
+  } catch (err) {
+    logger.warn({ err }, 'failed to start upload workers');
   }
   const FINALIZE_INTERVAL_MS = Number(process.env.FINALIZE_EXPIRED_SESSIONS_MS) || 30_000;
   finalizeInterval = setInterval(async () => {

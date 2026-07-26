@@ -22,9 +22,11 @@ const GDRIVE_WEBHOOK_URL = String(process.env.GDRIVE_WEBHOOK_URL || '').trim();
 const GDRIVE_BEARER = String(process.env.GDRIVE_WEBHOOK_BEARER_TOKEN || '').trim();
 const GDRIVE_SIGNING_SECRET = String(process.env.GDRIVE_WEBHOOK_SIGNING_SECRET || '').trim();
 const GDRIVE_UPLOAD_CONCURRENCY = Math.max(1, Number(process.env.GDRIVE_UPLOAD_CONCURRENCY) || 3);
+const GDRIVE_UPLOAD_MAX_RETRIES = Math.max(0, Number(process.env.GDRIVE_UPLOAD_MAX_RETRIES) || 3);
 
 /**
- * Upload a file buffer to Google Drive with structured subfolder path support
+ * Upload a file buffer to Google Drive with structured subfolder path support.
+ * The buffer is converted to base64 only for the outbound webhook request.
  */
 export async function uploadToGoogleDrive(fileName, mimeType, fileBuffer, folderPath = '') {
   if (!GDRIVE_WEBHOOK_URL) return { skipped: true, reason: 'GDRIVE_WEBHOOK_URL is not configured' };
@@ -39,44 +41,66 @@ export async function uploadToGoogleDrive(fileName, mimeType, fileBuffer, folder
     return await response.json().catch(() => ({}));
   } catch (err) {
     console.error(`[Google Drive Error] Failed to upload ${fileName}:`, err.message);
-    return null;
+    throw err;
   }
 }
 
-class DriveUploadQueue {
-  constructor(concurrency) {
-    this.concurrency = concurrency;
-    this.running = 0;
-    this.queue = [];
-  }
+let runningWorkers = 0;
 
-  enqueue(fn) {
-    return new Promise((resolve, reject) => {
-      this.queue.push({ fn, resolve, reject });
-      this.process();
+async function claimNextPendingUpload(tx) {
+  const pending = await tx.pendingUpload.findFirst({
+    where: { status: 'pending', retryCount: { lt: GDRIVE_UPLOAD_MAX_RETRIES } },
+    orderBy: { createdAt: 'asc' },
+  });
+  if (!pending) return null;
+  const updated = await tx.pendingUpload.updateMany({
+    where: { id: pending.id, status: 'pending' },
+    data: { status: 'processing' },
+  });
+  if (updated.count === 0) return null;
+  return pending;
+}
+
+async function processOneUpload() {
+  const job = await prisma.$transaction(async tx => claimNextPendingUpload(tx), { timeout: 10000 });
+  if (!job) return false;
+  try {
+    const fileBuffer = await readFile(job.filePath);
+    await uploadToGoogleDrive(job.fileName, job.mimeType, fileBuffer, job.folderPath);
+    await prisma.pendingUpload.update({ where: { id: job.id }, data: { status: 'completed' } });
+  } catch (err) {
+    console.error(`[Drive Queue] Failed to upload ${job.fileName}:`, err.message);
+    const retryCount = job.retryCount + 1;
+    await prisma.pendingUpload.update({
+      where: { id: job.id },
+      data: { status: retryCount >= GDRIVE_UPLOAD_MAX_RETRIES ? 'failed' : 'pending', retryCount },
     });
   }
+  return true;
+}
 
-  process() {
-    if (this.running >= this.concurrency || this.queue.length === 0) return;
-    const { fn, resolve, reject } = this.queue.shift();
-    this.running += 1;
-    Promise.resolve()
-      .then(fn)
-      .then(resolve)
-      .catch(reject)
-      .finally(() => {
-        this.running -= 1;
-        this.process();
-      });
-    this.process();
+async function workerLoop() {
+  while (await processOneUpload()) {
+    // continue until no pending jobs
   }
 }
 
-const driveUploadQueue = new DriveUploadQueue(GDRIVE_UPLOAD_CONCURRENCY);
+export async function startUploadWorkers() {
+  if (!GDRIVE_WEBHOOK_URL) return;
+  const toStart = GDRIVE_UPLOAD_CONCURRENCY - runningWorkers;
+  if (toStart <= 0) return;
+  runningWorkers += toStart;
+  for (let i = 0; i < toStart; i += 1) {
+    workerLoop().finally(() => { runningWorkers -= 1; });
+  }
+}
 
-export function queueUploadToGoogleDrive(fileName, mimeType, fileBuffer, folderPath = '') {
-  return driveUploadQueue.enqueue(() => uploadToGoogleDrive(fileName, mimeType, fileBuffer, folderPath));
+export async function queueUploadToGoogleDrive(fileName, mimeType, filePath, folderPath = '') {
+  if (!GDRIVE_WEBHOOK_URL) return { skipped: true, reason: 'GDRIVE_WEBHOOK_URL is not configured' };
+  await prisma.pendingUpload.create({
+    data: { fileName, filePath, mimeType, folderPath, status: 'pending', retryCount: 0 },
+  });
+  startUploadWorkers();
 }
 
 /**
