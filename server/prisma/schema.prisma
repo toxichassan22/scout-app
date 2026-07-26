@@ -364,10 +364,10 @@ model PendingUpload {
   folderPath    String
   status        String    @default("pending")
   retryCount    Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
   leasedUntil   DateTime?
   nextAttemptAt DateTime  @default(now())
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
 
   @@index([status, leasedUntil])
   @@index([status, nextAttemptAt])
