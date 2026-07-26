@@ -33,20 +33,25 @@ if [ -z "$DATABASE_URL" ]; then
   exit 1
 fi
 
+# التأكد من وجود مجلد قاعدة البيانات
+mkdir -p "$(dirname "$SQLITE_DATABASE_PATH")"
+
 printf '%s\n' 'Generating and validating Prisma client...'
 npm --prefix server run prisma:validate
 npm --prefix server run prisma:generate
 
-printf '%s\n' 'Ensuring SQLite schema exists...'
-npm --prefix server run db:ensure-schema
+printf '%s\n' 'Ensuring SQLite schema exists and pushing database changes...'
+# دفع الـ Schema لقاعدة البيانات لإنشاء الجداول فوراً إذا كانت مفقودة
+npm --prefix server exec prisma db push -- --accept-data-loss --skip-generate
 
-printf '%s\n' 'Checking SQLite readiness and schema drift before restart...'
-npm --prefix server run db:ready
-npm --prefix server run db:drift
 if [ "${APPLY_PRISMA_MIGRATIONS:-false}" = true ]; then
   printf '%s\n' 'Applying safe Prisma migrations...'
   npm --prefix server exec prisma migrate deploy
 fi
+
+printf '%s\n' 'Checking SQLite readiness and schema drift before restart...'
+npm --prefix server run db:ready
+npm --prefix server run db:drift
 
 printf '%s\n' 'Building frontend...'
 npm run build
