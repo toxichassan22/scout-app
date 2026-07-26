@@ -12,7 +12,7 @@ const loginSchema = {
   body: {
     username: zString('اسم المستخدم', { min: 1, max: 80 }),
     password: zString('كلمة السر', { min: 1, max: 256 }),
-    deviceId: zString('معرف الجهاز', { min: 16, max: 200 }).optional(),
+    deviceId: zString('معرف الجهاز', { max: 200 }).optional(),
     userAgent: zString('وكيل المستخدم', { max: 500 }).optional(),
   },
 };
@@ -37,22 +37,42 @@ const signToken = (claims) => jwt.sign(claims, JWT_SECRET, { algorithm: 'HS256',
 router.post('/team/login', validate(loginSchema), async (req, res) => {
   try {
     const { username, password } = req.body;
-    const deviceId = (req.body.deviceId || req.headers['x-device-id'] || '').trim();
+    const rawDeviceId = req.body.deviceId || req.headers['x-device-id'];
+    const deviceId = typeof rawDeviceId === 'string' ? rawDeviceId.trim() : '';
+    if (!deviceId) return res.status(400).json({ error: 'معرف الجهاز مطلوب' });
     const userAgent = String(req.body.userAgent || req.headers['user-agent'] || 'Unknown Device').slice(0, 500);
     const team = await prisma.team.findUnique({ where: { username }, select: { ...accountSelect, label: true, maxDevices: true } });
     if (!team || !(await bcrypt.compare(password, team.passwordHash))) return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
 
     let created = false;
+    const evictedDevices = [];
     const device = await prisma.$transaction(async tx => {
       const current = await tx.teamDevice.findUnique({ where: { teamId_deviceId: { teamId: team.id, deviceId } } });
       if (current?.revokedAt) throw Object.assign(new Error('revoked'), { status: 401 });
       if (current) return tx.teamDevice.update({ where: { id: current.id }, data: { lastLoginAt: new Date(), userAgent } });
-      const count = await tx.teamDevice.count({ where: { teamId: team.id, revokedAt: null } });
+      let count = await tx.teamDevice.count({ where: { teamId: team.id, revokedAt: null } });
+      if (count >= team.maxDevices) {
+        const toEvict = count - team.maxDevices + 1;
+        const oldest = await tx.teamDevice.findMany({
+          where: { teamId: team.id, revokedAt: null },
+          orderBy: { lastLoginAt: 'asc' },
+          take: toEvict,
+        });
+        for (const d of oldest) {
+          await tx.teamDevice.update({ where: { id: d.id }, data: { revokedAt: new Date(), tokenVersion: { increment: 1 } } });
+          evictedDevices.push({ deviceId: d.id, fingerprint: d.deviceId, teamId: d.teamId });
+        }
+        count -= evictedDevices.length;
+      }
       if (count >= team.maxDevices) throw Object.assign(new Error('limit'), { status: 403 });
       created = true;
       return tx.teamDevice.create({ data: { teamId: team.id, deviceId, userAgent } });
     });
 
+    if (req.io && evictedDevices.length > 0) {
+      const teamRoom = req.io.to(`team:${team.id}`);
+      for (const d of evictedDevices) teamRoom.emit('device:revoked', d);
+    }
     if (created) req.io?.emit('device:registered', { teamId: team.id, username: team.username });
     const token = signToken({ id: team.id, username: team.username, role: 'team', label: team.label, deviceId, deviceVersion: device.tokenVersion, authVersion: team.authVersion });
     res.json({ token, user: { id: team.id, username: team.username, role: 'team', label: team.label } });
