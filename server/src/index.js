@@ -88,6 +88,8 @@ const READY_CACHE_MS = 5000;
 function requireReadinessToken(req, res, next) {
   const expected = String(process.env.READINESS_TOKEN || '').trim();
   if (!expected) return next(); // bypass in dev if not configured
+  // WARNING: when READINESS_TOKEN is set, health probes must include the
+  // x-readiness-token header or call /api/health instead, otherwise they will 403.
   const provided = req.headers['x-readiness-token'];
   if (typeof provided !== 'string' || provided.length !== expected.length) {
     return res.status(403).json({ error: 'Forbidden' });

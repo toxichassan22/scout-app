@@ -54,20 +54,21 @@ function backoffMs(retryCount) {
 
 async function claimNextPendingUpload(tx) {
   const now = new Date();
+  const claimableWhere = {
+    retryCount: { lt: GDRIVE_UPLOAD_MAX_RETRIES },
+    nextAttemptAt: { lte: now },
+    OR: [
+      { status: 'pending' },
+      { status: 'processing', leasedUntil: { lt: now } },
+    ],
+  };
   const pending = await tx.pendingUpload.findFirst({
-    where: {
-      retryCount: { lt: GDRIVE_UPLOAD_MAX_RETRIES },
-      nextAttemptAt: { lte: now },
-      OR: [
-        { status: 'pending' },
-        { status: 'processing', leasedUntil: { lt: now } },
-      ],
-    },
+    where: claimableWhere,
     orderBy: { createdAt: 'asc' },
   });
   if (!pending) return null;
   const updated = await tx.pendingUpload.updateMany({
-    where: { id: pending.id, status: { in: ['pending', 'processing'] } },
+    where: { AND: [{ id: pending.id }, claimableWhere] },
     data: { status: 'processing', leasedUntil: new Date(Date.now() + LEASE_MS) },
   });
   if (updated.count === 0) return null;
@@ -81,18 +82,18 @@ async function processOneUpload() {
     const fileBuffer = await readFile(job.filePath);
     await uploadToGoogleDrive(job.fileName, job.mimeType, fileBuffer, job.folderPath);
     await prisma.pendingUpload.update({ where: { id: job.id }, data: { status: 'completed' } });
-    await unlink(job.filePath);
   } catch (err) {
     console.error(`[Drive Queue] Failed to upload ${job.fileName}:`, err.message);
     const retryCount = job.retryCount + 1;
     const failed = retryCount >= GDRIVE_UPLOAD_MAX_RETRIES;
+    const nextAttemptAt = failed ? new Date('2099-12-31T00:00:00.000Z') : new Date(Date.now() + backoffMs(retryCount));
     await prisma.pendingUpload.update({
       where: { id: job.id },
       data: {
         status: failed ? 'failed' : 'pending',
         retryCount,
         leasedUntil: null,
-        nextAttemptAt: failed ? null : new Date(Date.now() + backoffMs(retryCount)),
+        nextAttemptAt,
       },
     });
   }
@@ -100,8 +101,12 @@ async function processOneUpload() {
 }
 
 async function workerLoop() {
-  while (await processOneUpload()) {
-    // continue until no pending jobs
+  try {
+    while (await processOneUpload()) {
+      // continue until no pending jobs
+    }
+  } catch (err) {
+    console.error('[Drive Queue] worker loop crashed:', err.message);
   }
 }
 
