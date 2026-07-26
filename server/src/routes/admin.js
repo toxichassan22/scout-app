@@ -8,6 +8,7 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { getAnonymousLeaderboard } from './leaderboard.js';
 import { generateFullBackup, deleteFromGoogleDrive } from '../backup-exporter.js';
 import { createMemoryRateLimiter } from '../security.js';
+import { boundedString, strongPassword } from '../validation.js';
 
 const adminMutationLimiter = createMemoryRateLimiter({
   windowMs: Number(process.env.MUTATION_RATE_WINDOW_MS) || 60 * 1000,
@@ -25,15 +26,15 @@ router.use((req, res, next) => {
   return adminMutationLimiter(req, res, next);
 });
 
+const safeTeamSelect = { id: true, username: true, label: true, maxDevices: true, authVersion: true, createdAt: true };
+const safeJudgeSelect = { id: true, name: true, username: true, authVersion: true, createdAt: true };
+const safeCompetitionSelect = { id: true, name: true, slug: true, type: true, description: true, isOpen: true, passcode: true, entryCode: true, duration: true, criteria: true, createdAt: true };
+
 // Full Leaderboard (with internal team labels)
 router.get('/leaderboard', async (req, res) => {
   try {
     const teams = await prisma.team.findMany({
-      include: {
-        scores: {
-          include: { competition: true }
-        }
-      }
+      select: { ...safeTeamSelect, scores: { include: { competition: true } } }
     });
 
     const leaderboard = teams.map(team => {
@@ -62,15 +63,11 @@ router.get('/teams', async (req, res) => {
     try {
       teams = await prisma.team.findMany({
         orderBy: { createdAt: 'desc' },
-        include: {
-          _count: { select: { members: true, devices: true } }
-        }
+        select: { ...safeTeamSelect, _count: { select: { members: true, devices: true } } }
       });
     } catch (countErr) {
       console.warn('[Admin Teams] Member count relation failed, falling back:', countErr.message);
-      teams = await prisma.team.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
+      teams = await prisma.team.findMany({ orderBy: { createdAt: 'desc' }, select: safeTeamSelect });
       teams = teams.map(t => ({ ...t, _count: { members: 0, devices: 0 } }));
     }
     res.json(teams);
@@ -104,16 +101,15 @@ router.get('/teams/:teamId/members', async (req, res) => {
 router.post('/teams/:teamId/members', async (req, res) => {
   try {
     const { teamId } = req.params;
-    const { name, role } = req.body;
-    if (!name) {
-      return res.status(400).json({ error: 'اسم العضو مطلوب' });
-    }
+    const { name, role } = req.body || {};
+    const cleanName = boundedString(name, 'name', { min: 1, max: 120 });
+    const cleanRole = role === undefined ? 'عضو' : boundedString(role, 'role', { min: 1, max: 80 });
 
     const member = await prisma.teamMember.create({
       data: {
         teamId,
-        name: name.trim(),
-        role: role ? role.trim() : 'عضو'
+        name: cleanName,
+        role: cleanRole
       }
     });
 
@@ -186,7 +182,7 @@ router.patch('/teams/:teamId/device-limit', async (req, res) => {
     if (!Number.isInteger(maxDevices) || maxDevices < 1 || maxDevices > 1000) {
       return res.status(400).json({ error: 'حد الأجهزة يجب أن يكون رقماً صحيحاً بين 1 و1000' });
     }
-    const team = await prisma.team.update({ where: { id: req.params.teamId }, data: { maxDevices } });
+    const team = await prisma.team.update({ where: { id: req.params.teamId }, data: { maxDevices }, select: safeTeamSelect });
     res.json({ success: true, team });
   } catch (err) {
     res.status(500).json({ error: 'فشل في تحديث حد الأجهزة' });
@@ -197,11 +193,11 @@ router.patch('/teams/:id', async (req, res) => {
   try {
     const { username, label, password, maxDevices } = req.body || {};
     const data = {};
-    if (username !== undefined) data.username = String(username).trim();
-    if (label !== undefined) data.label = String(label).trim();
+    if (username !== undefined) data.username = boundedString(username, 'username', { min: 1, max: 80 });
+    if (label !== undefined) data.label = boundedString(label, 'label', { min: 1, max: 160 });
     if (password !== undefined) {
-      if (String(password).length < 12) return res.status(400).json({ error: 'كلمة السر يجب ألا تقل عن 12 حرفاً' });
-      data.passwordHash = await bcrypt.hash(String(password), 12);
+      const cleanPassword = strongPassword(password);
+      data.passwordHash = await bcrypt.hash(cleanPassword, 12);
       data.authVersion = { increment: 1 };
     }
     if (maxDevices !== undefined) {
@@ -209,7 +205,7 @@ router.patch('/teams/:id', async (req, res) => {
       if (!Number.isInteger(n) || n < 1 || n > 1000) return res.status(400).json({ error: 'حد الأجهزة غير صالح' });
       data.maxDevices = n;
     }
-    const team = await prisma.team.update({ where: { id: req.params.id }, data });
+    const team = await prisma.team.update({ where: { id: req.params.id }, data, select: safeTeamSelect });
     res.json(team);
   } catch (err) {
     res.status(400).json({ error: 'فشل في تحديث الفريق' });
@@ -218,15 +214,13 @@ router.patch('/teams/:id', async (req, res) => {
 
 router.post('/teams', async (req, res) => {
   try {
-    const { username, password, label } = req.body;
-    if (!username || !password || !label) {
-      return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
-    }
+    const { username, password, label } = req.body || {};
+    const cleanUsername = boundedString(username, 'username', { min: 1, max: 80 });
+    const cleanLabel = boundedString(label, 'label', { min: 1, max: 160 });
+    const cleanPassword = strongPassword(password);
 
-    const passwordHash = await bcrypt.hash(password, 10);
-    const team = await prisma.team.create({
-      data: { username, passwordHash, label }
-    });
+    const passwordHash = await bcrypt.hash(cleanPassword, 12);
+    const team = await prisma.team.create({ data: { username: cleanUsername, passwordHash, label: cleanLabel }, select: safeTeamSelect });
 
     if (req.io) {
       req.io.emit('team:created', { teamId: team.id, username: team.username });
@@ -241,23 +235,22 @@ router.post('/teams', async (req, res) => {
 
 router.post('/teams/import', async (req, res) => {
   try {
-    const { teams } = req.body; // Array of { username, password, label }
-    if (!Array.isArray(teams) || teams.length === 0) {
-      return res.status(400).json({ error: 'قائمة الفرق غير صالحة' });
+    const { teams } = req.body || {}; // Array of { username, password, label }
+    if (!Array.isArray(teams) || teams.length === 0 || teams.length > 500) {
+      return res.status(400).json({ error: 'قائمة الفرق غير صالحة أو أكبر من الحد المسموح' });
     }
 
     const created = [];
     for (const item of teams) {
-      if (item.username && item.password && item.label) {
-        const passwordHash = await bcrypt.hash(item.password, 10);
-        try {
-          const t = await prisma.team.create({
-            data: { username: item.username, passwordHash, label: item.label }
-          });
-          created.push(t);
-        } catch (e) {
-          // ignore duplicates in batch
-        }
+      try {
+        const username = boundedString(item?.username, 'username', { min: 1, max: 80 });
+        const label = boundedString(item?.label, 'label', { min: 1, max: 160 });
+        const password = strongPassword(item?.password);
+        const passwordHash = await bcrypt.hash(password, 12);
+        const team = await prisma.team.create({ data: { username, passwordHash, label }, select: safeTeamSelect });
+        created.push(team);
+      } catch (error) {
+        if (error.code !== 'P2002') throw error;
       }
     }
 
@@ -314,10 +307,10 @@ router.get('/judges', async (req, res) => {
   try {
     let judges = [];
     try {
-      judges = await prisma.judge.findMany({ orderBy: { createdAt: 'desc' } });
+      judges = await prisma.judge.findMany({ orderBy: { createdAt: 'desc' }, select: safeJudgeSelect });
     } catch (jErr) {
       console.warn('[Admin Judges] Query failed, falling back:', jErr.message);
-      judges = await prisma.judge.findMany();
+      judges = await prisma.judge.findMany({ select: safeJudgeSelect });
     }
     res.json(judges);
   } catch (err) {
@@ -328,15 +321,13 @@ router.get('/judges', async (req, res) => {
 
 router.post('/judges', async (req, res) => {
   try {
-    const { name, username, password } = req.body;
-    if (!name || !username || !password) {
-      return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
-    }
+    const { name, username, password } = req.body || {};
+    const cleanName = boundedString(name, 'name', { min: 1, max: 120 });
+    const cleanUsername = boundedString(username, 'username', { min: 1, max: 80 });
+    const cleanPassword = strongPassword(password);
 
-    const passwordHash = await bcrypt.hash(password, 10);
-    const judge = await prisma.judge.create({
-      data: { name, username, passwordHash }
-    });
+    const passwordHash = await bcrypt.hash(cleanPassword, 12);
+    const judge = await prisma.judge.create({ data: { name: cleanName, username: cleanUsername, passwordHash }, select: safeJudgeSelect });
 
     res.status(201).json(judge);
   } catch (err) {
@@ -367,11 +358,16 @@ router.get('/competitions', async (req, res) => {
 
 router.post('/competitions', async (req, res) => {
   try {
-    const { name, type, criteria } = req.body;
+    const { name, slug, type, criteria } = req.body || {};
+    const cleanName = boundedString(name, 'name', { min: 1, max: 200 });
+    const cleanSlug = boundedString(slug, 'slug', { min: 1, max: 100 });
+    const cleanType = type === undefined ? 'auto_digital' : String(type);
+    if (!['auto_digital', 'manual_judged'].includes(cleanType)) return res.status(400).json({ error: 'نوع المسابقة غير صالح' });
     const comp = await prisma.competition.create({
       data: {
-        name,
-        type: type || 'auto_digital',
+        name: cleanName,
+        slug: cleanSlug,
+        type: cleanType,
         criteria: typeof criteria === 'string' ? criteria : JSON.stringify(criteria || [])
       }
     });
@@ -611,7 +607,7 @@ router.get('/reports', async (req, res) => {
     let reports = [];
     try {
       reports = await prisma.report.findMany({
-        include: { team: true, competition: true },
+        include: { team: { select: safeTeamSelect }, competition: { select: safeCompetitionSelect } },
         orderBy: { uploadedAt: 'desc' }
       });
     } catch (rErr) {
@@ -630,7 +626,7 @@ router.delete('/reports/:id', async (req, res) => {
     const reportId = req.params.id;
     const report = await prisma.report.findUnique({
       where: { id: reportId },
-      include: { team: true }
+      include: { team: { select: safeTeamSelect } }
     });
 
     if (report) {
@@ -842,7 +838,7 @@ router.post('/seed-agenda', async (req, res) => {
 
 // Report permission administration
 router.get('/report-permissions', async (req, res) => {
-  const rows = await prisma.reportPermission.findMany({ include: { team: true, competition: true }, orderBy: { updatedAt: 'desc' } });
+  const rows = await prisma.reportPermission.findMany({ include: { team: { select: safeTeamSelect }, competition: { select: safeCompetitionSelect } }, orderBy: { updatedAt: 'desc' } });
   res.json(rows);
 });
 router.patch('/report-permissions/:teamId/:competitionId', async (req, res) => {
@@ -859,7 +855,7 @@ router.patch('/report-permissions/:teamId/:competitionId', async (req, res) => {
 
 // Judge assignments
 router.get('/judges/:judgeId/assignments', async (req, res) => res.json(await prisma.judgeCompetition.findMany({ where: { judgeId: req.params.judgeId }, include: { competition: true } })));
-router.get('/scores/breakdown', async (req, res) => res.json(await prisma.score.findMany({ include: { team: true, competition: true, judgeScores: { include: { judge: { select: { id: true, name: true, username: true } } } }, audits: { orderBy: { createdAt: 'asc' } } } })));
+router.get('/scores/breakdown', async (req, res) => res.json(await prisma.score.findMany({ include: { team: { select: safeTeamSelect }, competition: { select: safeCompetitionSelect }, judgeScores: { include: { judge: { select: { id: true, name: true, username: true } } } }, audits: { orderBy: { createdAt: 'asc' } } } })));
 router.post('/judges/:judgeId/assignments', async (req, res) => {
   const competitionId = req.body.competitionId;
   if (!competitionId) return res.status(400).json({ error: 'competitionId مطلوب' });
@@ -870,7 +866,7 @@ router.patch('/judges/:id', async (req, res) => {
   const { name, username, password } = req.body || {}; const data = {};
   if (name !== undefined) data.name = String(name).trim(); if (username !== undefined) data.username = String(username).trim();
   if (password !== undefined) { if (String(password).length < 12) return res.status(400).json({ error: 'كلمة السر يجب ألا تقل عن 12 حرفاً' }); data.passwordHash = await bcrypt.hash(String(password), 12); data.authVersion = { increment: 1 }; }
-  res.json(await prisma.judge.update({ where: { id: req.params.id }, data }));
+  res.json(await prisma.judge.update({ where: { id: req.params.id }, data, select: safeJudgeSelect }));
 });
 
 // Score finalization controls

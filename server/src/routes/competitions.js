@@ -1,6 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
+import { enforceNotFrozen } from '../freeze.js';
+import { startDigitalSession } from '../quizService.js';
 import { getAnonymousLeaderboard } from './leaderboard.js';
 
 const router = Router();
@@ -62,7 +65,7 @@ router.get('/', authenticateToken, requireRole(['team', 'admin']), async (req, r
 });
 
 // Unlock / enter competition (optional entry code)
-router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), async (req, res) => {
+router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforceNotFrozen, async (req, res) => {
   try {
     const key = req.params.idOrSlug;
     const { entryCode } = req.body || {};
@@ -80,6 +83,13 @@ router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), async 
 
     if (competition.entryCode && competition.entryCode !== String(entryCode || '').trim()) {
       return res.status(403).json({ error: 'كود الدخول غير صحيح' });
+    }
+    if (competition.entryCode) {
+      await prisma.competitionAccess.upsert({
+        where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } },
+        create: { teamId: req.user.id, competitionId: competition.id },
+        update: { grantedAt: new Date() },
+      });
     }
 
     const existing = await prisma.score.findUnique({
@@ -100,9 +110,19 @@ router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), async 
       });
     }
 
+    let session = null;
+    if (competition.type === 'auto_digital') {
+      session = await startDigitalSession({
+        teamId: req.user.id,
+        competitionId: competition.id,
+        deviceId: req.user.deviceId,
+        entryCode,
+      });
+    }
     res.json({
       ok: true,
       competition: publicCompetition(competition, existing),
+      ...(session && { sessionId: session.id, remainingSeconds: Math.max(0, Math.floor((new Date(session.expiresAt) - Date.now()) / 1000)) }),
     });
   } catch (err) {
     console.error(err);
@@ -127,6 +147,14 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), async (r
     }
     if (competition.entryCode && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) {
       return res.status(403).json({ error: 'يجب إدخال كود المسابقة أولاً' });
+    }
+
+    let session = null;
+    if (competition.type === 'auto_digital') {
+      session = await prisma.quizSession.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } });
+      if (!session) return res.status(409).json({ error: 'يجب بدء جلسة المسابقة أولاً', sessionRequired: true });
+      if (session.deviceId !== req.user.deviceId) return res.status(403).json({ error: 'المسابقة مقفلة على جهاز آخر' });
+      if (session.isCompleted || new Date() >= session.expiresAt) return res.status(409).json({ error: 'انتهت جلسة المسابقة' });
     }
 
     const existing = await prisma.score.findUnique({
@@ -190,6 +218,7 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), async (r
     res.json({
       competition: publicCompetition(competition, existing),
       questions,
+      ...(session && { sessionId: session.id, remainingSeconds: Math.max(0, Math.floor((new Date(session.expiresAt) - Date.now()) / 1000)) }),
     });
   } catch (err) {
     console.error(err);
@@ -226,7 +255,7 @@ async function emitLeaderboard(req) {
 }
 
 // Submit auto-digital answers (server grades)
-router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), async (req, res) => {
+router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enforceNotFrozen, async (req, res) => {
   try {
     const key = req.params.idOrSlug;
     const { answers } = req.body || {};
@@ -248,6 +277,11 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), async
     if (competition.type !== 'auto_digital' && competition.slug !== 'geography') {
       return res.status(400).json({ error: 'هذه المسابقة لا تُصحَّح تلقائياً' });
     }
+
+    const session = await prisma.quizSession.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } });
+    if (!session) return res.status(409).json({ error: 'يجب بدء جلسة المسابقة أولاً', sessionRequired: true });
+    if (session.deviceId !== req.user.deviceId) return res.status(403).json({ error: 'الجهاز لا يطابق جلسة المسابقة' });
+    if (session.isCompleted || new Date() >= session.expiresAt) return res.status(409).json({ error: 'انتهت جلسة المسابقة' });
 
     const existing = await prisma.score.findUnique({
       where: {
@@ -293,18 +327,19 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), async
       }
     }
 
-    const score = await prisma.$transaction(async tx => {
-      const current = await tx.score.findUnique({ where: { competitionId_teamId: { competitionId: competition.id, teamId: req.user.id } } });
-      if (current) return current;
-      return tx.score.create({ data: { competitionId: competition.id, teamId: req.user.id, total, values: JSON.stringify({ mode: 'auto', detail }), judgeId: null } });
-    });
-    /* const score = await upsertScore({
-      competitionId: competition.id,
-      teamId: req.user.id,
-      total,
-      values: { mode: 'auto', detail },
-      judgeId: null,
-    }); */
+    let score;
+    try {
+      score = await prisma.$transaction(async tx => {
+        const current = await tx.score.findUnique({ where: { competitionId_teamId: { competitionId: competition.id, teamId: req.user.id } } });
+        if (current) return current;
+        const created = await tx.score.create({ data: { competitionId: competition.id, teamId: req.user.id, total, values: JSON.stringify({ mode: 'auto', sessionId: session.id, detail }), judgeId: null } });
+        await tx.quizSession.update({ where: { id: session.id }, data: { isCompleted: true, completedAt: new Date() } });
+        return created;
+      });
+    } catch (error) {
+      if (error.code !== 'P2002') throw error;
+      score = await prisma.score.findUnique({ where: { competitionId_teamId: { competitionId: competition.id, teamId: req.user.id } } });
+    }
 
     await emitLeaderboard(req);
 
@@ -320,7 +355,7 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), async
 });
 
 // Video attempt (max 3) — score stays 0 until judged
-router.post('/:idOrSlug/video-attempt', authenticateToken, requireRole(['team']), async (req, res) => {
+router.post('/:idOrSlug/video-attempt', authenticateToken, requireRole(['team']), enforceNotFrozen, async (req, res) => {
   try {
     const key = req.params.idOrSlug;
     const { prompt, videoUrl } = req.body || {};
@@ -335,9 +370,10 @@ router.post('/:idOrSlug/video-attempt', authenticateToken, requireRole(['team'])
     if (!competition.isOpen) {
       return res.status(400).json({ error: 'المسابقة مغلقة حالياً' });
     }
-    if (!prompt || !String(prompt).trim()) {
-      return res.status(400).json({ error: 'البرومبت مطلوب' });
-    }
+    const cleanPrompt = typeof prompt === 'string' ? prompt.trim() : '';
+    if (!cleanPrompt || cleanPrompt.length > 4000) return res.status(400).json({ error: 'البرومبت غير صالح' });
+    if (videoUrl !== undefined && videoUrl !== null && !isAllowedVideoUrl(videoUrl)) return res.status(400).json({ error: 'رابط الفيديو غير صالح' });
+    if (competition.entryCode && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) return res.status(403).json({ error: 'يجب إدخال كود المسابقة أولاً' });
 
     const existing = await prisma.score.findUnique({
       where: {
@@ -356,8 +392,8 @@ router.post('/:idOrSlug/video-attempt', authenticateToken, requireRole(['team'])
     }
 
     attempts.push({
-      id: crypto.randomUUID(),
-      prompt: String(prompt).trim(),
+      id: randomUUID(),
+      prompt: cleanPrompt,
       videoUrl: videoUrl || null,
       videoStatus: videoUrl ? 'generated' : 'pending',
       at: new Date().toISOString(),
@@ -384,7 +420,7 @@ router.post('/:idOrSlug/video-attempt', authenticateToken, requireRole(['team'])
 });
 
 // Update video URL on an attempt
-router.patch('/:idOrSlug/video-attempt/:attemptId', authenticateToken, requireRole(['team']), async (req, res) => {
+router.patch('/:idOrSlug/video-attempt/:attemptId', authenticateToken, requireRole(['team']), enforceNotFrozen, async (req, res) => {
   try {
     const key = req.params.idOrSlug;
     const { attemptId } = req.params;
@@ -396,6 +432,10 @@ router.patch('/:idOrSlug/video-attempt/:attemptId', authenticateToken, requireRo
     if (!competition || !isVideoCompetition(competition)) {
       return res.status(404).json({ error: 'مسابقة الفيديو غير موجودة' });
     }
+
+    if (!competition.isOpen) return res.status(400).json({ error: 'المسابقة مغلقة حالياً' });
+    if (!isAllowedVideoUrl(videoUrl)) return res.status(400).json({ error: 'رابط الفيديو غير صالح' });
+    if (competition.entryCode && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) return res.status(403).json({ error: 'يجب إدخال كود المسابقة أولاً' });
 
     const existing = await prisma.score.findUnique({
       where: {
@@ -436,5 +476,15 @@ router.patch('/:idOrSlug/video-attempt/:attemptId', authenticateToken, requireRo
     res.status(500).json({ error: 'فشل تحديث الفيديو' });
   }
 });
+
+function isAllowedVideoUrl(value) {
+  if (typeof value !== 'string' || value.length > 2048) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || (process.env.NODE_ENV !== 'production' && url.protocol === 'http:');
+  } catch {
+    return false;
+  }
+}
 
 export default router;

@@ -14,7 +14,7 @@
     "db:ready": "node scripts/sqlite-readiness.mjs",
     "db:backup": "node scripts/sqlite-backup.mjs",
     "db:drift": "node scripts/prisma-drift-check.mjs",
-    "test:integration": "node scripts/integration-permissions.mjs && node scripts/integration-security.mjs",
+    "test:integration": "node scripts/run-isolated-tests.mjs",
     "test:health": "node scripts/health-check.mjs",
     "test:operational": "npm run db:ready && npm run db:drift",
     "test": "npm run prisma:validate && npm run prisma:generate && npm run test:integration",

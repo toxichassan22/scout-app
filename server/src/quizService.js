@@ -13,6 +13,7 @@ export async function startDigitalSession({ teamId, competitionId, deviceId, ent
         const existing = await tx.quizSession.findUnique({ where: { teamId_competitionId: { teamId, competitionId } }, include: { draftAnswers: true } });
         if (existing) {
             if (existing.deviceId !== deviceId) throw Object.assign(new Error('المسابقة مقفلة على جهاز آخر'), { status: 409 });
+            if (existing.isCompleted || new Date() >= existing.expiresAt) throw Object.assign(new Error('انتهت جلسة المسابقة'), { status: 409 });
             return existing;
         }
         const seconds = Number.isInteger(competition.duration) && competition.duration > 0 ? competition.duration : 600;
@@ -37,16 +38,24 @@ export async function saveDigitalAnswer({ sessionId, teamId, deviceId, questionI
 }
 
 export async function finalizeDigitalSession(sessionId) {
-    return prisma.$transaction(async tx => {
-        const session = await tx.quizSession.findUnique({ where: { id: sessionId }, include: { draftAnswers: true } });
-        if (!session) throw Object.assign(new Error('جلسة المسابقة غير موجودة'), { status: 404 });
-        const existing = await tx.score.findUnique({ where: { competitionId_teamId: { competitionId: session.competitionId, teamId: session.teamId } } });
-        if (existing) return { totalScore: existing.total, score: existing, idempotent: true };
-        const totalScore = session.draftAnswers.reduce((sum, answer) => sum + answer.pointsEarned, 0);
-        const score = await tx.score.create({ data: { competitionId: session.competitionId, teamId: session.teamId, total: totalScore, values: JSON.stringify({ mode: 'quiz_session', sessionId }), isFinal: true } });
-        await tx.quizSession.updateMany({ where: { id: session.id, isCompleted: false }, data: { isCompleted: true, completedAt: new Date() } });
-        return { totalScore, score, idempotent: false };
-    });
+    try {
+        return await prisma.$transaction(async tx => {
+            const session = await tx.quizSession.findUnique({ where: { id: sessionId }, include: { draftAnswers: true } });
+            if (!session) throw Object.assign(new Error('جلسة المسابقة غير موجودة'), { status: 404 });
+            const existing = await tx.score.findUnique({ where: { competitionId_teamId: { competitionId: session.competitionId, teamId: session.teamId } } });
+            if (existing) return { totalScore: existing.total, score: existing, idempotent: true };
+            const totalScore = session.draftAnswers.reduce((sum, answer) => sum + answer.pointsEarned, 0);
+            const score = await tx.score.create({ data: { competitionId: session.competitionId, teamId: session.teamId, total: totalScore, values: JSON.stringify({ mode: 'quiz_session', sessionId }), isFinal: true } });
+            await tx.quizSession.updateMany({ where: { id: session.id, isCompleted: false }, data: { isCompleted: true, completedAt: new Date() } });
+            return { totalScore, score, idempotent: false };
+        });
+    } catch (error) {
+        if (error.code !== 'P2002') throw error;
+        const session = await prisma.quizSession.findUnique({ where: { id: sessionId } });
+        const score = session && await prisma.score.findUnique({ where: { competitionId_teamId: { competitionId: session.competitionId, teamId: session.teamId } } });
+        if (!score) throw error;
+        return { totalScore: score.total, score, idempotent: true };
+    }
 }
 
 export { MAX_ATTEMPTS };

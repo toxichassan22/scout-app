@@ -1,7 +1,7 @@
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES) || 50 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES) || 8 * 1024 * 1024;
 export const UPLOAD_TYPES = Object.freeze({
     '.pdf': ['application/pdf'],
     '.txt': ['text/plain'],
@@ -23,7 +23,7 @@ const MAGIC = {
 };
 
 export function validateBase64Upload(fileBase64, fileName, declaredMime) {
-    if (typeof fileBase64 !== 'string' || fileBase64.length === 0) throw new Error('ملف base64 غير صالح');
+    if (typeof fileBase64 !== 'string' || fileBase64.length === 0 || fileBase64.length > Math.ceil(MAX_UPLOAD_BYTES * 4 / 3) + 2048) throw new Error('ملف base64 غير صالح أو أكبر من الحد المسموح');
     const dataUrl = fileBase64.match(/^data:([^;,\s]+);base64,([A-Za-z0-9+/\s]+)$/);
     const mime = dataUrl?.[1] || declaredMime || '';
     const raw = dataUrl?.[2] || fileBase64;

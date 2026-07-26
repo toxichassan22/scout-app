@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
-import prisma from '../src/db.js';
+import prisma, { databaseReady } from '../src/db.js';
+
+await databaseReady;
 
 const suffix = Date.now();
 let ids = {};

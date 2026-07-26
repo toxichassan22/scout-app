@@ -11,10 +11,10 @@ import {
 } from './sqlite-operations-lib.mjs';
 
 const expectedTables = [
-    'Admin', 'AgendaItem', 'Competition', 'DraftAnswer', 'GeographyCountry',
-    'Judge', 'JudgeCompetition', 'JudgeScore', 'News', 'Question', 'QuizSession',
-    'Report', 'ReportPermission', 'Score', 'ScoreAudit', 'SystemSetting', 'Team',
-    'TeamDevice', 'TeamMember', 'Zone',
+    'Admin', 'AgendaItem', 'Competition', 'CompetitionAccess', 'DraftAnswer',
+    'GeographyCountry', 'Judge', 'JudgeCompetition', 'JudgeScore', 'News',
+    'Question', 'QuizSession', 'Report', 'ReportPermission', 'Score', 'ScoreAudit',
+    'SystemSetting', 'Team', 'TeamDevice', 'TeamMember', 'Zone',
 ];
 const databasePath = resolveDatabasePath();
 const backupDirectory = resolveBackupDirectory();
@@ -39,7 +39,7 @@ try {
     const foreignKeysEnabled = Number(Object.values(foreignKeyEnabledRows[0] || {})[0]) === 1;
     // Prisma SQLite connections should enforce FK relations. Explicitly enable it for this
     // operational connection before checking relational consistency.
-    if (!foreignKeysEnabled) await prisma.$executeRawUnsafe('PRAGMA foreign_keys=ON;');
+    if (!foreignKeysEnabled) await prisma.$queryRawUnsafe('PRAGMA foreign_keys=ON;');
     const foreignKeyCheck = await prisma.$queryRawUnsafe('PRAGMA foreign_key_check;');
     if (foreignKeyCheck.length) throw new Error(`Foreign key violations: ${JSON.stringify(foreignKeyCheck)}`);
 

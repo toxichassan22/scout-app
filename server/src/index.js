@@ -13,7 +13,7 @@ import adminRoutes from './routes/admin.js';
 import quizRoutes from './routes/quiz.js';
 import reportsRoutes from './routes/reports.js';
 import competitionsRoutes from './routes/competitions.js';
-import prisma from './db.js';
+import prisma, { databaseReady } from './db.js';
 import { createCorsOptions, isProduction, requestId, securityHeaders } from './security.js';
 import { authenticateSocket, canJoinRoom } from './middleware/socketAuth.js';
 
@@ -110,6 +110,29 @@ app.use((error, req, res, next) => {
   return res.status(500).json({ error: 'Internal server error', requestId: req.requestId });
 });
 
-server.listen(PORT, () => {
-  console.log(`[Server] Digital Scout Camp backend running on port ${PORT}`);
-});
+export { app, server, io };
+
+export async function startServer(port = PORT) {
+  await databaseReady;
+  return new Promise((resolve, reject) => {
+    const onError = (error) => {
+      server.off('listening', onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off('error', onError);
+      console.log(`[Server] Digital Scout Camp backend running on port ${port}`);
+      resolve(server);
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(port);
+  });
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  startServer().catch((error) => {
+    console.error('[Server Startup Error]', error);
+    process.exitCode = 1;
+  });
+}

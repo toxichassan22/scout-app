@@ -1,8 +1,6 @@
 import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
 import { JWT_SECRET } from '../security.js';
-import { isEmergencyFrozen } from '../freeze.js';
-
 const modelByRole = { team: 'team', judge: 'judge', admin: 'admin' };
 
 export async function verifyAuthenticatedUser(token) {
@@ -27,9 +25,6 @@ export const authenticateToken = async (req, res, next) => {
     const user = await verifyAuthenticatedUser(token);
     if (user.role === 'team' && req.headers['x-device-id'] && req.headers['x-device-id'] !== user.deviceId) {
       return res.status(401).json({ error: 'معرف الجهاز لا يطابق الجلسة', forceLogout: true, deviceRevoked: true });
-    }
-    if (user.role !== 'admin' && await isEmergencyFrozen()) {
-      return res.status(423).json({ error: 'تم إيقاف العمليات مؤقتاً بواسطة إدارة المهرجان', frozen: true });
     }
     req.user = user;
     next();

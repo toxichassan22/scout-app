@@ -2,6 +2,7 @@ import { Router } from 'express';
 import prisma from '../db.js';
 import { createMemoryRateLimiter } from '../security.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
+import { enforceNotFrozen } from '../freeze.js';
 import { getAnonymousLeaderboard } from './leaderboard.js';
 
 const router = Router();
@@ -87,12 +88,16 @@ router.get('/teams/:competitionId', async (req, res) => {
 
     const teams = await prisma.team.findMany({
       orderBy: { label: 'asc' },
-      include: {
+      select: {
+        id: true,
+        label: true,
         scores: {
-          where: { competitionId }
+          where: { competitionId },
+          select: { total: true, isFinal: true }
         },
         reports: {
-          orderBy: { uploadedAt: 'desc' }
+          orderBy: { uploadedAt: 'desc' },
+          select: { id: true, competitionId: true, title: true, content: true, fileUrl: true, uploadedAt: true }
         }
       }
     });
@@ -129,7 +134,7 @@ router.get('/teams/:competitionId', async (req, res) => {
 });
 
 // Submit score
-router.post('/scores', async (req, res) => {
+router.post('/scores', enforceNotFrozen, async (req, res) => {
   try {
     const { competitionId, teamId, values, total } = req.body;
     const judgeId = req.user.id;
@@ -157,18 +162,19 @@ router.post('/scores', async (req, res) => {
     for (const criterion of criteria) { const n = Number(parsedValues[criterion.key]); const max = Number(criterion.maxScore); if (!Number.isFinite(n) || n < 0 || !Number.isFinite(max) || n > max) return res.status(400).json({ error: `قيمة المعيار ${criterion.key} غير صالحة` }); calculated += n; }
     if (Math.abs(calculated - Number(total)) > 0.0001) return res.status(400).json({ error: 'المجموع لا يطابق قيم المعايير' });
 
-    // Check if score already exists
-    const existingScore = await prisma.score.findFirst({
-      where: { competitionId, teamId }
-    });
+    const serializedValues = JSON.stringify(parsedValues);
+    const scoreRecord = await prisma.$transaction(async tx => {
+      const existingScore = await tx.score.findUnique({
+        where: { competitionId_teamId: { competitionId, teamId } }
+      });
+      if (existingScore?.isFinal) throw Object.assign(new Error('تم اعتماد التقييم نهائياً ولا يمكن تعديله'), { status: 409 });
+      if (existingScore) throw Object.assign(new Error('لا يحق للمحكم تعديل نتيجة قائمة؛ التصحيح متاح للإدارة فقط'), { status: 409 });
 
-    if (existingScore?.isFinal) return res.status(409).json({ error: 'تم اعتماد التقييم نهائياً ولا يمكن تعديله' });
-    if (existingScore) return res.status(409).json({ error: 'لا يحق للمحكم تعديل نتيجة قائمة؛ التصحيح متاح للإدارة فقط' });
-    const scoreRecord = await prisma.score.create({ data: { competitionId, teamId, judgeId, values: JSON.stringify(parsedValues), total: calculated, isFinal: true } });
-    await prisma.$transaction([
-      prisma.judgeScore.create({ data: { scoreId: scoreRecord.id, competitionId, teamId, judgeId, values: JSON.stringify(parsedValues), total: calculated } }),
-      prisma.scoreAudit.create({ data: { scoreId: scoreRecord.id, competitionId, teamId, judgeId, action: 'judge_submit', newData: JSON.stringify({ values: parsedValues, total: calculated }) } })
-    ]);
+      const score = await tx.score.create({ data: { competitionId, teamId, judgeId, values: serializedValues, total: calculated, isFinal: true } });
+      await tx.judgeScore.create({ data: { scoreId: score.id, competitionId, teamId, judgeId, values: serializedValues, total: calculated } });
+      await tx.scoreAudit.create({ data: { scoreId: score.id, competitionId, teamId, judgeId, action: 'judge_submit', newData: JSON.stringify({ values: parsedValues, total: calculated }) } });
+      return score;
+    });
 
     // Broadcast socket updates if req.io is available
     if (req.io) {
@@ -179,8 +185,9 @@ router.post('/scores', async (req, res) => {
 
     res.json({ success: true, score: scoreRecord });
   } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'تم تسجيل تقييم لهذا الفريق بالفعل' });
     console.error(err);
-    res.status(500).json({ error: 'فشل في حفظ التقييم' });
+    res.status(err.status || 500).json({ error: err.status ? err.message : 'فشل في حفظ التقييم' });
   }
 });
 
