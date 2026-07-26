@@ -30,7 +30,11 @@ jobs:
         run: npm --prefix server run prisma:generate
 
       - name: 🔍 Check migration drift
-        run: npm --prefix server exec -- prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --exit-code
+        working-directory: server
+        env:
+          DATABASE_URL: file:./test.db
+          SHADOW_DATABASE_URL: file:./shadow.db
+        run: npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "$SHADOW_DATABASE_URL" --exit-code
 
       - name: 🧹 Lint server
         run: npm --prefix server run lint

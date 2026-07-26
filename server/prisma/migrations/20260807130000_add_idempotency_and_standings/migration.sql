@@ -25,9 +25,6 @@ CREATE TABLE "TeamStanding" (
 CREATE INDEX "IdempotencyKey_createdAt_idx" ON "IdempotencyKey"("createdAt");
 
 -- CreateIndex
-CREATE INDEX "IdempotencyKey_scope_actorId_idx" ON "IdempotencyKey"("scope", "actorId");
-
--- CreateIndex
 CREATE INDEX "TeamStanding_totalScore_latestSubmitted_idx" ON "TeamStanding"("totalScore", "latestSubmitted");
 
 -- Seed standings from existing scores so the leaderboard stays correct immediately after deploy.
