@@ -41,10 +41,12 @@ try {
     },
   });
 
+  // isVideoCompetition only recognises exact slugs 'video' and 'video_design'.
+  await prisma.competition.deleteMany({ where: { slug: { in: ['video', 'video_design'] } } }).catch(() => {});
   competition = await prisma.competition.create({
     data: {
-      name: 'Race Video',
-      slug: `video`,
+      name: `Race Video ${suffix}`,
+      slug: 'video',
       type: 'manual_judged',
       isOpen: true,
     },

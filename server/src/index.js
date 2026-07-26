@@ -61,12 +61,20 @@ const apiLimiter = createMemoryRateLimiter({
   message: 'طلبات كثيرة؛ حاول مرة أخرى لاحقاً',
 });
 
+const publicApiLimiter = createMemoryRateLimiter({
+  windowMs: Number(process.env.API_RATE_WINDOW_MS) || 60 * 1000,
+  max: Number(process.env.API_PUBLIC_RATE_MAX) || 600,
+  keyGenerator: (req) => req.ip || req.socket?.remoteAddress || 'unknown',
+  message: 'طلبات كثيرة؛ حاول مرة أخرى لاحقاً',
+});
+
 app.use((req, res, next) => {
   req.io = io;
   next();
 });
 
 const healthRouter = Router();
+healthRouter.use(publicApiLimiter);
 healthRouter.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'Digital Scout Camp API', requestId: req.requestId, time: new Date().toISOString() });
 });
@@ -89,8 +97,10 @@ app.use('/api/v1', healthRouter);
 app.use('/api/auth', authRoutes);
 app.use('/api/v1/auth', authRoutes);
 
-// Protected API routes: authenticate first, then apply the global per-user rate limiter.
+// Protected API routes: rate-limit by IP before auth to prevent DB flooding with invalid tokens,
+// then authenticate, then apply per-user rate limiter.
 const protectedApiRouter = Router();
+protectedApiRouter.use(publicApiLimiter);
 protectedApiRouter.use(authenticateToken);
 protectedApiRouter.use(apiLimiter);
 protectedApiRouter.use('/leaderboard', leaderboardRoutes);
@@ -200,25 +210,26 @@ async function shutdown(signal) {
   if (finalizeInterval) clearInterval(finalizeInterval);
   if (idempotencyTimer) clearInterval(idempotencyTimer);
 
-  io?.close?.();
-
   const forceExit = setTimeout(() => {
     logger.error('graceful shutdown timed out; forcing connections closed');
     server.closeAllConnections?.();
     process.exit(1);
   }, 10000).unref?.();
 
-  if (server.listening) {
-    server.close(async (err) => {
-      clearTimeout(forceExit);
-      if (err) logger.error({ err }, 'server close error');
-      try { await prisma.$disconnect(); } catch (e) { logger.error({ e }, 'prisma disconnect error'); }
-      process.exit(0);
-    });
-  } else {
+  const finishShutdown = async () => {
     clearTimeout(forceExit);
+    try { io?.close?.(); } catch (err) { logger.error({ err }, 'socket.io close error'); }
     try { await prisma.$disconnect(); } catch (e) { logger.error({ e }, 'prisma disconnect error'); }
     process.exit(0);
+  };
+
+  if (server.listening) {
+    server.close(async (err) => {
+      if (err) logger.error({ err }, 'server close error');
+      await finishShutdown();
+    });
+  } else {
+    await finishShutdown();
   }
 }
 

@@ -62,9 +62,8 @@ try {
 
     await run(process.execPath, [
         prismaCli,
-        'db',
-        'push',
-        '--accept-data-loss'
+        'migrate',
+        'deploy'
     ]);
 
     await run(process.execPath, [
@@ -93,6 +92,14 @@ try {
 
     await run(process.execPath, [
         path.join(scriptDirectory, 'integration-video-attempt-race.mjs')
+    ]);
+
+    await run(process.execPath, [
+        path.join(scriptDirectory, 'integration-device-hard-cap.mjs')
+    ]);
+
+    await run(process.execPath, [
+        path.join(scriptDirectory, 'integration-idempotency-race.mjs')
     ]);
 
     await run(process.execPath, [

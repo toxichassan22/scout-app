@@ -49,35 +49,16 @@ router.post('/team/login', validate(loginSchema), async (req, res) => {
     if (!team || !(await bcrypt.compare(password, team.passwordHash))) return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
 
     let created = false;
-    const evictedDevices = [];
     const device = await prisma.$transaction(async tx => {
       const current = await tx.teamDevice.findUnique({ where: { teamId_deviceId: { teamId: team.id, deviceId } } });
       if (current?.revokedAt) throw Object.assign(new Error('revoked'), { status: 401 });
       if (current) return tx.teamDevice.update({ where: { id: current.id }, data: { lastLoginAt: new Date(), userAgent } });
-      let count = await tx.teamDevice.count({ where: { teamId: team.id, revokedAt: null } });
-      if (count >= team.maxDevices) {
-        const toEvict = count - team.maxDevices + 1;
-        const oldest = await tx.teamDevice.findMany({
-          where: { teamId: team.id, revokedAt: null },
-          orderBy: { lastLoginAt: 'asc' },
-          take: toEvict,
-        });
-        for (const d of oldest) {
-          await tx.teamDevice.update({ where: { id: d.id }, data: { revokedAt: new Date(), tokenVersion: { increment: 1 } } });
-          evictedDevices.push({ deviceId: d.id, fingerprint: d.deviceId, teamId: d.teamId });
-        }
-        // Recount in case another transaction raced and created devices while we were evicting.
-        count = await tx.teamDevice.count({ where: { teamId: team.id, revokedAt: null } });
-      }
+      const count = await tx.teamDevice.count({ where: { teamId: team.id, revokedAt: null } });
       if (count >= team.maxDevices) throw Object.assign(new Error('limit'), { status: 403 });
       created = true;
       return tx.teamDevice.create({ data: { teamId: team.id, deviceId, userAgent } });
     });
 
-    if (req.io && evictedDevices.length > 0) {
-      const teamRoom = req.io.to(`team:${team.id}`);
-      for (const d of evictedDevices) teamRoom.emit('device:revoked', d);
-    }
     if (created) req.io?.emit('device:registered', { teamId: team.id, username: team.username });
     const token = signToken({ id: team.id, username: team.username, role: 'team', label: team.label, deviceId, deviceVersion: device.tokenVersion, authVersion: team.authVersion });
     res.json({ token, user: { id: team.id, username: team.username, role: 'team', label: team.label } });

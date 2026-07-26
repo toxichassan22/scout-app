@@ -17,24 +17,6 @@ export function clearLeaderboardCache() {
   // Cache removed; TeamStanding is now the single source of truth.
 }
 
-async function fetchAllStandings() {
-  // Single DB query: all teams, left-joined with their standing, sorted by score then submission time.
-  const rows = await prisma.$queryRaw`
-    SELECT t.id as teamId, COALESCE(s.totalScore, 0) as totalScore, s.latestSubmitted
-    FROM Team t
-    LEFT JOIN TeamStanding s ON t.id = s.teamId
-    ORDER BY totalScore DESC,
-             CASE WHEN s.latestSubmitted IS NULL THEN 1 ELSE 0 END ASC,
-             s.latestSubmitted ASC
-  `;
-
-  return rows.map((item, index) => {
-    const rank = index + 1;
-    const { points, gapToNext } = formatStandingRow(item, index > 0 ? rows[index - 1] : null);
-    return { rank, points, gapToNext };
-  });
-}
-
 async function fetchStandingsPage(skip, limit) {
   const includePrev = skip > 0;
   const offset = includePrev ? skip - 1 : 0;
@@ -65,9 +47,11 @@ async function fetchStandingsPage(skip, limit) {
  * Helper to calculate anonymous leaderboard from the TeamStanding table.
  * The standings are maintained inside the same transactions that write scores,
  * so the leaderboard is always up to date and indexed for fast reads.
+ * Broadcasts are limited to the top N entries to avoid full-table reads.
  */
-export async function getAnonymousLeaderboard() {
-  return fetchAllStandings();
+export async function getAnonymousLeaderboard(limit = Number(process.env.LEADERBOARD_BROADCAST_LIMIT) || 50) {
+  const { data } = await fetchStandingsPage(0, limit);
+  return data;
 }
 
 // GET /api/leaderboard
