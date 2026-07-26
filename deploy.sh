@@ -64,6 +64,9 @@ node server/scripts/ensure-env.mjs
 printf '%s\n' 'Building frontend...'
 npm run build
 
+printf '%s\n' 'Ensuring log directory exists...'
+mkdir -p "$APP_DIR/logs"
+
 printf '%s\n' 'Restarting backend (delete + start to reload cwd and reset crash counter)...'
 pm2 delete scout-backend 2>/dev/null || true
 pm2 start server/ecosystem.config.cjs --env production

@@ -16,8 +16,8 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 5000,
       },
-      error_file: '/var/log/scout-error.log',
-      out_file: '/var/log/scout-out.log',
+      error_file: '/var/www/scout-app/logs/scout-error.log',
+      out_file: '/var/www/scout-app/logs/scout-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss',
       // إعادة تشغيل تلقائية لو الـ memory زادت عن الحد
       node_args: '--max-old-space-size=450',
