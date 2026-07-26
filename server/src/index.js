@@ -21,7 +21,6 @@ import { ensureTeamStandings } from './teamStanding.js';
 import { finalizeExpiredSessions } from './quizService.js';
 import { purgeIdempotencyKeys, startIdempotencyCleanup } from './middleware/idempotent.js';
 import { startUploadWorkers } from './backup-exporter.js';
-import { error as sendError } from './response.js';
 import { createCorsOptions, createMemoryRateLimiter, requestId, securityHeaders, subjectId } from './security.js';
 import { authenticateToken } from './middleware/auth.js';
 import { authenticateSocket, canJoinRoom, startSocketRevocationMonitor } from './middleware/socketAuth.js';
@@ -143,15 +142,15 @@ io.on('connection', (socket) => {
   });
 });
 
-app.use((req, res) => sendError(res, 'Not found', 404));
+app.use((req, res) => res.status(404).json({ success: false, error: 'Not found', requestId: req.requestId, timestamp: new Date().toISOString() }));
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
   const status = error.statusCode || error.status || (error.message === 'Origin is not allowed by CORS' ? 403 : 500);
   const expose = status < 500 ? error.message : 'Internal server error';
   (req.log || logger).error({ err: error, path: req.path, method: req.method, status }, 'request error');
-  if (error.type === 'entity.too.large') return sendError(res, 'Payload too large', 413);
-  if (error.message === 'Origin is not allowed by CORS') return sendError(res, 'Origin is not allowed', 403);
-  return sendError(res, expose, status, error.details ? { details: error.details } : undefined);
+  if (error.type === 'entity.too.large') return res.status(413).json({ success: false, error: 'Payload too large', requestId: req.requestId, timestamp: new Date().toISOString() });
+  if (error.message === 'Origin is not allowed by CORS') return res.status(403).json({ success: false, error: 'Origin is not allowed', requestId: req.requestId, timestamp: new Date().toISOString() });
+  return res.status(status).json({ success: false, error: expose, details: error.details, requestId: req.requestId, timestamp: new Date().toISOString() });
 });
 
 export { app, server, io };
