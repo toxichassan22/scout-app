@@ -8,6 +8,8 @@ import prisma from '../../db.js';
 import { getAnonymousLeaderboard } from '../leaderboard.js';
 import { generateFullBackup, deleteFromGoogleDrive } from '../../backup-exporter.js';
 import { boundedString, strongPassword } from '../../validation.js';
+import { validate, zString, zId, zNumber, zBoolean } from '../../middleware/validate.js';
+import { parsePagination, paginatedResponse } from '../../pagination.js';
 
 const router = Router();
 
@@ -18,9 +20,16 @@ const safeCompetitionSelect = { id: true, name: true, slug: true, type: true, de
 // Full Leaderboard (with internal team labels)
 router.get('/leaderboard', async (req, res) => {
   try {
-    const teams = await prisma.team.findMany({
-      select: { ...safeTeamSelect, scores: { include: { competition: true } } }
-    });
+    const { page, limit, skip } = parsePagination(req.query);
+    const [teams, total] = await Promise.all([
+      prisma.team.findMany({
+        select: { ...safeTeamSelect, scores: { include: { competition: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.team.count(),
+    ]);
 
     const leaderboard = teams.map(team => {
       const totalScore = team.scores.reduce((acc, curr) => acc + (curr.total || 0), 0);
@@ -34,56 +43,67 @@ router.get('/leaderboard', async (req, res) => {
     });
 
     leaderboard.sort((a, b) => b.totalScore - a.totalScore);
-    res.json(leaderboard);
+    res.json(paginatedResponse({ data: leaderboard, page, limit, total }));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في جلب الترتيب التفصيلي' });
+    req.log.error({ err }, 'admin leaderboard failed');
+    res.status(500).json({ success: false, error: 'فشل في جلب الترتيب التفصيلي', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Teams CRUD
 router.get('/teams', async (req, res) => {
   try {
+    const { page, limit, skip } = parsePagination(req.query);
     let teams;
+    let total;
     try {
-      teams = await prisma.team.findMany({
-        orderBy: { createdAt: 'desc' },
-        select: { ...safeTeamSelect, _count: { select: { members: true, devices: true } } }
-      });
+      [teams, total] = await Promise.all([
+        prisma.team.findMany({
+          orderBy: { createdAt: 'desc' },
+          select: { ...safeTeamSelect, _count: { select: { members: true, devices: true } } },
+          skip,
+          take: limit,
+        }),
+        prisma.team.count(),
+      ]);
     } catch (countErr) {
-      console.warn('[Admin Teams] Member count relation failed, falling back:', countErr.message);
-      teams = await prisma.team.findMany({ orderBy: { createdAt: 'desc' }, select: safeTeamSelect });
+      req.log.warn({ countErr }, 'admin teams count relation failed, falling back');
+      [teams, total] = await Promise.all([
+        prisma.team.findMany({ orderBy: { createdAt: 'desc' }, select: safeTeamSelect, skip, take: limit }),
+        prisma.team.count(),
+      ]);
       teams = teams.map(t => ({ ...t, _count: { members: 0, devices: 0 } }));
     }
-    res.json(teams);
+    res.json(paginatedResponse({ data: teams, page, limit, total }));
   } catch (err) {
-    console.error('[Admin Teams Error]:', err);
-    res.status(500).json({ error: 'فشل في جلب الفرق: ' + (err.message || '') });
+    req.log.error({ err }, 'admin teams query failed');
+    res.status(500).json({ success: false, error: 'فشل في جلب الفرق: ' + (err.message || ''), requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Get members of a specific team
-router.get('/teams/:teamId/members', async (req, res) => {
+router.get('/teams/:teamId/members', validate({ params: { teamId: zId('الفريق') } }), async (req, res) => {
   try {
     const { teamId } = req.params;
-    let members = [];
-    try {
-      members = await prisma.teamMember.findMany({
-        where: { teamId },
-        orderBy: { createdAt: 'asc' }
-      });
-    } catch (mErr) {
-      console.warn('[Admin Team Members] Table missing or query failed:', mErr.message);
-    }
-    res.json(members);
+    const { page, limit, skip } = parsePagination(req.query);
+    const where = { teamId };
+    const [members, total] = await Promise.all([
+      prisma.teamMember.findMany({ where, orderBy: { createdAt: 'asc' }, skip, take: limit }),
+      prisma.teamMember.count({ where }),
+    ]).catch(err => {
+      req.log.warn({ err }, 'admin team members query failed');
+      return [[], 0];
+    });
+    res.json(paginatedResponse({ data: members, page, limit, total }));
   } catch (err) {
-    console.error('[Admin Team Members Error]:', err);
-    res.status(500).json({ error: 'فشل في جلب أعضاء الفريق: ' + (err.message || '') });
+    req.log.error({ err }, 'admin team members failed');
+    res.status(500).json({ success: false, error: 'فشل في جلب أعضاء الفريق: ' + (err.message || ''), requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Add member to a team (Admin can exceed 24 limit!)
-router.post('/teams/:teamId/members', async (req, res) => {
+const addMemberSchema = { params: { teamId: zId('الفريق') }, body: { name: zString('الاسم', { min: 1, max: 120 }), role: zString('الدور', { min: 1, max: 80 }).optional() } };
+router.post('/teams/:teamId/members', validate(addMemberSchema), async (req, res) => {
   try {
     const { teamId } = req.params;
     const { name, role } = req.body || {};
@@ -100,13 +120,13 @@ router.post('/teams/:teamId/members', async (req, res) => {
 
     res.status(201).json(member);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في إضافة العضو' });
+    req.log.error({ err }, 'admin add member failed');
+    res.status(500).json({ success: false, error: 'فشل في إضافة العضو', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Delete member from team database
-router.delete('/members/:memberId', async (req, res) => {
+router.delete('/members/:memberId', validate({ params: { memberId: zId('العضو') } }), async (req, res) => {
   try {
     const { memberId } = req.params;
     await prisma.teamMember.delete({
@@ -114,30 +134,32 @@ router.delete('/members/:memberId', async (req, res) => {
     });
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في حذف العضو' });
+    req.log.error({ err }, 'admin delete member failed');
+    res.status(500).json({ success: false, error: 'فشل في حذف العضو', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // ─── Team Devices Management ───
 
 // Get registered devices for a team
-router.get('/teams/:teamId/devices', async (req, res) => {
+router.get('/teams/:teamId/devices', validate({ params: { teamId: zId('الفريق') } }), async (req, res) => {
   try {
     const { teamId } = req.params;
-    const devices = await prisma.teamDevice.findMany({
-      where: { teamId },
-      orderBy: { lastLoginAt: 'desc' }
-    });
-    res.json(devices);
+    const { page, limit, skip } = parsePagination(req.query);
+    const where = { teamId };
+    const [devices, total] = await Promise.all([
+      prisma.teamDevice.findMany({ where, orderBy: { lastLoginAt: 'desc' }, skip, take: limit }),
+      prisma.teamDevice.count({ where }),
+    ]);
+    res.json(paginatedResponse({ data: devices, page, limit, total }));
   } catch (err) {
-    console.error('[Admin Team Devices Error]:', err);
-    res.status(500).json({ error: 'فشل في جلب أجهزة الفريق' });
+    req.log.error({ err }, 'admin team devices failed');
+    res.status(500).json({ success: false, error: 'فشل في جلب أجهزة الفريق', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Revoke (delete) a device — frees a slot for a new device
-router.delete('/devices/:deviceId', async (req, res) => {
+router.delete('/devices/:deviceId', validate({ params: { deviceId: zId('الجهاز') } }), async (req, res) => {
   try {
     const { deviceId } = req.params;
     const device = await prisma.teamDevice.findUnique({ where: { id: deviceId } });
@@ -155,26 +177,26 @@ router.delete('/devices/:deviceId', async (req, res) => {
 
     res.json({ success: true, message: 'تم إلغاء اعتماد الجهاز بنجاح' });
   } catch (err) {
-    console.error('[Revoke Device Error]:', err);
-    res.status(500).json({ error: 'فشل في إلغاء اعتماد الجهاز' });
+    req.log.error({ err }, 'admin revoke device failed');
+    res.status(500).json({ success: false, error: 'فشل في إلغاء اعتماد الجهاز', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Update device limit for a specific team (Admin can raise/lower from default 24)
-router.patch('/teams/:teamId/device-limit', async (req, res) => {
+const deviceLimitSchema = { params: { teamId: zId('الفريق') }, body: { maxDevices: zNumber('حد الأجهزة', { min: 1, max: 1000, int: true }) } };
+router.patch('/teams/:teamId/device-limit', validate(deviceLimitSchema), async (req, res) => {
   try {
-    const maxDevices = Number(req.body.maxDevices);
-    if (!Number.isInteger(maxDevices) || maxDevices < 1 || maxDevices > 1000) {
-      return res.status(400).json({ error: 'حد الأجهزة يجب أن يكون رقماً صحيحاً بين 1 و1000' });
-    }
+    const { maxDevices } = req.body;
     const team = await prisma.team.update({ where: { id: req.params.teamId }, data: { maxDevices }, select: safeTeamSelect });
     res.json({ success: true, team });
   } catch (err) {
-    res.status(500).json({ error: 'فشل في تحديث حد الأجهزة' });
+    req.log.error({ err }, 'admin update device limit failed');
+    res.status(500).json({ success: false, error: 'فشل في تحديث حد الأجهزة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.patch('/teams/:id', async (req, res) => {
+const teamUpdateSchema = { params: { id: zId('الفريق') }, body: { username: zString('اسم المستخدم', { min: 1, max: 80 }).optional(), label: zString('الاسم', { min: 1, max: 160 }).optional(), password: zString('كلمة السر', { min: 12, max: 256 }).optional(), maxDevices: zNumber('حد الأجهزة', { min: 1, max: 1000, int: true, optional: true }) } };
+router.patch('/teams/:id', validate(teamUpdateSchema), async (req, res) => {
   try {
     const { username, label, password, maxDevices } = req.body || {};
     const data = {};
@@ -193,11 +215,13 @@ router.patch('/teams/:id', async (req, res) => {
     const team = await prisma.team.update({ where: { id: req.params.id }, data, select: safeTeamSelect });
     res.json(team);
   } catch (err) {
-    res.status(400).json({ error: 'فشل في تحديث الفريق' });
+    req.log.error({ err }, 'admin update team failed');
+    res.status(400).json({ success: false, error: 'فشل في تحديث الفريق', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.post('/teams', async (req, res) => {
+const teamCreateSchema = { body: { username: zString('اسم المستخدم', { min: 1, max: 80 }), label: zString('الاسم', { min: 1, max: 160 }), password: zString('كلمة السر', { min: 12, max: 256 }) } };
+router.post('/teams', validate(teamCreateSchema), async (req, res) => {
   try {
     const { username, password, label } = req.body || {};
     const cleanUsername = boundedString(username, 'username', { min: 1, max: 80 });
@@ -213,12 +237,13 @@ router.post('/teams', async (req, res) => {
 
     res.status(201).json(team);
   } catch (err) {
-    console.error(err);
-    res.status(400).json({ error: 'فشل في إنشاء الفريق (ربما اسم المستخدم مكرر)' });
+    req.log.error({ err }, 'admin create team failed');
+    res.status(400).json({ success: false, error: 'فشل في إنشاء الفريق (ربما اسم المستخدم مكرر)', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.post('/teams/import', async (req, res) => {
+const teamImportSchema = { body: { teams: z.array(z.object({ username: zString('اسم المستخدم', { min: 1, max: 80 }), label: zString('الاسم', { min: 1, max: 160 }), password: zString('كلمة السر', { min: 12, max: 256 }) })).min(1).max(500) } };
+router.post('/teams/import', validate(teamImportSchema), async (req, res) => {
   try {
     const { teams } = req.body || {}; // Array of { username, password, label }
     if (!Array.isArray(teams) || teams.length === 0 || teams.length > 500) {
@@ -244,11 +269,12 @@ router.post('/teams/import', async (req, res) => {
       req.io.emit('team:created', { count: created.length });
     }
   } catch (err) {
-    res.status(500).json({ error: 'فشل في استيراد الفرق' });
+    req.log.error({ err }, 'admin import teams failed');
+    res.status(500).json({ success: false, error: 'فشل في استيراد الفرق', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.delete('/teams/:id', async (req, res) => {
+router.delete('/teams/:id', validate({ params: { id: zId('الفريق') } }), async (req, res) => {
   try {
     const deletedId = req.params.id;
     const team = await prisma.team.findUnique({
@@ -282,29 +308,35 @@ router.delete('/teams/:id', async (req, res) => {
     }
     res.json({ success: true });
   } catch (err) {
-    console.error('[Delete Team Error]:', err);
-    res.status(500).json({ error: 'فشل في حذف الفريق' });
+    req.log.error({ err }, 'admin delete team failed');
+    res.status(500).json({ success: false, error: 'فشل في حذف الفريق', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Judges CRUD
 router.get('/judges', async (req, res) => {
   try {
+    const { page, limit, skip } = parsePagination(req.query);
     let judges = [];
+    let total = 0;
     try {
-      judges = await prisma.judge.findMany({ orderBy: { createdAt: 'desc' }, select: safeJudgeSelect });
+      [judges, total] = await Promise.all([
+        prisma.judge.findMany({ orderBy: { createdAt: 'desc' }, select: safeJudgeSelect, skip, take: limit }),
+        prisma.judge.count(),
+      ]);
     } catch (jErr) {
-      console.warn('[Admin Judges] Query failed, falling back:', jErr.message);
-      judges = await prisma.judge.findMany({ select: safeJudgeSelect });
+      req.log.warn({ jErr }, 'admin judges query failed, falling back');
+      [judges, total] = [await prisma.judge.findMany({ select: safeJudgeSelect, skip, take: limit }), await prisma.judge.count()];
     }
-    res.json(judges);
+    res.json(paginatedResponse({ data: judges, page, limit, total }));
   } catch (err) {
-    console.error('[Admin Judges Error]:', err);
-    res.status(500).json({ error: 'فشل في جلب المحكمين: ' + (err.message || '') });
+    req.log.error({ err }, 'admin judges failed');
+    res.status(500).json({ success: false, error: 'فشل في جلب المحكمين: ' + (err.message || ''), requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.post('/judges', async (req, res) => {
+const judgeCreateSchema = { body: { name: zString('الاسم', { min: 1, max: 120 }), username: zString('اسم المستخدم', { min: 1, max: 80 }), password: zString('كلمة السر', { min: 12, max: 256 }) } };
+router.post('/judges', validate(judgeCreateSchema), async (req, res) => {
   try {
     const { name, username, password } = req.body || {};
     const cleanName = boundedString(name, 'name', { min: 1, max: 120 });
@@ -316,32 +348,38 @@ router.post('/judges', async (req, res) => {
 
     res.status(201).json(judge);
   } catch (err) {
-    res.status(400).json({ error: 'فشل في إنشاء المحكم (اسم المستخدم مكرر)' });
+    req.log.error({ err }, 'admin create judge failed');
+    res.status(400).json({ success: false, error: 'فشل في إنشاء المحكم (اسم المستخدم مكرر)', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.delete('/judges/:id', async (req, res) => {
+router.delete('/judges/:id', validate({ params: { id: zId('المحكم') } }), async (req, res) => {
   try {
     await prisma.judge.delete({ where: { id: req.params.id } });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'فشل في حذف المحكم' });
+    req.log.error({ err }, 'admin delete judge failed');
+    res.status(500).json({ success: false, error: 'فشل في حذف المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Competitions & Passcodes
 router.get('/competitions', async (req, res) => {
   try {
-    const comps = await prisma.competition.findMany({
-      include: { questions: true }
-    });
-    res.json(comps);
+    const { page, limit, skip } = parsePagination(req.query);
+    const [comps, total] = await Promise.all([
+      prisma.competition.findMany({ include: { questions: true }, skip, take: limit }),
+      prisma.competition.count(),
+    ]);
+    res.json(paginatedResponse({ data: comps, page, limit, total }));
   } catch (err) {
-    res.status(500).json({ error: 'فشل في جلب المسابقات' });
+    req.log.error({ err }, 'admin competitions failed');
+    res.status(500).json({ success: false, error: 'فشل في جلب المسابقات', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.post('/competitions', async (req, res) => {
+const competitionCreateSchema = { body: { name: zString('الاسم', { min: 1, max: 200 }), slug: zString('الرمز', { min: 1, max: 100 }), type: zString('النوع', { min: 1, max: 50 }).optional(), criteria: z.union([z.string(), z.array(z.any())]).optional() } };
+router.post('/competitions', validate(competitionCreateSchema), async (req, res) => {
   try {
     const { name, slug, type, criteria } = req.body || {};
     const cleanName = boundedString(name, 'name', { min: 1, max: 200 });
@@ -359,11 +397,27 @@ router.post('/competitions', async (req, res) => {
     if (req.io) req.io.emit('competition:update', { action: 'created', competitionId: comp.id });
     res.status(201).json(comp);
   } catch (err) {
-    res.status(500).json({ error: 'فشل في إنشاء المسابقة' });
+    req.log.error({ err }, 'admin create competition failed');
+    res.status(500).json({ success: false, error: 'فشل في إنشاء المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.patch('/competitions/:id', async (req, res) => {
+const competitionUpdateSchema = {
+  params: { id: zId('المسابقة') },
+  body: {
+    isOpen: zBoolean('isOpen', { optional: true }),
+    name: zString('الاسم', { min: 1, max: 200 }).optional(),
+    description: zString('الوصف', { max: 1000 }).optional(),
+    type: zString('النوع', { max: 50 }).optional(),
+    criteria: z.union([z.string(), z.array(z.any())]).optional(),
+    duration: zNumber('المدة', { min: 0, optional: true }),
+    entryCode: zString('كود الدخول', { max: 100 }).optional().nullable(),
+    passcode: zString('كود المرور', { max: 100 }).optional().nullable(),
+    custom: zBoolean('custom', { optional: true }),
+    revoke: zBoolean('revoke', { optional: true }),
+  },
+};
+router.patch('/competitions/:id', validate(competitionUpdateSchema), async (req, res) => {
   try {
     const { isOpen, name, description, type, criteria, duration, entryCode, passcode, custom, revoke } = req.body;
     const data = {
@@ -387,11 +441,12 @@ router.patch('/competitions/:id', async (req, res) => {
 
     res.json(comp);
   } catch (err) {
-    res.status(500).json({ error: 'فشل في تحديث المسابقة' });
+    req.log.error({ err }, 'admin update competition failed');
+    res.status(500).json({ success: false, error: 'فشل في تحديث المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.post('/competitions/:id/passcode', async (req, res) => {
+router.post('/competitions/:id/passcode', validate({ params: { id: zId('المسابقة') } }), async (req, res) => {
   try {
     const randomCode = crypto.randomInt(100000, 1000000).toString();
     const comp = await prisma.competition.update({
@@ -401,12 +456,22 @@ router.post('/competitions/:id/passcode', async (req, res) => {
     if (req.io) req.io.emit('competition:update', { action: 'opened', competitionId: comp.id, isOpen: comp.isOpen });
     res.json({ passcode: comp.passcode });
   } catch (err) {
-    res.status(500).json({ error: 'فشل في توليد كود المسابقة' });
+    req.log.error({ err }, 'admin generate passcode failed');
+    res.status(500).json({ success: false, error: 'فشل في توليد كود المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Questions CRUD
-router.post('/questions', async (req, res) => {
+const questionSchema = {
+  body: {
+    competitionId: zId('المسابقة'),
+    text: zString('نص السؤال', { min: 1, max: 1000 }),
+    options: z.union([z.string(), z.array(z.any())]).optional(),
+    correctOption: zNumber('الإجابة الصحيحة', { min: 0, max: 1000, int: true }),
+    points: zNumber('النقاط', { min: 0, max: 10000, optional: true }),
+  },
+};
+router.post('/questions', validate(questionSchema), async (req, res) => {
   try {
     const { competitionId, text, options, correctOption, points } = req.body;
     const q = await prisma.question.create({
@@ -420,21 +485,27 @@ router.post('/questions', async (req, res) => {
     });
     res.status(201).json(q);
   } catch (err) {
-    res.status(500).json({ error: 'فشل في إضافة السؤال' });
+    req.log.error({ err }, 'admin create question failed');
+    res.status(500).json({ success: false, error: 'فشل في إضافة السؤال', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.delete('/questions/:id', async (req, res) => {
+router.delete('/questions/:id', validate({ params: { id: zId('السؤال') } }), async (req, res) => {
   try {
     await prisma.question.delete({ where: { id: req.params.id } });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'فشل في حذف السؤال' });
+    req.log.error({ err }, 'admin delete question failed');
+    res.status(500).json({ success: false, error: 'فشل في حذف السؤال', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Score Override (Admin Audit; requires an explicit unlock first)
-router.patch('/scores/:id', async (req, res) => {
+const scoreOverrideSchema = {
+  params: { id: zId('النتيجة') },
+  body: { total: zNumber('المجموع', { min: 0 }), values: z.union([z.string(), z.record(z.unknown())]).optional(), reason: zString('السبب', { min: 1, max: 500 }) },
+};
+router.patch('/scores/:id', validate(scoreOverrideSchema), async (req, res) => {
   try {
     const { total, values, reason } = req.body;
     const adminId = req.user.id;
@@ -453,12 +524,22 @@ router.patch('/scores/:id', async (req, res) => {
 
     res.json(score);
   } catch (err) {
-    res.status(500).json({ error: 'فشل في تعديل الدرجة' });
+    req.log.error({ err }, 'admin score override failed');
+    res.status(500).json({ success: false, error: 'فشل في تعديل الدرجة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // News Management
-router.post('/news', async (req, res) => {
+const newsCreateSchema = {
+  body: {
+    title: zString('العنوان', { min: 1, max: 300 }),
+    body: zString('المحتوى', { min: 1, max: 5000 }),
+    photoUrl: zString('رابط الصورة', { max: 2048 }).optional(),
+    category: zString('التصنيف', { max: 50 }).optional(),
+    targetTeamIds: z.array(zString('معرف الفريق', { min: 1, max: 100 })).optional(),
+  },
+};
+router.post('/news', validate(newsCreateSchema), async (req, res) => {
   try {
     const { title, body, photoUrl, category, targetTeamIds } = req.body;
     if (!title || !body) {
@@ -482,11 +563,22 @@ router.post('/news', async (req, res) => {
 
     res.status(201).json(news);
   } catch (err) {
-    res.status(500).json({ error: 'فشل في نشر الخبر' });
+    req.log.error({ err }, 'admin create news failed');
+    res.status(500).json({ success: false, error: 'فشل في نشر الخبر', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.patch('/news/:id', async (req, res) => {
+const newsUpdateSchema = {
+  params: { id: zId('الخبر') },
+  body: {
+    title: zString('العنوان', { min: 1, max: 300 }).optional(),
+    body: zString('المحتوى', { min: 1, max: 5000 }).optional(),
+    photoUrl: zString('رابط الصورة', { max: 2048 }).optional().nullable(),
+    category: zString('التصنيف', { max: 50 }).optional(),
+    targetTeamIds: z.array(zString('معرف الفريق', { min: 1, max: 100 })).optional(),
+  },
+};
+router.patch('/news/:id', validate(newsUpdateSchema), async (req, res) => {
   try {
     const { title, body, photoUrl, category, targetTeamIds } = req.body || {};
     const news = await prisma.news.update({
@@ -497,10 +589,13 @@ router.patch('/news/:id', async (req, res) => {
       }
     });
     res.json(news);
-  } catch (err) { res.status(400).json({ error: 'فشل في تعديل الخبر' }); }
+  } catch (err) {
+    req.log.error({ err }, 'admin update news failed');
+    res.status(400).json({ success: false, error: 'فشل في تعديل الخبر', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
 });
 
-router.delete('/news/:id', async (req, res) => {
+router.delete('/news/:id', validate({ params: { id: zId('الخبر') } }), async (req, res) => {
   try {
     await prisma.news.delete({ where: { id: req.params.id } });
 
@@ -510,12 +605,25 @@ router.delete('/news/:id', async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'فشل في حذف الخبر' });
+    req.log.error({ err }, 'admin delete news failed');
+    res.status(500).json({ success: false, error: 'فشل في حذف الخبر', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Agenda Management
-router.post('/agenda', async (req, res) => {
+const agendaSchema = {
+  body: {
+    title: zString('العنوان', { min: 1, max: 300 }),
+    type: zString('النوع', { max: 50 }),
+    period: zString('الفترة', { max: 50 }).optional(),
+    order: zNumber('الترتيب', { min: 0, int: true, optional: true }),
+    zoneId: zString('المنطقة', { max: 100 }),
+    startTime: zString('وقت البدء', { max: 50 }),
+    endTime: zString('وقت الانتهاء', { max: 50 }),
+    description: zString('الوصف', { max: 1000 }).optional(),
+  },
+};
+router.post('/agenda', validate(agendaSchema), async (req, res) => {
   try {
     const { title, type, period, order, zoneId, startTime, endTime, description } = req.body;
     const item = await prisma.agendaItem.create({
@@ -528,11 +636,12 @@ router.post('/agenda', async (req, res) => {
 
     res.status(201).json(item);
   } catch (err) {
-    res.status(500).json({ error: 'فشل في إضافة الفعالية' });
+    req.log.error({ err }, 'admin create agenda failed');
+    res.status(500).json({ success: false, error: 'فشل في إضافة الفعالية', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.delete('/agenda/:id', async (req, res) => {
+router.delete('/agenda/:id', validate({ params: { id: zId('الفعالية') } }), async (req, res) => {
   try {
     await prisma.agendaItem.delete({ where: { id: req.params.id } });
 
@@ -542,11 +651,12 @@ router.delete('/agenda/:id', async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'فشل في حذف الفعالية' });
+    req.log.error({ err }, 'admin delete agenda failed');
+    res.status(500).json({ success: false, error: 'فشل في حذف الفعالية', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.put('/agenda/:id', async (req, res) => {
+router.put('/agenda/:id', validate({ params: { id: zId('الفعالية') }, body: agendaSchema.body }), async (req, res) => {
   try {
     const { title, type, period, order, zoneId, startTime, endTime, description } = req.body;
     const item = await prisma.agendaItem.update({
@@ -560,11 +670,16 @@ router.put('/agenda/:id', async (req, res) => {
 
     res.json(item);
   } catch (err) {
-    res.status(500).json({ error: 'فشل في تعديل الفعالية' });
+    req.log.error({ err }, 'admin update agenda failed');
+    res.status(500).json({ success: false, error: 'فشل في تعديل الفعالية', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.post('/agenda/:id/action', async (req, res) => {
+const agendaActionSchema = {
+  params: { id: zId('الفعالية') },
+  body: { action: z.enum(['start', 'stop', 'close'], { message: 'الإجراء يجب أن يكون start أو stop أو close' }) },
+};
+router.post('/agenda/:id/action', validate(agendaActionSchema), async (req, res) => {
   try {
     const action = String(req.body.action || '').toLowerCase();
     const now = new Date();
@@ -578,32 +693,39 @@ router.post('/agenda/:id/action', async (req, res) => {
     if (req.io) req.io.emit('agenda:update', { action, agendaId: item.id });
     res.json(item);
   } catch (err) {
-    console.error('[Admin Agenda Action]', err);
-    res.status(500).json({ error: 'فشل في تغيير حالة الفعالية' });
+    req.log.error({ err }, 'admin agenda action failed');
+    res.status(500).json({ success: false, error: 'فشل في تغيير حالة الفعالية', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Reports Management
 router.get('/reports', async (req, res) => {
   try {
+    const { page, limit, skip } = parsePagination(req.query);
     let reports = [];
+    let total = 0;
     try {
-      reports = await prisma.report.findMany({
-        include: { team: { select: safeTeamSelect }, competition: { select: safeCompetitionSelect } },
-        orderBy: { uploadedAt: 'desc' }
-      });
+      [reports, total] = await Promise.all([
+        prisma.report.findMany({
+          include: { team: { select: safeTeamSelect }, competition: { select: safeCompetitionSelect } },
+          orderBy: { uploadedAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.report.count(),
+      ]);
     } catch (rErr) {
-      console.warn('[Admin Reports] Relation or orderBy failed, falling back:', rErr.message);
-      reports = await prisma.report.findMany();
+      req.log.warn({ rErr }, 'admin reports relation/orderBy failed, falling back');
+      [reports, total] = [await prisma.report.findMany({ skip, take: limit }), await prisma.report.count()];
     }
-    res.json(reports);
+    res.json(paginatedResponse({ data: reports, page, limit, total }));
   } catch (err) {
-    console.error('[Admin Reports Error]:', err);
-    res.status(500).json({ error: 'فشل في جلب التقارير: ' + (err.message || '') });
+    req.log.error({ err }, 'admin reports failed');
+    res.status(500).json({ success: false, error: 'فشل في جلب التقارير: ' + (err.message || ''), requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
-router.delete('/reports/:id', async (req, res) => {
+router.delete('/reports/:id', validate({ params: { id: zId('التقرير') } }), async (req, res) => {
   try {
     const reportId = req.params.id;
     const report = await prisma.report.findUnique({
@@ -631,13 +753,14 @@ router.delete('/reports/:id', async (req, res) => {
 
     res.json({ success: true, message: 'تم حذف التقرير والملف بنجاح' });
   } catch (err) {
-    console.error('[Delete Report Error]:', err);
-    res.status(500).json({ error: 'فشل في حذف التقرير' });
+    req.log.error({ err }, 'admin delete report failed');
+    res.status(500).json({ success: false, error: 'فشل في حذف التقرير', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Admin Emergency Freeze / Unfreeze Switch
-router.post('/emergency-freeze', async (req, res) => {
+const emergencyFreezeSchema = { body: { frozen: zBoolean('الحالة') } };
+router.post('/emergency-freeze', validate(emergencyFreezeSchema), async (req, res) => {
   try {
     const { frozen } = req.body;
     await prisma.systemSetting.upsert({
@@ -652,12 +775,14 @@ router.post('/emergency-freeze', async (req, res) => {
 
     res.json({ success: true, frozen: !!frozen });
   } catch (err) {
-    res.status(500).json({ error: 'فشل في تغيير حالة الطوارئ' });
+    req.log.error({ err }, 'admin emergency freeze failed');
+    res.status(500).json({ success: false, error: 'فشل في تغيير حالة الطوارئ', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Admin Clean Slate (Reset Test Data before Event)
-router.post('/clean-slate', async (req, res) => {
+const cleanSlateSchema = { body: { confirmPassword: zString('كلمة السر', { min: 1, max: 256 }) } };
+router.post('/clean-slate', validate(cleanSlateSchema), async (req, res) => {
   try {
     const { confirmPassword } = req.body;
     const admin = await prisma.admin.findUnique({ where: { id: req.user.id } });
@@ -684,8 +809,8 @@ router.post('/clean-slate', async (req, res) => {
 
     res.json({ success: true, message: 'تم تصفير كافة درجات وتجارب الاختبار بنجاح!' });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في تصفير البيانات التجريبية' });
+    req.log.error({ err }, 'admin clean slate failed');
+    res.status(500).json({ success: false, error: 'فشل في تصفير البيانات التجريبية', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -695,7 +820,8 @@ router.post('/backup/trigger', async (req, res) => {
     const result = await generateFullBackup();
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: 'فشل في تشغيل المزامنة والنسخ الاحتياطي' });
+    req.log.error({ err }, 'admin backup trigger failed');
+    res.status(500).json({ success: false, error: 'فشل في تشغيل المزامنة والنسخ الاحتياطي', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -706,13 +832,14 @@ router.post('/deploy/git-pull', async (req, res) => {
     const deployScriptPath = '/var/www/scout-app/deploy.sh';
     exec(`chmod +x ${deployScriptPath} && ${deployScriptPath}`, (error, stdout, stderr) => {
       if (error) {
-        console.error('[Deploy Error]:', stderr || error.message);
-        return res.status(500).json({ error: 'حدث خطأ أثناء التحديث', details: stderr || error.message });
+        req.log.error({ error, stderr }, 'admin deploy failed');
+        return res.status(500).json({ success: false, error: 'حدث خطأ أثناء التحديث', details: stderr || error.message, requestId: req.requestId, timestamp: new Date().toISOString() });
       }
       res.json({ success: true, message: 'تم سحب وتحديث السيرفر بنجاح من GitHub!', log: stdout });
     });
   } catch (err) {
-    res.status(500).json({ error: 'فشل في تشغيل سكريبت النشر' });
+    req.log.error({ err }, 'admin deploy exec failed');
+    res.status(500).json({ success: false, error: 'فشل في تشغيل سكريبت النشر', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -811,52 +938,129 @@ router.post('/seed-agenda', async (req, res) => {
     }
     res.json({ success: true, agendaAdded: added, compsAdded, totalAgenda: existing.length + added, totalComps: existingComps.length + compsAdded });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في إضافة البيانات' });
+    req.log.error({ err }, 'admin seed agenda failed');
+    res.status(500).json({ success: false, error: 'فشل في إضافة البيانات', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Report permission administration
 router.get('/report-permissions', async (req, res) => {
-  const rows = await prisma.reportPermission.findMany({ include: { team: { select: safeTeamSelect }, competition: { select: safeCompetitionSelect } }, orderBy: { updatedAt: 'desc' } });
-  res.json(rows);
-});
-router.patch('/report-permissions/:teamId/:competitionId', async (req, res) => {
   try {
-    const { canSubmit, deadline, reopen } = req.body || {};
+    const { page, limit, skip } = parsePagination(req.query);
+    const [rows, total] = await Promise.all([
+      prisma.reportPermission.findMany({ include: { team: { select: safeTeamSelect }, competition: { select: safeCompetitionSelect } }, orderBy: { updatedAt: 'desc' }, skip, take: limit }),
+      prisma.reportPermission.count(),
+    ]);
+    res.json(paginatedResponse({ data: rows, page, limit, total }));
+  } catch (err) {
+    req.log.error({ err }, 'admin report permissions list failed');
+    res.status(500).json({ success: false, error: 'فشل في جلب الصلاحيات', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
+});
+const reportPermissionSchema = {
+  params: { teamId: zId('الفريق'), competitionId: zId('المسابقة') },
+  body: { canSubmit: zBoolean('canSubmit', { optional: true }), deadline: zString('الموعد النهائي', { max: 50 }).optional().nullable(), reopen: zBoolean('reopen', { optional: true }) },
+};
+router.patch('/report-permissions/:teamId/:competitionId', validate(reportPermissionSchema), async (req, res) => {
+  try {
+    const { canSubmit, deadline, reopen } = req.body;
     const row = await prisma.reportPermission.upsert({
       where: { teamId_competitionId: { teamId: req.params.teamId, competitionId: req.params.competitionId } },
       create: { teamId: req.params.teamId, competitionId: req.params.competitionId, canSubmit: canSubmit !== false, deadline: deadline ? new Date(deadline) : null, reopenedAt: reopen ? new Date() : null, updatedByAdminId: req.user.id },
       update: { ...(canSubmit !== undefined && { canSubmit: Boolean(canSubmit) }), ...(deadline !== undefined && { deadline: deadline ? new Date(deadline) : null }), ...(reopen && { reopenedAt: new Date(), canSubmit: true }), updatedByAdminId: req.user.id }
     });
     res.json(row);
-  } catch (err) { res.status(400).json({ error: 'فشل في تحديث صلاحية التقرير' }); }
+  } catch (err) {
+    req.log.error({ err }, 'admin update report permission failed');
+    res.status(400).json({ success: false, error: 'فشل في تحديث صلاحية التقرير', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
 });
 
 // Judge assignments
-router.get('/judges/:judgeId/assignments', async (req, res) => res.json(await prisma.judgeCompetition.findMany({ where: { judgeId: req.params.judgeId }, include: { competition: true } })));
-router.get('/scores/breakdown', async (req, res) => res.json(await prisma.score.findMany({ include: { team: { select: safeTeamSelect }, competition: { select: safeCompetitionSelect }, judgeScores: { include: { judge: { select: { id: true, name: true, username: true } } } }, audits: { orderBy: { createdAt: 'asc' } } } })));
-router.post('/judges/:judgeId/assignments', async (req, res) => {
-  const competitionId = req.body.competitionId;
-  if (!competitionId) return res.status(400).json({ error: 'competitionId مطلوب' });
-  res.status(201).json(await prisma.judgeCompetition.upsert({ where: { judgeId_competitionId: { judgeId: req.params.judgeId, competitionId } }, create: { judgeId: req.params.judgeId, competitionId }, update: {} }));
+router.get('/judges/:judgeId/assignments', validate({ params: { judgeId: zId('المحكم') } }), async (req, res) => {
+  try {
+    const { page, limit, skip } = parsePagination(req.query);
+    const where = { judgeId: req.params.judgeId };
+    const [rows, total] = await Promise.all([
+      prisma.judgeCompetition.findMany({ where, include: { competition: true }, skip, take: limit }),
+      prisma.judgeCompetition.count({ where }),
+    ]);
+    res.json(paginatedResponse({ data: rows, page, limit, total }));
+  } catch (err) {
+    req.log.error({ err }, 'admin judge assignments failed');
+    res.status(500).json({ success: false, error: 'فشل في جلب تعيينات المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
 });
-router.delete('/judges/:judgeId/assignments/:competitionId', async (req, res) => { await prisma.judgeCompetition.deleteMany({ where: { judgeId: req.params.judgeId, competitionId: req.params.competitionId } }); res.json({ success: true }); });
-router.patch('/judges/:id', async (req, res) => {
-  const { name, username, password } = req.body || {}; const data = {};
-  if (name !== undefined) data.name = String(name).trim(); if (username !== undefined) data.username = String(username).trim();
-  if (password !== undefined) { if (String(password).length < 12) return res.status(400).json({ error: 'كلمة السر يجب ألا تقل عن 12 حرفاً' }); data.passwordHash = await bcrypt.hash(String(password), 12); data.authVersion = { increment: 1 }; }
-  res.json(await prisma.judge.update({ where: { id: req.params.id }, data, select: safeJudgeSelect }));
+router.get('/scores/breakdown', async (req, res) => {
+  try {
+    const { page, limit, skip } = parsePagination(req.query);
+    const [rows, total] = await Promise.all([
+      prisma.score.findMany({ include: { team: { select: safeTeamSelect }, competition: { select: safeCompetitionSelect }, judgeScores: { include: { judge: { select: { id: true, name: true, username: true } } } }, audits: { orderBy: { createdAt: 'asc' } } }, skip, take: limit }),
+      prisma.score.count(),
+    ]);
+    res.json(paginatedResponse({ data: rows, page, limit, total }));
+  } catch (err) {
+    req.log.error({ err }, 'admin scores breakdown failed');
+    res.status(500).json({ success: false, error: 'فشل في جلب تفاصيل الدرجات', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
+});
+const judgeAssignmentSchema = { params: { judgeId: zId('المحكم') }, body: { competitionId: zId('المسابقة') } };
+router.post('/judges/:judgeId/assignments', validate(judgeAssignmentSchema), async (req, res) => {
+  try {
+    const { competitionId } = req.body;
+    const row = await prisma.judgeCompetition.upsert({ where: { judgeId_competitionId: { judgeId: req.params.judgeId, competitionId } }, create: { judgeId: req.params.judgeId, competitionId }, update: {} });
+    res.status(201).json(row);
+  } catch (err) {
+    req.log.error({ err }, 'admin assign judge failed');
+    res.status(500).json({ success: false, error: 'فشل في تعيين المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
+});
+router.delete('/judges/:judgeId/assignments/:competitionId', validate({ params: { judgeId: zId('المحكم'), competitionId: zId('المسابقة') } }), async (req, res) => {
+  try {
+    await prisma.judgeCompetition.deleteMany({ where: { judgeId: req.params.judgeId, competitionId: req.params.competitionId } });
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err }, 'admin remove judge assignment failed');
+    res.status(500).json({ success: false, error: 'فشل في إزالة تعيين المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
+});
+const judgeUpdateSchema = { params: { id: zId('المحكم') }, body: { name: zString('الاسم', { min: 1, max: 120 }).optional(), username: zString('اسم المستخدم', { min: 1, max: 80 }).optional(), password: zString('كلمة السر', { min: 12, max: 256 }).optional() } };
+router.patch('/judges/:id', validate(judgeUpdateSchema), async (req, res) => {
+  try {
+    const { name, username, password } = req.body;
+    const data = {};
+    if (name !== undefined) data.name = name.trim();
+    if (username !== undefined) data.username = username.trim();
+    if (password !== undefined) { data.passwordHash = await bcrypt.hash(password, 12); data.authVersion = { increment: 1 }; }
+    res.json(await prisma.judge.update({ where: { id: req.params.id }, data, select: safeJudgeSelect }));
+  } catch (err) {
+    req.log.error({ err }, 'admin update judge failed');
+    res.status(400).json({ success: false, error: 'فشل في تحديث المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
 });
 
 // Score finalization controls
-router.post('/scores/:id/unlock', async (req, res) => {
-  const reason = String(req.body?.reason || '').trim(); if (!reason) return res.status(400).json({ error: 'سبب فتح القفل مطلوب' });
-  const score = await prisma.score.findUnique({ where: { id: req.params.id } }); if (!score) return res.status(404).json({ error: 'النتيجة غير موجودة' });
-  await prisma.$transaction([prisma.score.update({ where: { id: score.id }, data: { isFinal: false, unlockedAt: new Date(), unlockedByAdminId: req.user.id, unlockReason: reason } }), prisma.scoreAudit.create({ data: { scoreId: score.id, competitionId: score.competitionId, teamId: score.teamId, adminId: req.user.id, action: 'unlock', reason, previousData: JSON.stringify(score) } })]);
-  res.json({ success: true });
+const scoreUnlockSchema = { params: { id: zId('النتيجة') }, body: { reason: zString('السبب', { min: 1, max: 500 }) } };
+router.post('/scores/:id/unlock', validate(scoreUnlockSchema), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const score = await prisma.score.findUnique({ where: { id: req.params.id } }); if (!score) return res.status(404).json({ success: false, error: 'النتيجة غير موجودة', requestId: req.requestId, timestamp: new Date().toISOString() });
+    await prisma.$transaction([prisma.score.update({ where: { id: score.id }, data: { isFinal: false, unlockedAt: new Date(), unlockedByAdminId: req.user.id, unlockReason: reason } }), prisma.scoreAudit.create({ data: { scoreId: score.id, competitionId: score.competitionId, teamId: score.teamId, adminId: req.user.id, action: 'unlock', reason, previousData: JSON.stringify(score) } })]);
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err }, 'admin unlock score failed');
+    res.status(500).json({ success: false, error: 'فشل في فتح القفل', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
 });
-router.post('/scores/:id/lock', async (req, res) => { const score = await prisma.score.update({ where: { id: req.params.id }, data: { isFinal: true } }); res.json(score); });
+router.post('/scores/:id/lock', validate({ params: { id: zId('النتيجة') } }), async (req, res) => {
+  try {
+    const score = await prisma.score.update({ where: { id: req.params.id }, data: { isFinal: true } });
+    res.json(score);
+  } catch (err) {
+    req.log.error({ err }, 'admin lock score failed');
+    res.status(500).json({ success: false, error: 'فشل في قفل النتيجة', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
+});
 
 
 export default router;

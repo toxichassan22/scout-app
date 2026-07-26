@@ -49,3 +49,8 @@ export const zNumber = (name, { min, max, int = false, optional = false } = {}) 
   if (max !== undefined) schema = schema.max(max, `${name} أكبر من الحد الأقصى`);
   return optional ? schema.optional() : schema;
 };
+
+export const zBoolean = (name, { optional = false } = {}) => {
+  let schema = z.coerce.boolean({ invalid_type_error: `${name} يجب أن يكون true/false` });
+  return optional ? schema.optional() : schema;
+};
