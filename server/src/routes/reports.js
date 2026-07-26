@@ -7,6 +7,8 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { uploadToGoogleDrive } from '../backup-exporter.js';
 import { MAX_UPLOAD_BYTES, safeStoredName, validateBase64Upload } from '../uploadSecurity.js';
 import { isEmergencyFrozen } from '../freeze.js';
+import { validate, zString, zId } from '../middleware/validate.js';
+import { parsePagination, paginatedResponse } from '../pagination.js';
 
 const router = Router();
 
@@ -16,6 +18,27 @@ const uploadsDir = path.join(__dirname, '../../uploads');
 
 const uploadsReady = fs.mkdir(uploadsDir, { recursive: true });
 const safeCompetitionSelect = { id: true, name: true, slug: true, type: true, description: true, isOpen: true, duration: true, createdAt: true };
+
+const reportBodySchema = {
+  body: {
+    title: zString('عنوان التقرير', { max: 300 }).optional(),
+    content: zString('محتوى التقرير', { max: 100000 }).optional(),
+    competitionId: zString('المسابقة', { min: 1, max: 100 }),
+    fileName: zString('اسم الملف', { max: 255 }).optional(),
+    fileBase64: zString('الملف', { max: 10000000 }).optional(),
+  },
+};
+
+const reportPatchSchema = {
+  params: { id: zId('التقرير') },
+  body: {
+    title: zString('عنوان التقرير', { max: 300 }).optional(),
+    content: zString('محتوى التقرير', { max: 100000 }).optional(),
+    fileName: zString('اسم الملف', { max: 255 }).optional(),
+  },
+};
+
+const downloadSchema = { params: { id: zId('التقرير') } };
 
 function validateReportFields({ title, content, fileName }) {
   if (title !== undefined && (typeof title !== 'string' || title.length > 300)) throw Object.assign(new Error('عنوان التقرير غير صالح'), { status: 400 });
@@ -39,9 +62,9 @@ router.get('/permissions', authenticateToken, requireRole(['team']), async (req,
   res.json(competitions.map(c => { const p = byComp[c.id]; const report = reportByComp[c.id]; const deadlinePassed = p?.deadline && new Date(p.deadline) < now; return { competitionId: c.id, competition: c, canSubmit: Boolean(p?.canSubmit !== false && !deadlinePassed), deadline: p?.deadline || null, reopened: Boolean(p?.reopenedAt), hasReport: Boolean(report), uploadedAt: report?.uploadedAt || null }; }));
 });
 
-router.post('/', authenticateToken, requireRole(['team']), async (req, res) => {
+router.post('/', authenticateToken, requireRole(['team']), validate(reportBodySchema), async (req, res) => {
   try {
-    const { title, content, competitionId, fileName, fileBase64 } = req.body || {};
+    const { title, content, competitionId, fileName, fileBase64 } = req.body;
     validateReportFields({ title, content, fileName });
     if (Object.hasOwn(req.body || {}, 'fileUrl')) return res.status(400).json({ error: 'لا يمكن تعيين رابط الملف مباشرة' });
     if (await isEmergencyFrozen()) return res.status(423).json({ error: 'تم إيقاف العمليات مؤقتاً', frozen: true });
@@ -112,12 +135,12 @@ router.post('/', authenticateToken, requireRole(['team']), async (req, res) => {
           else if (ext === '.txt') mimeType = 'text/plain';
 
           const uploadRes = await uploadToGoogleDrive(storedName, mimeType, fileBuffer, folderPath);
-          console.log(`[Instant Drive Upload] Report ${storedName} uploaded to Google Drive folder: ${folderPath}`, uploadRes?.result);
+          req.log.info({ storedName, folderPath, result: uploadRes?.result }, 'report uploaded to Google Drive');
         } catch (error) {
           if (error.code !== 'ENOENT') throw error;
         }
       } catch (driveErr) {
-        console.error('[Instant Drive Upload Error]:', driveErr.message);
+        req.log.error({ driveErr }, 'report Google Drive upload failed');
       }
     })();
 
@@ -127,13 +150,13 @@ router.post('/', authenticateToken, requireRole(['team']), async (req, res) => {
 
     res.status(201).json({ success: true, report });
   } catch (err) {
-    console.error('[Report Upload Backend Error]:', err);
-    res.status(err.status || 500).json({ error: err.status ? err.message : 'فشل في رفع التقرير' });
+    req.log.error({ err }, 'report upload failed');
+    res.status(err.statusCode || err.status || 500).json({ success: false, error: err.statusCode || err.status ? err.message : 'فشل في رفع التقرير', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Team: resubmit an existing report using the same permission checks as POST
-router.patch('/:id', authenticateToken, requireRole(['team']), async (req, res) => {
+router.patch('/:id', authenticateToken, requireRole(['team']), validate(reportPatchSchema), async (req, res) => {
   const existing = await prisma.report.findFirst({ where: { id: req.params.id, teamId: req.user.id } });
   if (!existing || !existing.competitionId) return res.status(404).json({ error: 'التقرير غير موجود' });
   const permission = await prisma.reportPermission.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: existing.competitionId } } });
@@ -147,7 +170,7 @@ router.patch('/:id', authenticateToken, requireRole(['team']), async (req, res) 
 });
 
 // Authorized report download; the public static upload route is intentionally absent.
-router.get('/:id/download', authenticateToken, async (req, res) => {
+router.get('/:id/download', authenticateToken, validate(downloadSchema), async (req, res) => {
   const report = await prisma.report.findUnique({ where: { id: req.params.id }, select: { id: true, teamId: true, fileUrl: true, fileName: true, competitionId: true } });
   if (!report) return res.status(404).json({ error: 'التقرير غير موجود' });
   let allowed = req.user.role === 'admin' || report.teamId === req.user.id;
@@ -165,13 +188,16 @@ router.get('/:id/download', authenticateToken, async (req, res) => {
 // Team: list own reports
 router.get('/mine', authenticateToken, requireRole(['team']), async (req, res) => {
   try {
-    const reports = await prisma.report.findMany({
-      where: { teamId: req.user.id },
-      orderBy: { uploadedAt: 'desc' },
-    });
-    res.json(reports);
+    const { page, limit, skip } = parsePagination(req.query);
+    const where = { teamId: req.user.id };
+    const [reports, total] = await Promise.all([
+      prisma.report.findMany({ where, orderBy: { uploadedAt: 'desc' }, skip, take: limit }),
+      prisma.report.count({ where }),
+    ]);
+    res.json(paginatedResponse({ data: reports, page, limit, total }));
   } catch (err) {
-    res.status(500).json({ error: 'فشل في جلب التقارير' });
+    req.log.error({ err }, 'failed to fetch reports');
+    res.status(500).json({ success: false, error: 'فشل في جلب التقارير', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import prisma from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { OFFICIAL_AGENDA_IDS, OFFICIAL_ZONES, getAgendaStatus } from '../agendaCanonical.js';
+import { parsePagination } from '../pagination.js';
 
 const router = Router();
 const LEGACY_ZONE_ALIASES = {
@@ -12,11 +13,18 @@ const LEGACY_ZONE_ALIASES = {
 
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const allItems = await prisma.agendaItem.findMany({
-      where: { id: { in: OFFICIAL_AGENDA_IDS }, isVisible: true },
-      include: { zone: true },
-      orderBy: [{ order: 'asc' }, { startTime: 'asc' }, { id: 'asc' }]
-    });
+    const { page, limit, skip } = parsePagination(req.query);
+    const where = { id: { in: OFFICIAL_AGENDA_IDS }, isVisible: true };
+    const [allItems, total] = await Promise.all([
+      prisma.agendaItem.findMany({
+        where,
+        include: { zone: true },
+        orderBy: [{ order: 'asc' }, { startTime: 'asc' }, { id: 'asc' }],
+        skip,
+        take: limit,
+      }),
+      prisma.agendaItem.count({ where }),
+    ]);
     const storedZones = await prisma.zone.findMany({ orderBy: { order: 'asc' } });
     const storedById = new Map(storedZones.map((zone) => [zone.id, zone]));
     const zones = OFFICIAL_ZONES.map((official) => ({ ...storedById.get(official.id), ...official }));
@@ -31,10 +39,11 @@ router.get('/', authenticateToken, async (req, res) => {
         canOpen: getAgendaStatus(item) === 'active'
       };
     });
-    res.json({ zones, agenda, festivalDate: process.env.FESTIVAL_DATE || '2026-08-21' });
+    const totalPages = Math.ceil(total / limit) || 1;
+    res.json({ success: true, zones, agenda, festivalDate: process.env.FESTIVAL_DATE || '2026-08-21', pagination: { page, limit, total, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 }, timestamp: new Date().toISOString() });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في جلب الجدول والمناطق' });
+    req.log.error({ err }, 'failed to fetch agenda');
+    res.status(500).json({ success: false, error: 'فشل في جلب الجدول والمناطق', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

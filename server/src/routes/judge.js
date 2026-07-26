@@ -5,8 +5,21 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { enforceNotFrozen } from '../freeze.js';
 import { getAnonymousLeaderboard } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
+import { validate, zString, zId, zNumber } from '../middleware/validate.js';
+import { parsePagination, paginatedResponse } from '../pagination.js';
 
 const router = Router();
+
+const unlockSchema = { body: { passcode: zString('كود المسابقة', { min: 1, max: 100 }) } };
+const teamsSchema = { params: { competitionId: zId('المسابقة') } };
+const scoreSchema = {
+  body: {
+    competitionId: zId('المسابقة'),
+    teamId: zId('الفريق'),
+    values: z.union([z.string(), z.record(z.unknown())]).optional(),
+    total: zNumber('المجموع', { min: 0, max: 100000 }),
+  },
+};
 
 // Apply judge authentication and a bounded mutation limiter to all judge endpoints.
 router.use(authenticateToken);
@@ -22,7 +35,7 @@ router.use(createMemoryRateLimiter({
 const failedAttempts = new Map();
 
 // Unlock competition with passcode (Protected against brute-force)
-router.post('/unlock', async (req, res) => {
+router.post('/unlock', validate(unlockSchema), async (req, res) => {
   try {
     const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const attempts = failedAttempts.get(clientIp) || { count: 0, resetAt: 0 };
@@ -72,24 +85,28 @@ router.post('/unlock', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'خطأ في التحقق من كود المسابقة' });
+    req.log.error({ err }, 'judge unlock failed');
+    res.status(500).json({ success: false, error: 'خطأ في التحقق من كود المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Get teams for evaluation (including submitted report for this competition)
-router.get('/teams/:competitionId', async (req, res) => {
+router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
   try {
     const { competitionId } = req.params;
 
     const competition = await prisma.competition.findFirst({
       where: { id: competitionId, judgeAssignments: { some: { judgeId: req.user.id } } }
     });
-    if (!competition) return res.status(403).json({ error: 'المحكم غير مكلف بهذه المسابقة' });
+    if (!competition) return res.status(403).json({ success: false, error: 'المحكم غير مكلف بهذه المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
 
-    const teams = await prisma.team.findMany({
-      orderBy: { label: 'asc' },
-      select: {
+    const { page, limit, skip } = parsePagination(req.query);
+    const [teams, total] = await Promise.all([
+      prisma.team.findMany({
+        orderBy: { label: 'asc' },
+        skip,
+        take: limit,
+        select: {
         id: true,
         label: true,
         scores: {
@@ -101,7 +118,9 @@ router.get('/teams/:competitionId', async (req, res) => {
           select: { id: true, competitionId: true, title: true, content: true, fileUrl: true, uploadedAt: true }
         }
       }
-    });
+      }),
+      prisma.team.count(),
+    ]);
 
     // Format list with submission status and matched competition report
     const formattedTeams = teams.map(t => {
@@ -127,15 +146,15 @@ router.get('/teams/:competitionId', async (req, res) => {
       };
     });
 
-    res.json(formattedTeams);
+    res.json(paginatedResponse({ data: formattedTeams, page, limit, total }));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في جلب قائمة الفرق والتقارير' });
+    req.log.error({ err }, 'failed to fetch judge teams');
+    res.status(500).json({ success: false, error: 'فشل في جلب قائمة الفرق والتقارير', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Submit score
-router.post('/scores', enforceNotFrozen, async (req, res) => {
+router.post('/scores', enforceNotFrozen, validate(scoreSchema), async (req, res) => {
   try {
     const { competitionId, teamId, values, total } = req.body;
     const judgeId = req.user.id;
@@ -182,9 +201,9 @@ router.post('/scores', enforceNotFrozen, async (req, res) => {
 
     res.json({ success: true, score: scoreRecord });
   } catch (err) {
-    if (err.code === 'P2002') return res.status(409).json({ error: 'تم تسجيل تقييم لهذا الفريق بالفعل' });
-    console.error(err);
-    res.status(err.status || 500).json({ error: err.status ? err.message : 'فشل في حفظ التقييم' });
+    if (err.code === 'P2002') return res.status(409).json({ success: false, error: 'تم تسجيل تقييم لهذا الفريق بالفعل', requestId: req.requestId, timestamp: new Date().toISOString() });
+    req.log.error({ err }, 'judge score submission failed');
+    res.status(err.statusCode || err.status || 500).json({ success: false, error: err.statusCode || err.status ? err.message : 'فشل في حفظ التقييم', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

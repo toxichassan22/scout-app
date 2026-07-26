@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { parsePagination, paginatedResponse } from '../pagination.js';
 
 const router = Router();
 
@@ -53,11 +54,13 @@ export async function getAnonymousLeaderboard() {
 // GET /api/leaderboard
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const leaderboard = await getAnonymousLeaderboard();
-    res.json(leaderboard);
+    const { page, limit, skip } = parsePagination(req.query);
+    const all = await getAnonymousLeaderboard();
+    const data = all.slice(skip, skip + limit);
+    res.json(paginatedResponse({ data, page, limit, total: all.length }));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في جلب الترتيب العام' });
+    req.log.error({ err }, 'failed to fetch leaderboard');
+    res.status(500).json({ success: false, error: 'فشل في جلب الترتيب العام', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

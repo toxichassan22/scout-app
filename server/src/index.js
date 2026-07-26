@@ -1,4 +1,5 @@
 import express from 'express';
+import 'express-async-errors';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
@@ -54,6 +55,13 @@ io.use(authenticateSocket);
 
 const PORT = process.env.PORT || 5000;
 
+const apiLimiter = createMemoryRateLimiter({
+  windowMs: Number(process.env.API_RATE_WINDOW_MS) || 60 * 1000,
+  max: Number(process.env.API_RATE_MAX) || 120,
+  keyGenerator: (req) => req.ip || req.socket?.remoteAddress || 'unknown',
+  message: 'طلبات كثيرة؛ حاول مرة أخرى لاحقاً',
+});
+
 app.use((req, res, next) => {
   req.io = io;
   next();
@@ -78,6 +86,8 @@ app.get('/api/version', (req, res) => {
 });
 
 // Uploads are private; report routes perform authorization before streaming files.
+
+app.use('/api', apiLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);

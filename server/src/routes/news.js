@@ -1,21 +1,26 @@
 import { Router } from 'express';
 import prisma from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { parsePagination, paginatedResponse } from '../pagination.js';
 
 const router = Router();
 
 // GET /api/news
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const newsList = await prisma.news.findMany({ orderBy: { createdAt: 'desc' } });
+    const { page, limit, skip } = parsePagination(req.query);
+    const [newsList, total] = await Promise.all([
+      prisma.news.findMany({ orderBy: { createdAt: 'desc' }, skip, take: limit }),
+      prisma.news.count(),
+    ]);
     const visible = req.user.role === 'team' ? newsList.filter(item => {
       try { const ids = JSON.parse(item.targetTeamIds || '[]'); return !Array.isArray(ids) || ids.length === 0 || ids.includes(req.user.id); }
       catch { return true; }
     }) : newsList;
-    res.json(visible.map(item => ({ ...item, targetTeamIds: (() => { try { return JSON.parse(item.targetTeamIds || '[]'); } catch { return []; } })() })));
+    res.json(paginatedResponse({ data: visible.map(item => ({ ...item, targetTeamIds: (() => { try { return JSON.parse(item.targetTeamIds || '[]'); } catch { return []; } })() })), page, limit, total }));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في جلب الأخبار' });
+    req.log.error({ err }, 'failed to fetch news');
+    res.status(500).json({ success: false, error: 'فشل في جلب الأخبار', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

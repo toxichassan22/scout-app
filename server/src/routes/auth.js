@@ -4,9 +4,25 @@ import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { JWT_SECRET, createMemoryRateLimiter } from '../security.js';
-import { boundedString } from '../validation.js';
+import { validate, zString } from '../middleware/validate.js';
 
 const router = Router();
+
+const loginSchema = {
+  body: {
+    username: zString('اسم المستخدم', { min: 1, max: 80 }),
+    password: zString('كلمة السر', { min: 1, max: 256 }),
+    deviceId: zString('معرف الجهاز', { min: 16, max: 200 }).optional(),
+    userAgent: zString('وكيل المستخدم', { max: 500 }).optional(),
+  },
+};
+
+const roleLoginSchema = {
+  body: {
+    username: zString('اسم المستخدم', { min: 1, max: 80 }),
+    password: zString('كلمة السر', { min: 1, max: 256 }),
+  },
+};
 const loginLimiter = createMemoryRateLimiter({
   windowMs: Number(process.env.LOGIN_RATE_WINDOW_MS) || 15 * 60 * 1000,
   max: Number(process.env.LOGIN_RATE_MAX) || 20,
@@ -18,12 +34,11 @@ router.use(['/team/login', '/judge/login', '/admin/login'], loginLimiter);
 const accountSelect = { id: true, username: true, passwordHash: true, authVersion: true };
 const signToken = (claims) => jwt.sign(claims, JWT_SECRET, { algorithm: 'HS256', expiresIn: '24h' });
 
-router.post('/team/login', async (req, res) => {
+router.post('/team/login', validate(loginSchema), async (req, res) => {
   try {
-    const username = boundedString(req.body?.username, 'username', { min: 1, max: 80 });
-    const password = boundedString(req.body?.password, 'password', { min: 1, max: 256, trim: false });
-    const deviceId = boundedString(req.body?.deviceId || req.headers['x-device-id'], 'deviceId', { min: 16, max: 200 });
-    const userAgent = String(req.body?.userAgent || req.headers['user-agent'] || 'Unknown Device').slice(0, 500);
+    const { username, password } = req.body;
+    const deviceId = (req.body.deviceId || req.headers['x-device-id'] || '').trim();
+    const userAgent = String(req.body.userAgent || req.headers['user-agent'] || 'Unknown Device').slice(0, 500);
     const team = await prisma.team.findUnique({ where: { username }, select: { ...accountSelect, label: true, maxDevices: true } });
     if (!team || !(await bcrypt.compare(password, team.passwordHash))) return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
 
@@ -44,16 +59,15 @@ router.post('/team/login', async (req, res) => {
   } catch (err) {
     if (err.message === 'limit') return res.status(403).json({ error: 'وصل الفريق للحد الأقصى للأجهزة المسموح بها', maxDevicesReached: true });
     if (err.message === 'revoked') return res.status(401).json({ error: 'تم إلغاء اعتماد هذا الجهاز', forceLogout: true, deviceRevoked: true });
-    if (err.status === 400) return res.status(400).json({ error: err.message });
-    console.error('[Team Login]', err);
+    if (err.statusCode === 400 || err.status === 400) return res.status(400).json({ error: err.message });
+    req.log.error({ err }, 'team login failed');
     res.status(500).json({ error: 'خطأ في السيرفر عند تسجيل الدخول' });
   }
 });
 
 async function roleLogin(req, res, role) {
   try {
-    const username = boundedString(req.body?.username, 'username', { min: 1, max: 80 });
-    const password = boundedString(req.body?.password, 'password', { min: 1, max: 256, trim: false });
+    const { username, password } = req.body;
     const model = role === 'judge' ? prisma.judge : prisma.admin;
     const select = role === 'judge' ? { ...accountSelect, name: true } : accountSelect;
     const account = await model.findUnique({ where: { username }, select });
@@ -63,14 +77,14 @@ async function roleLogin(req, res, role) {
       : { id: account.id, username: account.username, role };
     res.json({ token: signToken({ ...user, authVersion: account.authVersion }), user });
   } catch (err) {
-    if (err.status === 400) return res.status(400).json({ error: err.message });
-    console.error(`[${role} Login]`, err);
+    if (err.statusCode === 400 || err.status === 400) return res.status(400).json({ error: err.message });
+    req.log.error({ err, role }, 'role login failed');
     res.status(500).json({ error: 'خطأ في السيرفر عند تسجيل الدخول' });
   }
 }
 
-router.post('/judge/login', (req, res) => roleLogin(req, res, 'judge'));
-router.post('/admin/login', (req, res) => roleLogin(req, res, 'admin'));
+router.post('/judge/login', validate(roleLoginSchema), (req, res) => roleLogin(req, res, 'judge'));
+router.post('/admin/login', validate(roleLoginSchema), (req, res) => roleLogin(req, res, 'admin'));
 router.get('/me', authenticateToken, (req, res) => res.json({ user: req.user }));
 
 export default router;

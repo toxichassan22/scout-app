@@ -7,6 +7,8 @@ import { startDigitalSession } from '../quizService.js';
 import { getAnonymousLeaderboard } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { normalizeArabicText } from '../textNormalization.js';
+import { validate, zString, zNumber } from '../middleware/validate.js';
+import { parsePagination, paginatedResponse } from '../pagination.js';
 
 const router = Router();
 const MAX_SUBMISSION_ANSWERS = Math.min(1000, Math.max(1, Number(process.env.MAX_SUBMISSION_ANSWERS) || 500));
@@ -22,6 +24,25 @@ const parseJson = (value, fallback) => {
 };
 
 const isVideoCompetition = (c) => c.slug === 'video' || c.slug === 'video_design';
+
+const zSlug = zString('المسابقة', { min: 1, max: 100 });
+const entryCodeSchema = { params: { idOrSlug: zSlug }, body: { entryCode: zString('كود الدخول', { max: 100 }).optional() } };
+const playSchema = { params: { idOrSlug: zSlug } };
+const submitSchema = {
+  params: { idOrSlug: zSlug },
+  body: { answers: z.array(z.record(z.any())).max(MAX_SUBMISSION_ANSWERS, 'عدد الإجابات أكبر من المسموح') },
+};
+const videoAttemptSchema = {
+  params: { idOrSlug: zSlug },
+  body: {
+    prompt: zString('البرومبت', { min: 1, max: 4000 }),
+    videoUrl: zString('رابط الفيديو', { max: 2048 }).optional(),
+  },
+};
+const videoPatchSchema = {
+  params: { idOrSlug: zSlug, attemptId: zString('معرف المحاولة', { min: 36, max: 36 }) },
+  body: { videoUrl: zString('رابط الفيديو', { max: 2048 }) },
+};
 
 const publicCompetition = (comp, myScore = null) => ({
   id: comp.id,
@@ -43,9 +64,17 @@ const publicCompetition = (comp, myScore = null) => ({
 // List competitions for teams
 router.get('/', authenticateToken, requireRole(['team', 'admin']), async (req, res) => {
   try {
-    const comps = await prisma.competition.findMany({
-      orderBy: { createdAt: 'asc' },
-    });
+    const { page, limit, skip } = parsePagination(req.query);
+    const where = {};
+    const [comps, total] = await Promise.all([
+      prisma.competition.findMany({
+        where,
+        orderBy: { createdAt: 'asc' },
+        skip,
+        take: limit,
+      }),
+      prisma.competition.count({ where }),
+    ]);
 
     let myScores = [];
     if (req.user.role === 'team') {
@@ -55,18 +84,18 @@ router.get('/', authenticateToken, requireRole(['team', 'admin']), async (req, r
     }
     const scoreByComp = Object.fromEntries(myScores.map((s) => [s.competitionId, s]));
 
-    res.json(comps.map((c) => publicCompetition(c, scoreByComp[c.id])));
+    res.json(paginatedResponse({ data: comps.map((c) => publicCompetition(c, scoreByComp[c.id])), page, limit, total }));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في جلب المسابقات' });
+    req.log.error({ err }, 'failed to fetch competitions');
+    res.status(500).json({ success: false, error: 'فشل في جلب المسابقات', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Unlock / enter competition (optional entry code)
-router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforceNotFrozen, async (req, res) => {
+router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforceNotFrozen, validate(entryCodeSchema), async (req, res) => {
   try {
     const key = req.params.idOrSlug;
-    const { entryCode } = req.body || {};
+    const { entryCode } = req.body;
 
     const competition = await prisma.competition.findFirst({
       where: { OR: [{ id: key }, { slug: key }] },
@@ -123,13 +152,13 @@ router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforc
       ...(session && { sessionId: session.id, remainingSeconds: Math.max(0, Math.floor((new Date(session.expiresAt) - Date.now()) / 1000)) }),
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في دخول المسابقة' });
+    req.log.error({ err }, 'failed to enter competition');
+    res.status(500).json({ success: false, error: 'فشل في دخول المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Play pack: questions/countries WITHOUT answers
-router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), async (req, res) => {
+router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate(playSchema), async (req, res) => {
   try {
     const key = req.params.idOrSlug;
     const competition = await prisma.competition.findFirst({
@@ -219,8 +248,8 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), async (r
       ...(session && { sessionId: session.id, remainingSeconds: Math.max(0, Math.floor((new Date(session.expiresAt) - Date.now()) / 1000)) }),
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في تحميل محتوى المسابقة' });
+    req.log.error({ err }, 'failed to load competition content');
+    res.status(500).json({ success: false, error: 'فشل في تحميل محتوى المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -267,10 +296,10 @@ function validateSubmissionAnswers(answers, competition) {
 }
 
 // Submit auto-digital answers (server grades)
-router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enforceNotFrozen, async (req, res) => {
+router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enforceNotFrozen, validate(submitSchema), async (req, res) => {
   try {
     const key = req.params.idOrSlug;
-    const { answers } = req.body || {};
+    const { answers } = req.body;
 
     const competition = await prisma.competition.findFirst({
       where: { OR: [{ id: key }, { slug: key }] },
@@ -368,16 +397,16 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enfor
       scoreId: score.id,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في تسجيل النتيجة' });
+    req.log.error({ err }, 'failed to submit competition answers');
+    res.status(500).json({ success: false, error: 'فشل في تسجيل النتيجة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Video attempt (max 3) — score stays 0 until judged
-router.post('/:idOrSlug/video-attempt', authenticateToken, requireRole(['team']), enforceNotFrozen, async (req, res) => {
+router.post('/:idOrSlug/video-attempt', authenticateToken, requireRole(['team']), enforceNotFrozen, validate(videoAttemptSchema), async (req, res) => {
   try {
     const key = req.params.idOrSlug;
-    const { prompt, videoUrl } = req.body || {};
+    const { prompt, videoUrl } = req.body;
 
     const competition = await prisma.competition.findFirst({
       where: { OR: [{ id: key }, { slug: key }] },
@@ -433,17 +462,17 @@ router.post('/:idOrSlug/video-attempt', authenticateToken, requireRole(['team'])
       scoreId: score.id,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل في حفظ محاولة الفيديو' });
+    req.log.error({ err }, 'failed to save video attempt');
+    res.status(500).json({ success: false, error: 'فشل في حفظ محاولة الفيديو', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
 // Update video URL on an attempt
-router.patch('/:idOrSlug/video-attempt/:attemptId', authenticateToken, requireRole(['team']), enforceNotFrozen, async (req, res) => {
+router.patch('/:idOrSlug/video-attempt/:attemptId', authenticateToken, requireRole(['team']), enforceNotFrozen, validate(videoPatchSchema), async (req, res) => {
   try {
     const key = req.params.idOrSlug;
     const { attemptId } = req.params;
-    const { videoUrl } = req.body || {};
+    const { videoUrl } = req.body;
 
     const competition = await prisma.competition.findFirst({
       where: { OR: [{ id: key }, { slug: key }] },
@@ -491,8 +520,8 @@ router.patch('/:idOrSlug/video-attempt/:attemptId', authenticateToken, requireRo
 
     res.json({ success: true, attempts });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل تحديث الفيديو' });
+    req.log.error({ err }, 'failed to update video attempt');
+    res.status(500).json({ success: false, error: 'فشل تحديث الفيديو', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
