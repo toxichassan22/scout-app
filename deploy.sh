@@ -41,12 +41,12 @@ npm --prefix server run prisma:validate
 npm --prefix server run prisma:generate
 
 printf '%s\n' 'Ensuring SQLite schema exists and pushing database changes...'
-# دفع الـ Schema لقاعدة البيانات لإنشاء الجداول فوراً إذا كانت مفقودة
-npm --prefix server exec -- prisma db push --schema server/prisma/schema.prisma --accept-data-loss --skip-generate
+# Run from server/ so Prisma finds prisma/schema.prisma by default.
+(cd server && npx prisma db push --accept-data-loss --skip-generate)
 
 if [ "${APPLY_PRISMA_MIGRATIONS:-false}" = true ]; then
   printf '%s\n' 'Applying safe Prisma migrations...'
-  npm --prefix server exec prisma migrate deploy
+  (cd server && npx prisma migrate deploy)
 fi
 
 printf '%s\n' 'Checking SQLite readiness and schema drift before restart...'
