@@ -3,7 +3,9 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import 'dotenv/config';
+import pinoHttp from 'pino-http';
 
+import logger from './logger.js';
 import authRoutes from './routes/auth.js';
 import leaderboardRoutes from './routes/leaderboard.js';
 import newsRoutes from './routes/news.js';
@@ -31,6 +33,13 @@ const corsOptions = createCorsOptions();
 app.disable('x-powered-by');
 app.set('trust proxy', isProduction ? 1 : false);
 app.use(requestId);
+app.use(pinoHttp({
+  logger,
+  genReqId: (req) => req.requestId,
+  autoLogging: { ignore: (req) => req.url === '/api/health' },
+  customSuccessMessage: (req, res) => `${req.method} ${req.url} ${res.statusCode}`,
+  customErrorMessage: (req, res, err) => `${req.method} ${req.url} ${res.statusCode} - ${err.message}`,
+}));
 app.use(securityHeaders);
 app.use(cors(corsOptions));
 app.use(express.json({ limit: `${Number(process.env.JSON_BODY_LIMIT_BYTES) || 12 * 1024 * 1024}b`, strict: true }));
@@ -51,16 +60,16 @@ app.use((req, res, next) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'Digital Scout Camp API', time: new Date().toISOString() });
+  res.json({ status: 'ok', service: 'Digital Scout Camp API', requestId: req.requestId, time: new Date().toISOString() });
 });
 
 app.get('/api/ready', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ready', checks: { database: 'ok' }, time: new Date().toISOString() });
+    res.json({ status: 'ready', checks: { database: 'ok' }, requestId: req.requestId, time: new Date().toISOString() });
   } catch (error) {
-    console.error(`[Ready] request=${req.requestId}`, error.message);
-    res.status(503).json({ status: 'not_ready', checks: { database: 'failed' }, time: new Date().toISOString() });
+    req.log.error({ error }, 'readiness check failed');
+    res.status(503).json({ status: 'not_ready', checks: { database: 'failed' }, requestId: req.requestId, time: new Date().toISOString() });
   }
 });
 
@@ -81,7 +90,8 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/competitions', competitionsRoutes);
 
 io.on('connection', (socket) => {
-  console.info(`[Socket] connected id=${socket.id} role=${socket.user.role} transport=${socket.conn.transport.name}`);
+  socket.log = logger.child({ socketId: socket.id, role: socket.user?.role, userId: socket.user?.id });
+  socket.log.info({ transport: socket.conn.transport.name }, 'socket connected');
   joinPublicRealtimeRooms(socket);
   const stopRevocationMonitor = startSocketRevocationMonitor(socket);
 
@@ -92,26 +102,29 @@ io.on('connection', (socket) => {
     try {
       if (!(await canJoinRoom(socket, room))) return callback?.({ ok: false, error: 'Forbidden room' });
       await socket.join(room);
+      socket.log.info({ room }, 'socket joined room');
       callback?.({ ok: true, room });
     } catch (error) {
-      console.error('[Socket] room authorization failed:', error.message);
+      socket.log.error({ error, room }, 'room authorization failed');
       callback?.({ ok: false, error: 'Room authorization failed' });
     }
   });
 
   socket.on('disconnect', (reason) => {
     stopRevocationMonitor();
-    console.info(`[Socket] disconnected id=${socket.id} reason=${reason}`);
+    socket.log.info({ reason }, 'socket disconnected');
   });
 });
 
-app.use((req, res) => res.status(404).json({ error: 'Not found' }));
+app.use((req, res) => res.status(404).json({ success: false, error: 'Not found', requestId: req.requestId, timestamp: new Date().toISOString() }));
 app.use((error, req, res, next) => {
-  console.error(`[Request Error] request=${req.requestId}`, error);
   if (res.headersSent) return next(error);
-  if (error.type === 'entity.too.large') return res.status(413).json({ error: 'Payload too large' });
-  if (error.message === 'Origin is not allowed by CORS') return res.status(403).json({ error: 'Origin is not allowed' });
-  return res.status(500).json({ error: 'Internal server error', requestId: req.requestId });
+  const status = error.statusCode || error.status || (error.message === 'Origin is not allowed by CORS' ? 403 : 500);
+  const expose = status < 500 ? error.message : 'Internal server error';
+  (req.log || logger).error({ error, path: req.path, method: req.method, status }, 'request error');
+  if (error.type === 'entity.too.large') return res.status(413).json({ success: false, error: 'Payload too large', requestId: req.requestId, timestamp: new Date().toISOString() });
+  if (error.message === 'Origin is not allowed by CORS') return res.status(403).json({ success: false, error: 'Origin is not allowed', requestId: req.requestId, timestamp: new Date().toISOString() });
+  return res.status(status).json({ success: false, error: expose, requestId: req.requestId, timestamp: new Date().toISOString() });
 });
 
 export { app, server, io };
@@ -125,7 +138,7 @@ export async function startServer(port = PORT) {
     };
     const onListening = () => {
       server.off('error', onError);
-      console.log(`[Server] Digital Scout Camp backend running on port ${port}`);
+      logger.info({ port }, 'Digital Scout Camp backend running');
       resolve(server);
     };
     server.once('error', onError);
@@ -134,9 +147,19 @@ export async function startServer(port = PORT) {
   });
 }
 
+process.on('unhandledRejection', (reason) => {
+  logger.fatal({ reason }, 'unhandled promise rejection');
+  process.exit(1);
+});
+
+process.on('uncaughtException', (error) => {
+  logger.fatal({ error }, 'uncaught exception');
+  process.exit(1);
+});
+
 if (!process.env.SCOUT_NO_AUTOSTART) {
   startServer().catch((error) => {
-    console.error('[Server Startup Error]', error);
+    logger.fatal({ error }, 'server startup failed');
     process.exitCode = 1;
   });
 }

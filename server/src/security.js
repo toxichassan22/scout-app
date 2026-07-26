@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import logger from './logger.js';
 
 const DEVELOPMENT_SECRET = 'digital_scout_camp_local_development_only_2026';
 const PLACEHOLDER_SECRETS = new Set([
@@ -41,7 +42,7 @@ export function getAllowedOrigins() {
         .filter(Boolean);
 
     if (isProduction && configured.length === 0) {
-        console.warn('[security] FRONTEND_URL/CORS_ORIGINS not set in production; CORS will reflect the request origin. Set an explicit allowlist for stricter security.');
+        logger.warn('FRONTEND_URL/CORS_ORIGINS not set in production; CORS will reflect the request origin. Set an explicit allowlist for stricter security.');
     }
 
     return new Set(isProduction ? configured : [
