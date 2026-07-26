@@ -18,6 +18,7 @@ export const SocketProvider = ({ children }) => {
     const socketInstance = io(SOCKET_URL, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
+      auth: { token: localStorage.getItem('dsc_token') || undefined },
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: Infinity,

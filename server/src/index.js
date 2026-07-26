@@ -15,7 +15,8 @@ import reportsRoutes from './routes/reports.js';
 import competitionsRoutes from './routes/competitions.js';
 import prisma, { databaseReady } from './db.js';
 import { createCorsOptions, isProduction, requestId, securityHeaders } from './security.js';
-import { authenticateSocket, canJoinRoom } from './middleware/socketAuth.js';
+import { authenticateSocket, canJoinRoom, startSocketRevocationMonitor } from './middleware/socketAuth.js';
+import { joinPublicRealtimeRooms } from './realtime.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -81,9 +82,11 @@ app.use('/api/competitions', competitionsRoutes);
 
 io.on('connection', (socket) => {
   console.info(`[Socket] connected id=${socket.id} role=${socket.user.role} transport=${socket.conn.transport.name}`);
+  joinPublicRealtimeRooms(socket);
+  const stopRevocationMonitor = startSocketRevocationMonitor(socket);
 
   socket.on('join:room', async (room, callback) => {
-    if (typeof room !== 'string' || room.length > 100 || !/^(admin|judge|team:[^:]+|competition:[^:]+)$/.test(room)) {
+    if (typeof room !== 'string' || room.length > 100 || !/^(admin|judge|leaderboard:participants|team:[^:]+|competition:[^:]+)$/.test(room)) {
       return callback?.({ ok: false, error: 'Invalid room' });
     }
     try {
@@ -97,6 +100,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', (reason) => {
+    stopRevocationMonitor();
     console.info(`[Socket] disconnected id=${socket.id} reason=${reason}`);
   });
 });

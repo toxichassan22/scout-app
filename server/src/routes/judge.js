@@ -4,6 +4,7 @@ import { createMemoryRateLimiter } from '../security.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { enforceNotFrozen } from '../freeze.js';
 import { getAnonymousLeaderboard } from './leaderboard.js';
+import { emitLeaderboardUpdate } from '../realtime.js';
 
 const router = Router();
 
@@ -176,12 +177,8 @@ router.post('/scores', enforceNotFrozen, async (req, res) => {
       return score;
     });
 
-    // Broadcast socket updates if req.io is available
-    if (req.io) {
-      const leaderboardData = await getAnonymousLeaderboard();
-      req.io.emit('leaderboard:update', leaderboardData);
-      req.io.to('admin').emit('admin:score:new', { scoreRecord, teamId, competitionId });
-    }
+    await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
+    req.io?.to('admin').emit('admin:score:new', { scoreRecord, teamId, competitionId });
 
     res.json({ success: true, score: scoreRecord });
   } catch (err) {

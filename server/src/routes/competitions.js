@@ -5,15 +5,13 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { enforceNotFrozen } from '../freeze.js';
 import { startDigitalSession } from '../quizService.js';
 import { getAnonymousLeaderboard } from './leaderboard.js';
+import { emitLeaderboardUpdate } from '../realtime.js';
+import { normalizeArabicText } from '../textNormalization.js';
 
 const router = Router();
-
-const normalizeArabic = (value = '') =>
-  String(value)
-    .trim()
-    .replace(/[أإآ]/g, 'ا')
-    .replace(/ة/g, 'ه')
-    .replace(/\s+/g, ' ');
+const MAX_SUBMISSION_ANSWERS = Math.min(1000, Math.max(1, Number(process.env.MAX_SUBMISSION_ANSWERS) || 500));
+const MAX_ANSWER_TEXT_LENGTH = Math.min(10_000, Math.max(1, Number(process.env.MAX_ANSWER_TEXT_LENGTH) || 1000));
+const ALLOWED_VIDEO_DOMAINS = new Set(['youtube.com', 'youtu.be', 'vimeo.com', 'drive.google.com']);
 
 const parseJson = (value, fallback) => {
   try {
@@ -247,11 +245,25 @@ async function upsertScore({ competitionId, teamId, total, values, judgeId = nul
   });
 }
 
-async function emitLeaderboard(req) {
-  if (req.io) {
-    const leaderboardData = await getAnonymousLeaderboard();
-    req.io.emit('leaderboard:update', leaderboardData);
+function validateSubmissionAnswers(answers, competition) {
+  if (!Array.isArray(answers)) return 'answers must be an array';
+  if (answers.length > MAX_SUBMISSION_ANSWERS) return `Too many answers (max ${MAX_SUBMISSION_ANSWERS})`;
+
+  const idKey = competition.slug === 'geography' ? 'countryId' : 'questionId';
+  const seen = new Set();
+  for (const answer of answers) {
+    if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return 'Invalid answer format';
+    const id = answer[idKey];
+    if (typeof id !== 'string' || id.length === 0 || id.length > 100 || seen.has(id)) return 'Invalid or duplicate answer identifier';
+    seen.add(id);
+
+    if (competition.slug === 'geography') {
+      if (typeof answer.answer !== 'string' || answer.answer.length > MAX_ANSWER_TEXT_LENGTH) return 'Invalid or oversized answer';
+    } else if (!Number.isInteger(Number(answer.selectedIndex)) || Number(answer.selectedIndex) < 0 || Number(answer.selectedIndex) > 1000) {
+      return 'Invalid selected answer';
+    }
   }
+  return null;
 }
 
 // Submit auto-digital answers (server grades)
@@ -278,6 +290,13 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enfor
       return res.status(400).json({ error: 'هذه المسابقة لا تُصحَّح تلقائياً' });
     }
 
+    const answerValidationError = validateSubmissionAnswers(answers, competition);
+    if (answerValidationError) return res.status(400).json({ error: answerValidationError });
+    const expectedAnswerCount = competition.slug === 'geography'
+      ? await prisma.geographyCountry.count()
+      : competition.questions.length;
+    if (answers.length > expectedAnswerCount) return res.status(400).json({ error: 'Answer count exceeds competition question count' });
+
     const session = await prisma.quizSession.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } });
     if (!session) return res.status(409).json({ error: 'يجب بدء جلسة المسابقة أولاً', sessionRequired: true });
     if (session.deviceId !== req.user.deviceId) return res.status(403).json({ error: 'الجهاز لا يطابق جلسة المسابقة' });
@@ -301,20 +320,20 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enfor
     if (competition.slug === 'geography') {
       const countries = await prisma.geographyCountry.findMany();
       const byId = Object.fromEntries(countries.map((c) => [c.id, c]));
-      const answerList = Array.isArray(answers) ? answers : [];
+      const answerList = answers;
 
       for (const item of answerList) {
         const country = byId[item.countryId];
         if (!country) continue;
         const correct =
-          normalizeArabic(item.answer) === normalizeArabic(country.name);
+          normalizeArabicText(item.answer) === normalizeArabicText(country.name);
         const points = correct ? 10 : 0;
         total += points;
         detail.push({ countryId: item.countryId, correct, points });
       }
     } else {
       const byId = Object.fromEntries(competition.questions.map((q) => [q.id, q]));
-      const answerList = Array.isArray(answers) ? answers : [];
+      const answerList = answers;
 
       for (const item of answerList) {
         const q = byId[item.questionId];
@@ -341,7 +360,7 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enfor
       score = await prisma.score.findUnique({ where: { competitionId_teamId: { competitionId: competition.id, teamId: req.user.id } } });
     }
 
-    await emitLeaderboard(req);
+    await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
 
     res.json({
       success: true,
@@ -477,11 +496,13 @@ router.patch('/:idOrSlug/video-attempt/:attemptId', authenticateToken, requireRo
   }
 });
 
-function isAllowedVideoUrl(value) {
+export function isAllowedVideoUrl(value) {
   if (typeof value !== 'string' || value.length > 2048) return false;
   try {
     const url = new URL(value);
-    return url.protocol === 'https:' || (process.env.NODE_ENV !== 'production' && url.protocol === 'http:');
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+    const allowedDomain = [...ALLOWED_VIDEO_DOMAINS].some(domain => hostname === domain || hostname.endsWith(`.${domain}`));
+    return allowedDomain && (url.protocol === 'https:' || (process.env.NODE_ENV !== 'production' && url.protocol === 'http:'));
   } catch {
     return false;
   }

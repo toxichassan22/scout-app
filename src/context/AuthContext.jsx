@@ -49,12 +49,22 @@ export const AuthProvider = ({ children }) => {
   // Join team room on socket connect so revocation events are received
   useEffect(() => {
     if (!socket || !user) return;
-    if (user.role === 'team') {
-      socket.emit('join:room', `team:${user.id}`);
+    const token = getAuthToken();
+    if (token && socket.auth?.token !== token) {
+      socket.auth = { ...socket.auth, token };
+      socket.disconnect().connect();
+      return;
     }
-    if (user.role === 'admin') {
-      socket.emit('join:room', 'admin');
-    }
+
+    const joinAuthorizedRooms = () => {
+      if (user.role === 'team') socket.emit('join:room', `team:${user.id}`);
+      if (user.role === 'admin') socket.emit('join:room', 'admin');
+      if (user.role === 'judge') socket.emit('join:room', 'judge');
+    };
+
+    if (socket.connected) joinAuthorizedRooms();
+    socket.on('connect', joinAuthorizedRooms);
+    return () => socket.off('connect', joinAuthorizedRooms);
   }, [socket, user]);
 
   // Force logout helper — clears auth state and redirects
@@ -86,11 +96,15 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
+    const handleForceLogout = (data) => forceLogout(data?.reason || 'socket session revoked');
+
     socket.on('team:deleted', handleTeamDeleted);
     socket.on('device:revoked', handleDeviceRevoked);
+    socket.on('force-logout', handleForceLogout);
     return () => {
       socket.off('team:deleted', handleTeamDeleted);
       socket.off('device:revoked', handleDeviceRevoked);
+      socket.off('force-logout', handleForceLogout);
     };
   }, [socket, user]);
 

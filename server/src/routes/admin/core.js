@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { emitLeaderboardUpdate } from '../../realtime.js';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
@@ -149,7 +150,7 @@ router.delete('/devices/:deviceId', async (req, res) => {
     // Emit real-time event so the revoked device gets force-logged out
     if (req.io && device) {
       req.io.to(`team:${device.teamId}`).emit('device:revoked', { deviceId: device.id, fingerprint: device.deviceId, teamId: device.teamId });
-      req.io.emit('device:revoked', { deviceId: device.id, fingerprint: device.deviceId, teamId: device.teamId });
+      req.io.to('admin').emit('device:revoked', { deviceId: device.id, fingerprint: device.deviceId, teamId: device.teamId });
     }
 
     res.json({ success: true, message: 'تم إلغاء اعتماد الجهاز بنجاح' });
@@ -448,10 +449,7 @@ router.patch('/scores/:id', async (req, res) => {
       return updated;
     });
 
-    if (req.io) {
-      const leaderboardData = await getAnonymousLeaderboard();
-      req.io.emit('leaderboard:update', leaderboardData);
-    }
+    await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
 
     res.json(score);
   } catch (err) {
@@ -681,10 +679,8 @@ router.post('/clean-slate', async (req, res) => {
       prisma.report.deleteMany({})
     ]);
 
-    if (req.io) {
-      req.io.emit('leaderboard:update');
-      req.io.emit('system:clean-slate');
-    }
+    await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
+    req.io?.to('admin').emit('system:clean-slate');
 
     res.json({ success: true, message: 'تم تصفير كافة درجات وتجارب الاختبار بنجاح!' });
   } catch (err) {

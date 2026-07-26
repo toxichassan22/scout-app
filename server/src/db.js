@@ -6,9 +6,10 @@ export async function initDatabase(client = prisma) {
   await client.$queryRawUnsafe('PRAGMA journal_mode=WAL;');
   await client.$queryRawUnsafe('PRAGMA foreign_keys=ON;');
   await client.$queryRawUnsafe('PRAGMA busy_timeout=5000;');
+  await client.$queryRawUnsafe('PRAGMA synchronous=NORMAL;');
   await client.$queryRaw`SELECT 1`;
   await client.team.findFirst({ select: { id: true } });
-  console.log('[DB] SQLite database connected and validated (WAL and foreign keys enabled).');
+  console.log('[DB] SQLite connected and validated (WAL, foreign keys, busy timeout, synchronous=NORMAL).');
 }
 
 export const databaseReady = initDatabase().catch((error) => {
