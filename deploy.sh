@@ -37,6 +37,9 @@ printf '%s\n' 'Generating and validating Prisma client...'
 npm --prefix server run prisma:validate
 npm --prefix server run prisma:generate
 
+printf '%s\n' 'Ensuring SQLite schema exists...'
+npm --prefix server run db:ensure-schema
+
 printf '%s\n' 'Checking SQLite readiness and schema drift before restart...'
 npm --prefix server run db:ready
 npm --prefix server run db:drift
