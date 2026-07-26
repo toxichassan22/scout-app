@@ -12,7 +12,8 @@ const environment = {
     ...process.env,
     NODE_ENV: 'test',
     SCOUT_NO_AUTOSTART: '1',
-    DATABASE_URL: `file:${databasePath}`
+    DATABASE_URL: `file:${databasePath}`,
+    JWT_SECRET: process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production'
 };
 
 function run(command, args) {
@@ -51,9 +52,18 @@ try {
 
     await run(process.execPath, [
         prismaCli,
+        'validate'
+    ]);
+
+    await run(process.execPath, [
+        prismaCli,
+        'generate'
+    ]);
+
+    await run(process.execPath, [
+        prismaCli,
         'db',
         'push',
-        '--skip-generate',
         '--accept-data-loss'
     ]);
 
