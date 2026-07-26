@@ -17,7 +17,7 @@ import quizRoutes from './routes/quiz.js';
 import reportsRoutes from './routes/reports.js';
 import competitionsRoutes from './routes/competitions.js';
 import prisma, { databaseReady } from './db.js';
-import { createCorsOptions, isProduction, requestId, securityHeaders } from './security.js';
+import { createCorsOptions, createMemoryRateLimiter, isProduction, requestId, securityHeaders } from './security.js';
 import { authenticateSocket, canJoinRoom, startSocketRevocationMonitor } from './middleware/socketAuth.js';
 import { joinPublicRealtimeRooms } from './realtime.js';
 
