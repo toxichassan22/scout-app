@@ -1,13 +1,20 @@
 import { Router } from 'express';
 import prisma from '../db.js';
+import { createMemoryRateLimiter } from '../security.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { getAnonymousLeaderboard } from './leaderboard.js';
 
 const router = Router();
 
-// Apply judge authentication to all judge endpoints
+// Apply judge authentication and a bounded mutation limiter to all judge endpoints.
 router.use(authenticateToken);
 router.use(requireRole(['judge']));
+router.use(createMemoryRateLimiter({
+  windowMs: Number(process.env.MUTATION_RATE_WINDOW_MS) || 60 * 1000,
+  max: Number(process.env.JUDGE_MUTATION_RATE_MAX) || 30,
+  keyGenerator: req => `${req.ip}:${req.user?.id || 'anonymous'}`,
+  message: 'طلبات التعديل كثيرة؛ حاول مرة أخرى لاحقاً',
+}));
 
 // Anti-Bruteforce Rate Limiter for Judge Passcodes (Memory Store)
 const failedAttempts = new Map();

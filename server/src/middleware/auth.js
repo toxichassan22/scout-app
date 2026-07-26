@@ -1,7 +1,6 @@
 import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'digital_scout_camp_secret_key_2026';
+import { JWT_SECRET } from '../security.js';
 
 export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -11,7 +10,7 @@ export const authenticateToken = (req, res, next) => {
     return res.status(401).json({ error: 'لم يتم تقديم توكن المصادقة', forceLogout: true });
   }
 
-  jwt.verify(token, JWT_SECRET, async (err, user) => {
+  jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }, async (err, user) => {
     if (err) {
       return res.status(401).json({ error: 'التوكن غير صالح أو انتهت صلاحيته', forceLogout: true });
     }
@@ -37,8 +36,8 @@ export const authenticateToken = (req, res, next) => {
       req.user = user;
       next();
     } catch (dbErr) {
-      req.user = user;
-      next();
+      console.error('[Auth] Database verification failed:', dbErr.message);
+      return res.status(503).json({ error: 'تعذر التحقق من حساب المصادقة حالياً' });
     }
   });
 };

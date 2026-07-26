@@ -3,9 +3,16 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { JWT_SECRET, createMemoryRateLimiter } from '../security.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'digital_scout_camp_secret_key_2026';
+const loginLimiter = createMemoryRateLimiter({
+  windowMs: Number(process.env.LOGIN_RATE_WINDOW_MS) || 15 * 60 * 1000,
+  max: Number(process.env.LOGIN_RATE_MAX) || 20,
+  keyGenerator: req => `${req.ip}:${String(req.body?.username || '').trim().toLowerCase()}`,
+  message: 'محاولات تسجيل دخول كثيرة؛ حاول مرة أخرى لاحقاً',
+});
+router.use(['/team/login', '/judge/login', '/admin/login'], loginLimiter);
 
 // Team Login
 router.post('/team/login', async (req, res) => {
@@ -72,7 +79,7 @@ router.post('/team/login', async (req, res) => {
     const token = jwt.sign(
       { id: team.id, username: team.username, role: 'team', label: team.label },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      { algorithm: 'HS256', expiresIn: '24h' }
     );
 
     res.json({
@@ -106,7 +113,7 @@ router.post('/judge/login', async (req, res) => {
     const token = jwt.sign(
       { id: judge.id, name: judge.name, username: judge.username, role: 'judge' },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      { algorithm: 'HS256', expiresIn: '24h' }
     );
 
     res.json({
@@ -140,7 +147,7 @@ router.post('/admin/login', async (req, res) => {
     const token = jwt.sign(
       { id: admin.id, username: admin.username, role: 'admin' },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      { algorithm: 'HS256', expiresIn: '24h' }
     );
 
     res.json({

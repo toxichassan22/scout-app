@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { uploadToGoogleDrive } from '../backup-exporter.js';
+import { MAX_UPLOAD_BYTES, safeStoredName, validateBase64Upload } from '../uploadSecurity.js';
 
 const router = Router();
 
@@ -59,22 +60,21 @@ router.post('/', authenticateToken, requireRole(['team']), async (req, res) => {
     let fileUrl = '';
 
     if (fileBase64) {
-      const match = String(fileBase64).match(/^data:([^;]+);base64,(.+)$/);
-      const raw = match ? match[2] : String(fileBase64);
-      const buffer = Buffer.from(raw, 'base64');
-      if (buffer.length > 50 * 1024 * 1024) {
-        return res.status(400).json({ error: 'حجم الملف أكبر من 50 ميجابايت' });
+      try {
+        const validated = validateBase64Upload(fileBase64, fileName, req.body?.mimeType || req.body?.fileMime);
+        storedName = safeStoredName(fileName, validated.ext);
+        const diskPath = path.join(uploadsDir, storedName);
+        fs.writeFileSync(diskPath, validated.buffer, { flag: 'wx' });
+        fileUrl = `/uploads/${storedName}`;
+      } catch (uploadError) {
+        return res.status(400).json({ error: uploadError.message });
       }
-      const safeBase = (fileName || `report-${Date.now()}`).replace(/[^a-zA-Z0-9._\-\u0600-\u06FF]/g, '_');
-      storedName = `${Date.now()}-${safeBase}`;
-      const diskPath = path.join(uploadsDir, storedName);
-      fs.writeFileSync(diskPath, buffer);
-      fileUrl = `/uploads/${storedName}`;
     } else {
       // Text-only report saved as .txt
-      storedName = `${Date.now()}-${req.user.id}.txt`;
+      storedName = safeStoredName('report.txt', '.txt');
       const body = `العنوان: ${title || ''}\n\n${content || ''}`;
-      fs.writeFileSync(path.join(uploadsDir, storedName), body, 'utf8');
+      if (Buffer.byteLength(body, 'utf8') > MAX_UPLOAD_BYTES) return res.status(400).json({ error: 'حجم التقرير أكبر من الحد المسموح' });
+      fs.writeFileSync(path.join(uploadsDir, storedName), body, { encoding: 'utf8', flag: 'wx' });
       fileUrl = `/uploads/${storedName}`;
     }
 

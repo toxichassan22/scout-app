@@ -8,7 +8,16 @@
     "start": "node src/index.js",
     "build": "prisma generate",
     "dev": "node --watch src/index.js",
+    "prisma:validate": "prisma validate",
+    "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
+    "db:ready": "node scripts/sqlite-readiness.mjs",
+    "db:backup": "node scripts/sqlite-backup.mjs",
+    "db:drift": "node scripts/prisma-drift-check.mjs",
+    "test:integration": "node scripts/integration-permissions.mjs && node scripts/integration-security.mjs",
+    "test:health": "node scripts/health-check.mjs",
+    "test:operational": "npm run db:ready && npm run db:drift",
+    "test": "npm run prisma:validate && npm run prisma:generate && npm run test:integration",
     "seed": "node src/seed.js"
   },
   "dependencies": {
