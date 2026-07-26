@@ -1,3 +1,5 @@
+import logger from './logger.js';
+
 export const LEADERBOARD_ROOM = 'leaderboard:participants';
 
 export function joinPublicRealtimeRooms(socket) {
@@ -13,6 +15,6 @@ export async function emitLeaderboardUpdate(io, loadLeaderboard) {
         const leaderboard = await loadLeaderboard();
         io.to(LEADERBOARD_ROOM).emit('leaderboard:update', leaderboard);
     } catch (error) {
-        console.error('[Socket] leaderboard broadcast failed:', error.message || error);
+        logger.error({ error }, '[Socket] leaderboard broadcast failed');
     }
 }

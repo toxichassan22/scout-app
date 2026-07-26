@@ -1,4 +1,13 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
+
+function normalizeSchema(schema, part) {
+  if (schema && typeof schema.safeParseAsync === 'function') return schema;
+  if (schema && typeof schema === 'object') {
+    const obj = z.object(schema);
+    return part === 'body' ? obj.strict() : obj;
+  }
+  return schema;
+}
 
 export function validate(schemas, options = {}) {
   return async (req, res, next) => {
@@ -7,10 +16,12 @@ export function validate(schemas, options = {}) {
     try {
       for (const part of parts) {
         if (!schemas[part]) continue;
-        const result = await schemas[part].safeParseAsync(req[part]);
+        const schema = normalizeSchema(schemas[part], part);
+        const result = await schema.safeParseAsync(req[part]);
         if (!result.success) {
+          const issues = result.error.issues || result.error.errors || [];
           errors.push(
-            ...result.error.errors.map(e => ({
+            ...issues.map(e => ({
               field: e.path.join('.'),
               message: e.message,
               location: part,

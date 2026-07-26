@@ -5,26 +5,43 @@ import { parsePagination, paginatedResponse } from '../pagination.js';
 
 const router = Router();
 
+const LEADERBOARD_CACHE_TTL_MS = Number(process.env.LEADERBOARD_CACHE_TTL_MS) || 2000;
+let leaderboardCache = null;
+let leaderboardCacheExpiry = 0;
+
+export function clearLeaderboardCache() {
+  leaderboardCache = null;
+  leaderboardCacheExpiry = 0;
+}
+
 /**
  * Helper to calculate anonymous leaderboard with Speed Tie-Breaker
  * When scores are equal, team with earlier submission time / faster completion ranks higher!
  */
 export async function getAnonymousLeaderboard() {
-  const teams = await prisma.team.findMany({
-    include: { scores: true }
-  });
+  const now = Date.now();
+  if (leaderboardCache && now < leaderboardCacheExpiry) {
+    return leaderboardCache;
+  }
 
-  // Calculate totals and last submission timestamp for tie-breaking
-  const teamTotals = teams.map(team => {
-    const totalScore = team.scores.reduce((acc, curr) => acc + (curr.total || 0), 0);
-    // Find latest submission timestamp as tie-breaker (earlier timestamp = faster)
-    const latestSubmission = team.scores.reduce((latest, curr) => {
-      const time = new Date(curr.submittedAt).getTime();
-      return time > latest ? time : latest;
-    }, 0);
+  const [teams, teamScores] = await Promise.all([
+    prisma.team.findMany({ select: { id: true } }),
+    prisma.score.groupBy({
+      by: ['teamId'],
+      _sum: { total: true },
+      _max: { submittedAt: true },
+    }),
+  ]);
 
-    return { id: team.id, totalScore, latestSubmission };
-  });
+  const totals = new Map(teams.map(t => [t.id, { totalScore: 0, latestSubmission: Infinity }]));
+  for (const row of teamScores) {
+    totals.set(row.teamId, {
+      totalScore: Number(row._sum.total || 0),
+      latestSubmission: row._max.submittedAt ? new Date(row._max.submittedAt).getTime() : Infinity,
+    });
+  }
+
+  const teamTotals = [...totals.entries()].map(([id, data]) => ({ id, totalScore: data.totalScore, latestSubmission: data.latestSubmission }));
 
   // Sort descending by totalScore, then ascending by submission time (speed tie-breaker)
   teamTotals.sort((a, b) => {
@@ -40,7 +57,7 @@ export async function getAnonymousLeaderboard() {
     const rank = index + 1;
     const points = Math.round(item.totalScore * 10) / 10;
     const gapToNext = index > 0 ? Math.round((teamTotals[index - 1].totalScore - item.totalScore) * 10) / 10 : 0;
-    
+
     return {
       rank,
       points,
@@ -48,6 +65,8 @@ export async function getAnonymousLeaderboard() {
     };
   });
 
+  leaderboardCache = leaderboard;
+  leaderboardCacheExpiry = now + LEADERBOARD_CACHE_TTL_MS;
   return leaderboard;
 }
 

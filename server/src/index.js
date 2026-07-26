@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Router } from 'express';
 import 'express-async-errors';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -67,11 +67,11 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get('/api/health', (req, res) => {
+const healthRouter = Router();
+healthRouter.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'Digital Scout Camp API', requestId: req.requestId, time: new Date().toISOString() });
 });
-
-app.get('/api/ready', async (req, res) => {
+healthRouter.get('/ready', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     res.json({ status: 'ready', checks: { database: 'ok' }, requestId: req.requestId, time: new Date().toISOString() });
@@ -80,24 +80,28 @@ app.get('/api/ready', async (req, res) => {
     res.status(503).json({ status: 'not_ready', checks: { database: 'failed' }, requestId: req.requestId, time: new Date().toISOString() });
   }
 });
-
-app.get('/api/version', (req, res) => {
+healthRouter.get('/version', (req, res) => {
   res.json({ branch: process.env.APP_BRANCH || 'main', version: process.env.APP_VERSION || '1.0.0' });
 });
+app.use('/api', healthRouter);
+app.use('/api/v1', healthRouter);
 
 // Uploads are private; report routes perform authorization before streaming files.
 
 app.use('/api', apiLimiter);
 
-app.use('/api/auth', authRoutes);
-app.use('/api/leaderboard', leaderboardRoutes);
-app.use('/api/news', newsRoutes);
-app.use('/api/agenda', agendaRoutes);
-app.use('/api/judge', judgeRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/quiz', quizRoutes);
-app.use('/api/reports', reportsRoutes);
-app.use('/api/competitions', competitionsRoutes);
+const apiRouter = Router();
+apiRouter.use('/auth', authRoutes);
+apiRouter.use('/leaderboard', leaderboardRoutes);
+apiRouter.use('/news', newsRoutes);
+apiRouter.use('/agenda', agendaRoutes);
+apiRouter.use('/judge', judgeRoutes);
+apiRouter.use('/admin', adminRoutes);
+apiRouter.use('/quiz', quizRoutes);
+apiRouter.use('/reports', reportsRoutes);
+apiRouter.use('/competitions', competitionsRoutes);
+app.use('/api', apiRouter);
+app.use('/api/v1', apiRouter);
 
 io.on('connection', (socket) => {
   socket.log = logger.child({ socketId: socket.id, role: socket.user?.role, userId: socket.user?.id });
@@ -134,7 +138,7 @@ app.use((error, req, res, next) => {
   (req.log || logger).error({ error, path: req.path, method: req.method, status }, 'request error');
   if (error.type === 'entity.too.large') return res.status(413).json({ success: false, error: 'Payload too large', requestId: req.requestId, timestamp: new Date().toISOString() });
   if (error.message === 'Origin is not allowed by CORS') return res.status(403).json({ success: false, error: 'Origin is not allowed', requestId: req.requestId, timestamp: new Date().toISOString() });
-  return res.status(status).json({ success: false, error: expose, requestId: req.requestId, timestamp: new Date().toISOString() });
+  return res.status(status).json({ success: false, error: expose, details: error.details, requestId: req.requestId, timestamp: new Date().toISOString() });
 });
 
 export { app, server, io };

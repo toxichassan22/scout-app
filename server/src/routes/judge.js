@@ -6,6 +6,7 @@ import { enforceNotFrozen } from '../freeze.js';
 import { getAnonymousLeaderboard } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { validate, zString, zId, zNumber } from '../middleware/validate.js';
+import { z } from 'zod/v3';
 import { parsePagination, paginatedResponse } from '../pagination.js';
 
 const router = Router();

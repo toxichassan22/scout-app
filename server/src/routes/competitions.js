@@ -8,6 +8,7 @@ import { getAnonymousLeaderboard } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { normalizeArabicText } from '../textNormalization.js';
 import { validate, zString, zNumber } from '../middleware/validate.js';
+import { z } from 'zod/v3';
 import { parsePagination, paginatedResponse } from '../pagination.js';
 
 const router = Router();

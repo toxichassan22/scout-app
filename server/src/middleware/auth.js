@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
 import { JWT_SECRET } from '../security.js';
+import logger from '../logger.js';
 const modelByRole = { team: 'team', judge: 'judge', admin: 'admin' };
 
 export async function verifyAuthenticatedUser(token) {
@@ -32,7 +33,7 @@ export const authenticateToken = async (req, res, next) => {
     if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' || ['invalid_claims', 'revoked', 'device_required', 'device_revoked'].includes(error.message)) {
       return res.status(401).json({ error: 'الجلسة غير صالحة أو تم إلغاؤها', forceLogout: true, deviceRevoked: error.message === 'device_revoked' });
     }
-    console.error('[Auth] Database verification failed:', error.message);
+    logger.error({ error }, '[Auth] Database verification failed');
     return res.status(503).json({ error: 'تعذر التحقق من حساب المصادقة حالياً' });
   }
 };
