@@ -117,6 +117,8 @@ model Question {
   points        Float       @default(10)
   sortOrder     Int         @default(0)
   createdAt     DateTime    @default(now())
+
+  @@index([competitionId])
 }
 
 model GeographyCountry {
@@ -152,6 +154,8 @@ model Score {
   audits            ScoreAudit[]
 
   @@unique([competitionId, teamId])
+  @@index([teamId])
+  @@index([teamId, submittedAt])
 }
 
 model JudgeCompetition {
@@ -180,6 +184,7 @@ model JudgeScore {
   submittedAt   DateTime    @default(now())
 
   @@unique([judgeId, competitionId, teamId])
+  @@index([teamId])
 }
 
 model ScoreAudit {
@@ -198,6 +203,8 @@ model ScoreAudit {
   previousData  String?
   newData       String?
   createdAt     DateTime    @default(now())
+
+  @@index([teamId])
 }
 
 model News {
