@@ -108,6 +108,7 @@ try {
     assert(scoreResults.some(({ response }) => response.status === 200 || response.status === 409));
     console.log('HTTP integration security and integrity checks passed');
 } finally {
+    server.closeAllConnections?.();
     await new Promise((resolve) => server.close(() => resolve()));
     await prisma.report.deleteMany({ where: { teamId: team?.id } }).catch(() => { });
     await prisma.team.delete({ where: { id: team?.id } }).catch(() => { });

@@ -11,6 +11,7 @@ const databasePath = path.join(temporaryDirectory, 'test.db').replace(/\\/g, '/'
 const environment = {
     ...process.env,
     NODE_ENV: 'test',
+    SCOUT_NO_AUTOSTART: '1',
     DATABASE_URL: `file:${databasePath}`
 };
 

@@ -64,6 +64,7 @@ try {
 
   console.log('Smoke tests passed: team login, quiz start, and empty body validation');
 } finally {
+  server.closeAllConnections?.();
   await new Promise((resolve) => server.close(() => resolve()));
   await prisma.draftAnswer.deleteMany({ where: { questionId: question?.id } }).catch(() => {});
   await prisma.quizSession.deleteMany({ where: { competitionId: competition?.id } }).catch(() => {});
