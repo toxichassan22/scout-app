@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { createMemoryRateLimiter } from '../security.js';
-import coreRouter from './admin/core.js';
+import adminIndexRouter from './admin/index.js';
 
 const router = Router();
 const adminMutationLimiter = createMemoryRateLimiter({
@@ -17,6 +17,6 @@ router.use((req, res, next) => {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
   return adminMutationLimiter(req, res, next);
 });
-router.use(coreRouter);
+router.use(adminIndexRouter);
 
 export default router;

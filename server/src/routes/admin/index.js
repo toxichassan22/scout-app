@@ -1,0 +1,35 @@
+import { Router } from 'express';
+import teamsRouter from './teams.js';
+import leaderboardRouter from './leaderboard.js';
+import judgesRouter from './judges.js';
+import competitionsRouter from './competitions.js';
+import questionsRouter from './questions.js';
+import scoresRouter from './scores.js';
+import newsRouter from './news.js';
+import agendaRouter from './agenda.js';
+import reportsRouter from './reports.js';
+import freezeRouter from './freeze.js';
+import cleanSlateRouter from './cleanSlate.js';
+import backupRouter from './backup.js';
+import seedAgendaRouter from './seedAgenda.js';
+import reportPermissionsRouter from './reportPermissions.js';
+import judgeAssignmentsRouter from './judgeAssignments.js';
+
+const router = Router();
+router.use(teamsRouter);
+router.use(leaderboardRouter);
+router.use(judgesRouter);
+router.use(competitionsRouter);
+router.use(questionsRouter);
+router.use(scoresRouter);
+router.use(newsRouter);
+router.use(agendaRouter);
+router.use(reportsRouter);
+router.use(freezeRouter);
+router.use(cleanSlateRouter);
+router.use(backupRouter);
+router.use(seedAgendaRouter);
+router.use(reportPermissionsRouter);
+router.use(judgeAssignmentsRouter);
+
+export default router;
