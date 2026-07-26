@@ -72,7 +72,8 @@ joinPublicRealtimeRooms({ user: { role: 'admin' }, join: room => joinedRooms.pus
 assert.deepEqual(joinedRooms, [LEADERBOARD_ROOM]);
 const broadcasts = [];
 await emitLeaderboardUpdate({ to: room => ({ emit: (event, payload) => broadcasts.push({ room, event, payload }) }) }, async () => [{ rank: 1 }]);
-assert.deepEqual(broadcasts, [{ room: LEADERBOARD_ROOM, event: 'leaderboard:update', payload: [{ rank: 1 }] }]);
+assert.ok(broadcasts.some(b => b.room === LEADERBOARD_ROOM && b.event === 'leaderboard:update' && Array.isArray(b.payload) && b.payload[0]?.rank === 1), 'public leaderboard broadcast missing');
+assert.ok(broadcasts.some(b => b.room === `team:${team.id}` && b.event === 'leaderboard:self' && typeof b.payload?.rank === 'number'), 'team self-rank broadcast missing');
 
 const limiter = createMemoryRateLimiter({ windowMs: 1000, max: 3, keyGenerator: () => 'concurrent' });
 const statuses = Array.from({ length: 8 }, () => {

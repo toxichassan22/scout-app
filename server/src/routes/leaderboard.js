@@ -54,6 +54,40 @@ export async function getAnonymousLeaderboard(limit = Number(process.env.LEADERB
   return data;
 }
 
+/**
+ * Return the full rank for every team. Used to emit each team's own
+ * standing to its private `team:{teamId}` room during live broadcasts.
+ */
+export async function getTeamRanks() {
+  const rows = await prisma.$queryRaw`
+    SELECT
+      t.id as teamId,
+      COALESCE(s.totalScore, 0) as totalScore,
+      RANK() OVER (
+        ORDER BY COALESCE(s.totalScore, 0) DESC,
+                 CASE WHEN s.latestSubmitted IS NULL THEN 1 ELSE 0 END ASC,
+                 s.latestSubmitted ASC
+      ) as rank,
+      COALESCE(
+        LAG(s.totalScore) OVER (
+          ORDER BY COALESCE(s.totalScore, 0) DESC,
+                   CASE WHEN s.latestSubmitted IS NULL THEN 1 ELSE 0 END ASC,
+                   s.latestSubmitted ASC
+        ),
+        0
+      ) - COALESCE(s.totalScore, 0) as gapToNext
+    FROM Team t
+    LEFT JOIN TeamStanding s ON t.id = s.teamId
+  `;
+
+  return rows.map((item) => ({
+    teamId: item.teamId,
+    rank: Number(item.rank),
+    points: Math.round(Number(item.totalScore || 0) * 10) / 10,
+    gapToNext: Math.round(Number(item.gapToNext || 0) * 10) / 10,
+  }));
+}
+
 // GET /api/leaderboard
 router.get('/', authenticateToken, async (req, res) => {
   try {

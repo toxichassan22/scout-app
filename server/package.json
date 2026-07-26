@@ -1,7 +1,7 @@
 {
   "name": "digital-scout-camp-server",
   "version": "1.0.0",
-  "description": "Backend API & Real-time Server for Digital Scout Camp (Render + Supabase)",
+  "description": "Backend API & Real-time Server for Digital Scout Camp",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -10,7 +10,7 @@
     "dev": "node --watch src/index.js",
     "prisma:validate": "prisma validate",
     "prisma:generate": "prisma generate",
-    "prisma:push": "prisma db push",
+    "prisma:migrate": "prisma migrate deploy",
     "db:ready": "node scripts/sqlite-readiness.mjs",
     "db:backup": "node scripts/sqlite-backup.mjs",
     "db:drift": "node scripts/prisma-drift-check.mjs",

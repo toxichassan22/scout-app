@@ -88,7 +88,7 @@ healthRouter.get('/ready', async (req, res) => {
   }
 });
 healthRouter.get('/version', (req, res) => {
-  res.json({ branch: process.env.APP_BRANCH || 'main', version: process.env.APP_VERSION || '1.0.0' });
+  res.json({ status: 'ok', version: process.env.APP_VERSION || '1.0.0' });
 });
 app.use('/api', healthRouter);
 app.use('/api/v1', healthRouter);

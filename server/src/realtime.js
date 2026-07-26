@@ -1,4 +1,5 @@
 import logger from './logger.js';
+import { getTeamRanks } from './routes/leaderboard.js';
 
 export const LEADERBOARD_ROOM = 'leaderboard:participants';
 
@@ -13,8 +14,14 @@ export function joinPublicRealtimeRooms(socket) {
 
 async function doBroadcast(io, loadLeaderboard) {
     try {
-        const leaderboard = await loadLeaderboard();
+        const [leaderboard, teamRanks] = await Promise.all([
+            loadLeaderboard(),
+            getTeamRanks(),
+        ]);
         io.to(LEADERBOARD_ROOM).emit('leaderboard:update', leaderboard);
+        for (const { teamId, rank, points, gapToNext } of teamRanks) {
+            io.to(`team:${teamId}`).emit('leaderboard:self', { rank, points, gapToNext });
+        }
     } catch (error) {
         logger.error({ error }, '[Socket] leaderboard broadcast failed');
     }
