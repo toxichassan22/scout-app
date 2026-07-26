@@ -3,11 +3,16 @@ module.exports = {
     {
       name: 'scout-backend',
       script: './src/index.js',
+      cwd: __dirname,
       instances: 1,            // SQLite requires a single Node process to avoid WAL lock/corruption
       exec_mode: 'fork',
       watch: false,
       max_memory_restart: '500M',
       env: {
+        NODE_ENV: 'production',
+        PORT: 5000,
+      },
+      env_production: {
         NODE_ENV: 'production',
         PORT: 5000,
       },

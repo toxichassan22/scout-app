@@ -64,12 +64,10 @@ node server/scripts/ensure-env.mjs
 printf '%s\n' 'Building frontend...'
 npm run build
 
-printf '%s\n' 'Restarting backend...'
-if pm2 describe scout-backend >/dev/null 2>&1; then
-  pm2 restart server/ecosystem.config.cjs --env production --update-env
-else
-  pm2 start server/ecosystem.config.cjs --env production
-fi
+printf '%s\n' 'Restarting backend (delete + start to reload cwd and reset crash counter)...'
+pm2 delete scout-backend 2>/dev/null || true
+pm2 start server/ecosystem.config.cjs --env production
+pm2 save
 
 printf '%s\n' 'Waiting for readiness...'
 attempt=1
