@@ -1,3 +1,4 @@
+import { error } from '../../response.js';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../../db.js';
@@ -27,7 +28,7 @@ router.get('/judges', async (req, res) => {
     res.json(paginatedResponse({ data: judges, page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'admin judges failed');
-    res.status(500).json({ success: false, error: 'فشل في جلب المحكمين: ' + (err.message || ''), requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في جلب المحكمين: ' + (err.message || ''), 500);
   }
 });
 
@@ -45,7 +46,7 @@ router.post('/judges', validate(judgeCreateSchema), async (req, res) => {
     res.status(201).json(judge);
   } catch (err) {
     req.log.error({ err }, 'admin create judge failed');
-    res.status(400).json({ success: false, error: 'فشل في إنشاء المحكم (اسم المستخدم مكرر)', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في إنشاء المحكم (اسم المستخدم مكرر)', 400);
   }
 });
 
@@ -55,7 +56,7 @@ router.delete('/judges/:id', validate({ params: { id: zId('المحكم') } }), 
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, 'admin delete judge failed');
-    res.status(500).json({ success: false, error: 'فشل في حذف المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في حذف المحكم', 500);
   }
 });
 

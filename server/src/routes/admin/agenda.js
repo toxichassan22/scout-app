@@ -1,3 +1,4 @@
+import { error } from '../../response.js';
 import { Router } from 'express';
 import prisma from '../../db.js';
 import { validate, zString, zId, zNumber } from '../../middleware/validate.js';
@@ -32,7 +33,7 @@ router.post('/agenda', validate(agendaSchema), async (req, res) => {
     res.status(201).json(item);
   } catch (err) {
     req.log.error({ err }, 'admin create agenda failed');
-    res.status(500).json({ success: false, error: 'فشل في إضافة الفعالية', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في إضافة الفعالية', 500);
   }
 });
 
@@ -47,7 +48,7 @@ router.delete('/agenda/:id', validate({ params: { id: zId('الفعالية') } 
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, 'admin delete agenda failed');
-    res.status(500).json({ success: false, error: 'فشل في حذف الفعالية', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في حذف الفعالية', 500);
   }
 });
 
@@ -66,7 +67,7 @@ router.put('/agenda/:id', validate({ params: { id: zId('الفعالية') }, bo
     res.json(item);
   } catch (err) {
     req.log.error({ err }, 'admin update agenda failed');
-    res.status(500).json({ success: false, error: 'فشل في تعديل الفعالية', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في تعديل الفعالية', 500);
   }
 });
 
@@ -83,13 +84,13 @@ router.post('/agenda/:id/action', validate(agendaActionSchema), async (req, res)
       : action === 'stop' || action === 'close'
         ? { isClosed: true, closedAt: now }
         : null;
-    if (!data) return res.status(400).json({ error: 'الإجراء يجب أن يكون start أو stop أو close' });
+    if (!data) return error(res, 'الإجراء يجب أن يكون start أو stop أو close', 400);
     const item = await prisma.agendaItem.update({ where: { id: req.params.id }, data });
     if (req.io) req.io.emit('agenda:update', { action, agendaId: item.id });
     res.json(item);
   } catch (err) {
     req.log.error({ err }, 'admin agenda action failed');
-    res.status(500).json({ success: false, error: 'فشل في تغيير حالة الفعالية', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في تغيير حالة الفعالية', 500);
   }
 });
 

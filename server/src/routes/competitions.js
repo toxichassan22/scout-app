@@ -1,3 +1,4 @@
+import { error } from '../response.js';
 import { Router } from 'express';
 import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
@@ -98,7 +99,7 @@ router.get('/', authenticateToken, requireRole(['team', 'admin']), async (req, r
     res.json(paginatedResponse({ data: comps.map((c) => publicCompetition(c, scoreByComp[c.id], attemptCountByComp[c.id])), page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'failed to fetch competitions');
-    res.status(500).json({ success: false, error: 'فشل في جلب المسابقات', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في جلب المسابقات', 500);
   }
 });
 
@@ -113,14 +114,14 @@ router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforc
     });
 
     if (!competition) {
-      return res.status(404).json({ error: 'المسابقة غير موجودة' });
+      return error(res, 'المسابقة غير موجودة', 404);
     }
     if (!competition.isOpen) {
-      return res.status(400).json({ error: 'المسابقة مغلقة حالياً' });
+      return error(res, 'المسابقة مغلقة حالياً', 400);
     }
 
     if (competition.entryCode && competition.entryCode !== String(entryCode || '').trim()) {
-      return res.status(403).json({ error: 'كود الدخول غير صحيح' });
+      return error(res, 'كود الدخول غير صحيح', 403);
     }
     if (competition.entryCode) {
       await prisma.competitionAccess.upsert({
@@ -179,7 +180,7 @@ router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforc
     });
   } catch (err) {
     req.log.error({ err }, 'failed to enter competition');
-    res.status(500).json({ success: false, error: 'فشل في دخول المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في دخول المسابقة', 500);
   }
 });
 
@@ -193,13 +194,13 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
     });
 
     if (!competition) {
-      return res.status(404).json({ error: 'المسابقة غير موجودة' });
+      return error(res, 'المسابقة غير موجودة', 404);
     }
     if (!competition.isOpen) {
-      return res.status(400).json({ error: 'المسابقة مغلقة حالياً' });
+      return error(res, 'المسابقة مغلقة حالياً', 400);
     }
     if (competition.entryCode && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) {
-      return res.status(403).json({ error: 'يجب إدخال كود المسابقة أولاً' });
+      return error(res, 'يجب إدخال كود المسابقة أولاً', 403);
     }
 
     let session = null;
@@ -207,7 +208,7 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
     if (competition.type === 'auto_digital') {
       session = await prisma.quizSession.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } });
       if (!session) return res.status(409).json({ error: 'يجب بدء جلسة المسابقة أولاً', sessionRequired: true });
-      if (session.deviceId !== req.user.deviceId) return res.status(403).json({ error: 'المسابقة مقفلة على جهاز آخر' });
+      if (session.deviceId !== req.user.deviceId) return error(res, 'المسابقة مقفلة على جهاز آخر', 403);
       if (session.isCompleted) return res.status(409).json({ error: 'انتهت جلسة المسابقة', completed: true });
       expired = new Date() >= session.expiresAt;
     }
@@ -295,7 +296,7 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
     });
   } catch (err) {
     req.log.error({ err }, 'failed to load competition content');
-    res.status(500).json({ success: false, error: 'فشل في تحميل محتوى المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في تحميل محتوى المسابقة', 500);
   }
 });
 
@@ -365,16 +366,16 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enfor
     });
 
     if (!competition) {
-      return res.status(404).json({ error: 'المسابقة غير موجودة' });
+      return error(res, 'المسابقة غير موجودة', 404);
     }
     if (!competition.isOpen) {
-      return res.status(400).json({ error: 'المسابقة مغلقة حالياً' });
+      return error(res, 'المسابقة مغلقة حالياً', 400);
     }
     if (competition.entryCode && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) {
-      return res.status(403).json({ error: 'يجب إدخال كود المسابقة أولاً' });
+      return error(res, 'يجب إدخال كود المسابقة أولاً', 403);
     }
     if (competition.type !== 'auto_digital' && competition.slug !== 'geography') {
-      return res.status(400).json({ error: 'هذه المسابقة لا تُصحَّح تلقائياً' });
+      return error(res, 'هذه المسابقة لا تُصحَّح تلقائياً', 400);
     }
 
     // Unified path for non-geography auto-digital competitions: grade from server-side drafts.
@@ -389,12 +390,12 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enfor
 
     // Geography path: client submits answers in one batch (text answers are not saved as drafts).
     if (!answers || !Array.isArray(answers) || answers.length === 0) {
-      return res.status(400).json({ error: 'الإجابات مطلوبة' });
+      return error(res, 'الإجابات مطلوبة', 400);
     }
     const answerValidationError = validateSubmissionAnswers(answers, competition);
-    if (answerValidationError) return res.status(400).json({ error: answerValidationError });
+    if (answerValidationError) return error(res, answerValidationError, 400);
     const expectedAnswerCount = await prisma.geographyCountry.count();
-    if (answers.length > expectedAnswerCount) return res.status(400).json({ error: 'Answer count exceeds competition question count' });
+    if (answers.length > expectedAnswerCount) return error(res, 'Answer count exceeds competition question count', 400);
 
     let detail = [];
     let score;
@@ -461,15 +462,15 @@ router.post('/:idOrSlug/video-attempt', authenticateToken, requireRole(['team'])
     });
 
     if (!competition || !isVideoCompetition(competition)) {
-      return res.status(404).json({ error: 'مسابقة الفيديو غير موجودة' });
+      return error(res, 'مسابقة الفيديو غير موجودة', 404);
     }
     if (!competition.isOpen) {
-      return res.status(400).json({ error: 'المسابقة مغلقة حالياً' });
+      return error(res, 'المسابقة مغلقة حالياً', 400);
     }
     const cleanPrompt = typeof prompt === 'string' ? prompt.trim() : '';
-    if (!cleanPrompt || cleanPrompt.length > 4000) return res.status(400).json({ error: 'البرومبت غير صالح' });
-    if (videoUrl !== undefined && videoUrl !== null && !isAllowedVideoUrl(videoUrl)) return res.status(400).json({ error: 'رابط الفيديو غير صالح' });
-    if (competition.entryCode && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) return res.status(403).json({ error: 'يجب إدخال كود المسابقة أولاً' });
+    if (!cleanPrompt || cleanPrompt.length > 4000) return error(res, 'البرومبت غير صالح', 400);
+    if (videoUrl !== undefined && videoUrl !== null && !isAllowedVideoUrl(videoUrl)) return error(res, 'رابط الفيديو غير صالح', 400);
+    if (competition.entryCode && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) return error(res, 'يجب إدخال كود المسابقة أولاً', 403);
 
     const result = await createVideoAttempt({
       competitionId: competition.id,
@@ -510,18 +511,18 @@ router.patch('/:idOrSlug/video-attempt/:attemptId', authenticateToken, requireRo
       where: { OR: [{ id: key }, { slug: key }] },
     });
     if (!competition || !isVideoCompetition(competition)) {
-      return res.status(404).json({ error: 'مسابقة الفيديو غير موجودة' });
+      return error(res, 'مسابقة الفيديو غير موجودة', 404);
     }
 
-    if (!competition.isOpen) return res.status(400).json({ error: 'المسابقة مغلقة حالياً' });
-    if (!isAllowedVideoUrl(videoUrl)) return res.status(400).json({ error: 'رابط الفيديو غير صالح' });
-    if (competition.entryCode && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) return res.status(403).json({ error: 'يجب إدخال كود المسابقة أولاً' });
+    if (!competition.isOpen) return error(res, 'المسابقة مغلقة حالياً', 400);
+    if (!isAllowedVideoUrl(videoUrl)) return error(res, 'رابط الفيديو غير صالح', 400);
+    if (competition.entryCode && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) return error(res, 'يجب إدخال كود المسابقة أولاً', 403);
 
     const attempt = await prisma.videoAttempt.findUnique({
       where: { id: attemptId },
     });
     if (!attempt || attempt.competitionId !== competition.id || attempt.teamId !== req.user.id) {
-      return res.status(404).json({ error: 'المحاولة غير موجودة' });
+      return error(res, 'المحاولة غير موجودة', 404);
     }
 
     const updated = await prisma.videoAttempt.update({

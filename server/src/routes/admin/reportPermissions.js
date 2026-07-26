@@ -1,3 +1,4 @@
+import { error } from '../../response.js';
 import { Router } from 'express';
 import prisma from '../../db.js';
 import { validate, zString, zId, zBoolean } from '../../middleware/validate.js';
@@ -19,7 +20,7 @@ router.get('/report-permissions', async (req, res) => {
     res.json(paginatedResponse({ data: rows, page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'admin report permissions list failed');
-    res.status(500).json({ success: false, error: 'فشل في جلب الصلاحيات', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في جلب الصلاحيات', 500);
   }
 });
 const reportPermissionSchema = {
@@ -37,7 +38,7 @@ router.patch('/report-permissions/:teamId/:competitionId', validate(reportPermis
     res.json(row);
   } catch (err) {
     req.log.error({ err }, 'admin update report permission failed');
-    res.status(400).json({ success: false, error: 'فشل في تحديث صلاحية التقرير', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في تحديث صلاحية التقرير', 400);
   }
 });
 

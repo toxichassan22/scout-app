@@ -1,3 +1,4 @@
+import { error } from '../../response.js';
 import { Router } from 'express';
 import prisma from '../../db.js';
 
@@ -98,7 +99,7 @@ router.post('/seed-agenda', async (req, res) => {
     res.json({ success: true, agendaAdded: added, compsAdded, totalAgenda: existing.length + added, totalComps: existingComps.length + compsAdded });
   } catch (err) {
     req.log.error({ err }, 'admin seed agenda failed');
-    res.status(500).json({ success: false, error: 'فشل في إضافة البيانات', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في إضافة البيانات', 500);
   }
 });
 

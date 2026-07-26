@@ -1,3 +1,4 @@
+import { error } from '../../response.js';
 import { Router } from 'express';
 import { generateFullBackup } from '../../backup-exporter.js';
 
@@ -10,7 +11,7 @@ router.post('/backup/trigger', async (req, res) => {
     res.json(result);
   } catch (err) {
     req.log.error({ err }, 'admin backup trigger failed');
-    res.status(500).json({ success: false, error: 'فشل في تشغيل المزامنة والنسخ الاحتياطي', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في تشغيل المزامنة والنسخ الاحتياطي', 500);
   }
 });
 

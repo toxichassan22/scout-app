@@ -1,3 +1,4 @@
+import { error } from '../../response.js';
 import { emitLeaderboardUpdate } from '../../realtime.js';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
@@ -16,12 +17,12 @@ router.post('/clean-slate', validate(cleanSlateSchema), async (req, res) => {
     const admin = await prisma.admin.findUnique({ where: { id: req.user.id } });
 
     if (!admin) {
-      return res.status(401).json({ error: 'غير مصرح' });
+      return error(res, 'غير مصرح', 401);
     }
 
     const valid = await bcrypt.compare(confirmPassword || '', admin.passwordHash);
     if (!valid) {
-      return res.status(401).json({ error: 'كلمة السر غير صحيحة لتأكيد التصفير' });
+      return error(res, 'كلمة السر غير صحيحة لتأكيد التصفير', 401);
     }
 
     // Wipe scores, draft answers, quiz sessions, and test reports
@@ -41,7 +42,7 @@ router.post('/clean-slate', validate(cleanSlateSchema), async (req, res) => {
     res.json({ success: true, message: 'تم تصفير كافة درجات وتجارب الاختبار بنجاح!' });
   } catch (err) {
     req.log.error({ err }, 'admin clean slate failed');
-    res.status(500).json({ success: false, error: 'فشل في تصفير البيانات التجريبية', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في تصفير البيانات التجريبية', 500);
   }
 });
 

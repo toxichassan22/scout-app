@@ -1,3 +1,4 @@
+import { error } from '../response.js';
 import { Router } from 'express';
 import prisma from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -20,7 +21,7 @@ router.get('/', authenticateToken, async (req, res) => {
     res.json(paginatedResponse({ data: visible.map(item => ({ ...item, targetTeamIds: (() => { try { return JSON.parse(item.targetTeamIds || '[]'); } catch { return []; } })() })), page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'failed to fetch news');
-    res.status(500).json({ success: false, error: 'فشل في جلب الأخبار', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في جلب الأخبار', 500);
   }
 });
 

@@ -1,3 +1,4 @@
+import { error } from '../../response.js';
 import { Router } from 'express';
 import prisma from '../../db.js';
 import { validate, zString, zId, zNumber } from '../../middleware/validate.js';
@@ -30,7 +31,7 @@ router.post('/questions', validate(questionSchema), async (req, res) => {
     res.status(201).json(q);
   } catch (err) {
     req.log.error({ err }, 'admin create question failed');
-    res.status(500).json({ success: false, error: 'فشل في إضافة السؤال', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في إضافة السؤال', 500);
   }
 });
 
@@ -40,7 +41,7 @@ router.delete('/questions/:id', validate({ params: { id: zId('السؤال') } }
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, 'admin delete question failed');
-    res.status(500).json({ success: false, error: 'فشل في حذف السؤال', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في حذف السؤال', 500);
   }
 });
 

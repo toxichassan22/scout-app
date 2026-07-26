@@ -1,3 +1,4 @@
+import { error } from '../../response.js';
 import fs from 'fs';
 import path from 'path';
 import { Router } from 'express';
@@ -34,7 +35,7 @@ router.get('/reports', async (req, res) => {
     res.json(paginatedResponse({ data: reports, page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'admin reports failed');
-    res.status(500).json({ success: false, error: 'فشل في جلب التقارير: ' + (err.message || ''), requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في جلب التقارير: ' + (err.message || ''), 500);
   }
 });
 
@@ -67,7 +68,7 @@ router.delete('/reports/:id', validate({ params: { id: zId('التقرير') } }
     res.json({ success: true, message: 'تم حذف التقرير والملف بنجاح' });
   } catch (err) {
     req.log.error({ err }, 'admin delete report failed');
-    res.status(500).json({ success: false, error: 'فشل في حذف التقرير', requestId: req.requestId, timestamp: new Date().toISOString() });
+    error(res, 'فشل في حذف التقرير', 500);
   }
 });
 
