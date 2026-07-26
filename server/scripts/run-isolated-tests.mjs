@@ -63,6 +63,10 @@ try {
     await run(process.execPath, [
         path.join(scriptDirectory, 'integration-security.mjs')
     ]);
+
+    await run(process.execPath, [
+        path.join(scriptDirectory, 'integration-http.mjs')
+    ]);
 } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
 }

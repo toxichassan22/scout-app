@@ -1,0 +1,866 @@
+import fs from 'fs';
+import path from 'path';
+import { Router } from 'express';
+import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
+import prisma from '../../db.js';
+import { getAnonymousLeaderboard } from '../leaderboard.js';
+import { generateFullBackup, deleteFromGoogleDrive } from '../../backup-exporter.js';
+import { boundedString, strongPassword } from '../../validation.js';
+
+const router = Router();
+
+const safeTeamSelect = { id: true, username: true, label: true, maxDevices: true, authVersion: true, createdAt: true };
+const safeJudgeSelect = { id: true, name: true, username: true, authVersion: true, createdAt: true };
+const safeCompetitionSelect = { id: true, name: true, slug: true, type: true, description: true, isOpen: true, passcode: true, entryCode: true, duration: true, criteria: true, createdAt: true };
+
+// Full Leaderboard (with internal team labels)
+router.get('/leaderboard', async (req, res) => {
+  try {
+    const teams = await prisma.team.findMany({
+      select: { ...safeTeamSelect, scores: { include: { competition: true } } }
+    });
+
+    const leaderboard = teams.map(team => {
+      const totalScore = team.scores.reduce((acc, curr) => acc + (curr.total || 0), 0);
+      return {
+        id: team.id,
+        label: team.label,
+        username: team.username,
+        totalScore: Math.round(totalScore * 10) / 10,
+        scores: team.scores
+      };
+    });
+
+    leaderboard.sort((a, b) => b.totalScore - a.totalScore);
+    res.json(leaderboard);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'فشل في جلب الترتيب التفصيلي' });
+  }
+});
+
+// Teams CRUD
+router.get('/teams', async (req, res) => {
+  try {
+    let teams;
+    try {
+      teams = await prisma.team.findMany({
+        orderBy: { createdAt: 'desc' },
+        select: { ...safeTeamSelect, _count: { select: { members: true, devices: true } } }
+      });
+    } catch (countErr) {
+      console.warn('[Admin Teams] Member count relation failed, falling back:', countErr.message);
+      teams = await prisma.team.findMany({ orderBy: { createdAt: 'desc' }, select: safeTeamSelect });
+      teams = teams.map(t => ({ ...t, _count: { members: 0, devices: 0 } }));
+    }
+    res.json(teams);
+  } catch (err) {
+    console.error('[Admin Teams Error]:', err);
+    res.status(500).json({ error: 'فشل في جلب الفرق: ' + (err.message || '') });
+  }
+});
+
+// Get members of a specific team
+router.get('/teams/:teamId/members', async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    let members = [];
+    try {
+      members = await prisma.teamMember.findMany({
+        where: { teamId },
+        orderBy: { createdAt: 'asc' }
+      });
+    } catch (mErr) {
+      console.warn('[Admin Team Members] Table missing or query failed:', mErr.message);
+    }
+    res.json(members);
+  } catch (err) {
+    console.error('[Admin Team Members Error]:', err);
+    res.status(500).json({ error: 'فشل في جلب أعضاء الفريق: ' + (err.message || '') });
+  }
+});
+
+// Add member to a team (Admin can exceed 24 limit!)
+router.post('/teams/:teamId/members', async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const { name, role } = req.body || {};
+    const cleanName = boundedString(name, 'name', { min: 1, max: 120 });
+    const cleanRole = role === undefined ? 'عضو' : boundedString(role, 'role', { min: 1, max: 80 });
+
+    const member = await prisma.teamMember.create({
+      data: {
+        teamId,
+        name: cleanName,
+        role: cleanRole
+      }
+    });
+
+    res.status(201).json(member);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'فشل في إضافة العضو' });
+  }
+});
+
+// Delete member from team database
+router.delete('/members/:memberId', async (req, res) => {
+  try {
+    const { memberId } = req.params;
+    await prisma.teamMember.delete({
+      where: { id: memberId }
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'فشل في حذف العضو' });
+  }
+});
+
+// ─── Team Devices Management ───
+
+// Get registered devices for a team
+router.get('/teams/:teamId/devices', async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const devices = await prisma.teamDevice.findMany({
+      where: { teamId },
+      orderBy: { lastLoginAt: 'desc' }
+    });
+    res.json(devices);
+  } catch (err) {
+    console.error('[Admin Team Devices Error]:', err);
+    res.status(500).json({ error: 'فشل في جلب أجهزة الفريق' });
+  }
+});
+
+// Revoke (delete) a device — frees a slot for a new device
+router.delete('/devices/:deviceId', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const device = await prisma.teamDevice.findUnique({ where: { id: deviceId } });
+    if (!device) return res.status(404).json({ error: 'الجهاز غير موجود' });
+    await prisma.teamDevice.update({
+      where: { id: deviceId },
+      data: { revokedAt: new Date(), tokenVersion: { increment: 1 } }
+    });
+
+    // Emit real-time event so the revoked device gets force-logged out
+    if (req.io && device) {
+      req.io.to(`team:${device.teamId}`).emit('device:revoked', { deviceId: device.id, fingerprint: device.deviceId, teamId: device.teamId });
+      req.io.emit('device:revoked', { deviceId: device.id, fingerprint: device.deviceId, teamId: device.teamId });
+    }
+
+    res.json({ success: true, message: 'تم إلغاء اعتماد الجهاز بنجاح' });
+  } catch (err) {
+    console.error('[Revoke Device Error]:', err);
+    res.status(500).json({ error: 'فشل في إلغاء اعتماد الجهاز' });
+  }
+});
+
+// Update device limit for a specific team (Admin can raise/lower from default 24)
+router.patch('/teams/:teamId/device-limit', async (req, res) => {
+  try {
+    const maxDevices = Number(req.body.maxDevices);
+    if (!Number.isInteger(maxDevices) || maxDevices < 1 || maxDevices > 1000) {
+      return res.status(400).json({ error: 'حد الأجهزة يجب أن يكون رقماً صحيحاً بين 1 و1000' });
+    }
+    const team = await prisma.team.update({ where: { id: req.params.teamId }, data: { maxDevices }, select: safeTeamSelect });
+    res.json({ success: true, team });
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في تحديث حد الأجهزة' });
+  }
+});
+
+router.patch('/teams/:id', async (req, res) => {
+  try {
+    const { username, label, password, maxDevices } = req.body || {};
+    const data = {};
+    if (username !== undefined) data.username = boundedString(username, 'username', { min: 1, max: 80 });
+    if (label !== undefined) data.label = boundedString(label, 'label', { min: 1, max: 160 });
+    if (password !== undefined) {
+      const cleanPassword = strongPassword(password);
+      data.passwordHash = await bcrypt.hash(cleanPassword, 12);
+      data.authVersion = { increment: 1 };
+    }
+    if (maxDevices !== undefined) {
+      const n = Number(maxDevices);
+      if (!Number.isInteger(n) || n < 1 || n > 1000) return res.status(400).json({ error: 'حد الأجهزة غير صالح' });
+      data.maxDevices = n;
+    }
+    const team = await prisma.team.update({ where: { id: req.params.id }, data, select: safeTeamSelect });
+    res.json(team);
+  } catch (err) {
+    res.status(400).json({ error: 'فشل في تحديث الفريق' });
+  }
+});
+
+router.post('/teams', async (req, res) => {
+  try {
+    const { username, password, label } = req.body || {};
+    const cleanUsername = boundedString(username, 'username', { min: 1, max: 80 });
+    const cleanLabel = boundedString(label, 'label', { min: 1, max: 160 });
+    const cleanPassword = strongPassword(password);
+
+    const passwordHash = await bcrypt.hash(cleanPassword, 12);
+    const team = await prisma.team.create({ data: { username: cleanUsername, passwordHash, label: cleanLabel }, select: safeTeamSelect });
+
+    if (req.io) {
+      req.io.emit('team:created', { teamId: team.id, username: team.username });
+    }
+
+    res.status(201).json(team);
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ error: 'فشل في إنشاء الفريق (ربما اسم المستخدم مكرر)' });
+  }
+});
+
+router.post('/teams/import', async (req, res) => {
+  try {
+    const { teams } = req.body || {}; // Array of { username, password, label }
+    if (!Array.isArray(teams) || teams.length === 0 || teams.length > 500) {
+      return res.status(400).json({ error: 'قائمة الفرق غير صالحة أو أكبر من الحد المسموح' });
+    }
+
+    const created = [];
+    for (const item of teams) {
+      try {
+        const username = boundedString(item?.username, 'username', { min: 1, max: 80 });
+        const label = boundedString(item?.label, 'label', { min: 1, max: 160 });
+        const password = strongPassword(item?.password);
+        const passwordHash = await bcrypt.hash(password, 12);
+        const team = await prisma.team.create({ data: { username, passwordHash, label }, select: safeTeamSelect });
+        created.push(team);
+      } catch (error) {
+        if (error.code !== 'P2002') throw error;
+      }
+    }
+
+    res.json({ success: true, count: created.length });
+    if (req.io && created.length > 0) {
+      req.io.emit('team:created', { count: created.length });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في استيراد الفرق' });
+  }
+});
+
+router.delete('/teams/:id', async (req, res) => {
+  try {
+    const deletedId = req.params.id;
+    const team = await prisma.team.findUnique({
+      where: { id: deletedId },
+      include: { reports: true }
+    });
+
+    if (team) {
+      // 1. Clean local report files for this team
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      for (const report of team.reports) {
+        if (report.fileUrl) {
+          const fileName = path.basename(report.fileUrl);
+          const fp = path.join(uploadsDir, fileName);
+          if (fs.existsSync(fp)) {
+            try { fs.unlinkSync(fp); } catch (_) { }
+          }
+        }
+      }
+
+      // 2. Sync deletion to Google Drive (trash team folder)
+      const safeFolderName = `Team_${team.username}_${team.label.replace(/[/\\?%*:|"<>]/g, '_')}`;
+      deleteFromGoogleDrive('', `03_TEAMS_DATA/${safeFolderName}`, 'delete_folder').catch(() => { });
+
+      // 3. Delete team from DB
+      await prisma.team.delete({ where: { id: deletedId } });
+    }
+
+    if (req.io) {
+      req.io.emit('team:deleted', { teamId: deletedId });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Delete Team Error]:', err);
+    res.status(500).json({ error: 'فشل في حذف الفريق' });
+  }
+});
+
+// Judges CRUD
+router.get('/judges', async (req, res) => {
+  try {
+    let judges = [];
+    try {
+      judges = await prisma.judge.findMany({ orderBy: { createdAt: 'desc' }, select: safeJudgeSelect });
+    } catch (jErr) {
+      console.warn('[Admin Judges] Query failed, falling back:', jErr.message);
+      judges = await prisma.judge.findMany({ select: safeJudgeSelect });
+    }
+    res.json(judges);
+  } catch (err) {
+    console.error('[Admin Judges Error]:', err);
+    res.status(500).json({ error: 'فشل في جلب المحكمين: ' + (err.message || '') });
+  }
+});
+
+router.post('/judges', async (req, res) => {
+  try {
+    const { name, username, password } = req.body || {};
+    const cleanName = boundedString(name, 'name', { min: 1, max: 120 });
+    const cleanUsername = boundedString(username, 'username', { min: 1, max: 80 });
+    const cleanPassword = strongPassword(password);
+
+    const passwordHash = await bcrypt.hash(cleanPassword, 12);
+    const judge = await prisma.judge.create({ data: { name: cleanName, username: cleanUsername, passwordHash }, select: safeJudgeSelect });
+
+    res.status(201).json(judge);
+  } catch (err) {
+    res.status(400).json({ error: 'فشل في إنشاء المحكم (اسم المستخدم مكرر)' });
+  }
+});
+
+router.delete('/judges/:id', async (req, res) => {
+  try {
+    await prisma.judge.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في حذف المحكم' });
+  }
+});
+
+// Competitions & Passcodes
+router.get('/competitions', async (req, res) => {
+  try {
+    const comps = await prisma.competition.findMany({
+      include: { questions: true }
+    });
+    res.json(comps);
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في جلب المسابقات' });
+  }
+});
+
+router.post('/competitions', async (req, res) => {
+  try {
+    const { name, slug, type, criteria } = req.body || {};
+    const cleanName = boundedString(name, 'name', { min: 1, max: 200 });
+    const cleanSlug = boundedString(slug, 'slug', { min: 1, max: 100 });
+    const cleanType = type === undefined ? 'auto_digital' : String(type);
+    if (!['auto_digital', 'manual_judged'].includes(cleanType)) return res.status(400).json({ error: 'نوع المسابقة غير صالح' });
+    const comp = await prisma.competition.create({
+      data: {
+        name: cleanName,
+        slug: cleanSlug,
+        type: cleanType,
+        criteria: typeof criteria === 'string' ? criteria : JSON.stringify(criteria || [])
+      }
+    });
+    if (req.io) req.io.emit('competition:update', { action: 'created', competitionId: comp.id });
+    res.status(201).json(comp);
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في إنشاء المسابقة' });
+  }
+});
+
+router.patch('/competitions/:id', async (req, res) => {
+  try {
+    const { isOpen, name, description, type, criteria, duration, entryCode, passcode, custom, revoke } = req.body;
+    const data = {
+      ...(isOpen !== undefined && { isOpen: Boolean(isOpen) }),
+      ...(name !== undefined && { name: String(name).trim() }),
+      ...(description !== undefined && { description: String(description) }),
+      ...(type !== undefined && { type: String(type) }),
+      ...(criteria !== undefined && { criteria: typeof criteria === 'string' ? criteria : JSON.stringify(criteria) }),
+      ...(duration !== undefined && { duration: duration === null ? null : Number(duration) }),
+      ...(entryCode !== undefined && { entryCode: entryCode ? String(entryCode) : null }),
+      ...(passcode !== undefined && { passcode: passcode ? String(passcode) : null }),
+    };
+    if (custom !== undefined) data.type = custom ? 'manual_judged' : data.type;
+    if (revoke === true) { data.passcode = null; data.entryCode = null; data.isOpen = false; }
+    const comp = await prisma.competition.update({ where: { id: req.params.id }, data });
+
+    if (req.io) {
+      req.io.emit('competition:update', { action: 'updated', competitionId: comp.id, isOpen: comp.isOpen });
+      if (isOpen === false) req.io.emit('judge:session:closed', { competitionId: comp.id });
+    }
+
+    res.json(comp);
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في تحديث المسابقة' });
+  }
+});
+
+router.post('/competitions/:id/passcode', async (req, res) => {
+  try {
+    const randomCode = crypto.randomInt(100000, 1000000).toString();
+    const comp = await prisma.competition.update({
+      where: { id: req.params.id },
+      data: { passcode: randomCode, isOpen: true }
+    });
+    if (req.io) req.io.emit('competition:update', { action: 'opened', competitionId: comp.id, isOpen: comp.isOpen });
+    res.json({ passcode: comp.passcode });
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في توليد كود المسابقة' });
+  }
+});
+
+// Questions CRUD
+router.post('/questions', async (req, res) => {
+  try {
+    const { competitionId, text, options, correctOption, points } = req.body;
+    const q = await prisma.question.create({
+      data: {
+        competitionId,
+        text,
+        options: typeof options === 'string' ? options : JSON.stringify(options),
+        correctOption: parseInt(correctOption),
+        points: parseFloat(points || 10)
+      }
+    });
+    res.status(201).json(q);
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في إضافة السؤال' });
+  }
+});
+
+router.delete('/questions/:id', async (req, res) => {
+  try {
+    await prisma.question.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في حذف السؤال' });
+  }
+});
+
+// Score Override (Admin Audit; requires an explicit unlock first)
+router.patch('/scores/:id', async (req, res) => {
+  try {
+    const { total, values, reason } = req.body;
+    const adminId = req.user.id;
+    const existing = await prisma.score.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: 'النتيجة غير موجودة' });
+    if (existing.isFinal) return res.status(409).json({ error: 'يجب فتح قفل النتيجة أولاً' });
+    const numericTotal = Number(total);
+    if (!Number.isFinite(numericTotal) || !String(reason || '').trim()) return res.status(400).json({ error: 'الدرجة وسبب التصحيح مطلوبان' });
+    const score = await prisma.$transaction(async tx => {
+      const updated = await tx.score.update({ where: { id: existing.id }, data: { total: numericTotal, ...(values !== undefined && { values: typeof values === 'string' ? values : JSON.stringify(values) }), editedByAdminId: adminId, editedAt: new Date(), isFinal: true } });
+      await tx.scoreAudit.create({ data: { scoreId: existing.id, competitionId: existing.competitionId, teamId: existing.teamId, adminId, action: 'admin_correction', reason: String(reason).trim(), previousData: JSON.stringify(existing), newData: JSON.stringify(updated) } });
+      return updated;
+    });
+
+    if (req.io) {
+      const leaderboardData = await getAnonymousLeaderboard();
+      req.io.emit('leaderboard:update', leaderboardData);
+    }
+
+    res.json(score);
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في تعديل الدرجة' });
+  }
+});
+
+// News Management
+router.post('/news', async (req, res) => {
+  try {
+    const { title, body, photoUrl, category, targetTeamIds } = req.body;
+    if (!title || !body) {
+      return res.status(400).json({ error: 'العنوان والمحتوى مطلوبان' });
+    }
+
+    const news = await prisma.news.create({
+      data: {
+        title,
+        body,
+        photoUrl: photoUrl || null,
+        category: category || 'general',
+        targetTeamIds: JSON.stringify(Array.isArray(targetTeamIds) ? targetTeamIds : []),
+        createdByAdminId: req.user.id
+      }
+    });
+
+    if (req.io) {
+      req.io.emit('news:published', news);
+    }
+
+    res.status(201).json(news);
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في نشر الخبر' });
+  }
+});
+
+router.patch('/news/:id', async (req, res) => {
+  try {
+    const { title, body, photoUrl, category, targetTeamIds } = req.body || {};
+    const news = await prisma.news.update({
+      where: { id: req.params.id }, data: {
+        ...(title !== undefined && { title }), ...(body !== undefined && { body }),
+        ...(photoUrl !== undefined && { photoUrl: photoUrl || null }), ...(category !== undefined && { category }),
+        ...(targetTeamIds !== undefined && { targetTeamIds: JSON.stringify(Array.isArray(targetTeamIds) ? targetTeamIds : []) })
+      }
+    });
+    res.json(news);
+  } catch (err) { res.status(400).json({ error: 'فشل في تعديل الخبر' }); }
+});
+
+router.delete('/news/:id', async (req, res) => {
+  try {
+    await prisma.news.delete({ where: { id: req.params.id } });
+
+    if (req.io) {
+      req.io.emit('news:deleted', { id: req.params.id });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في حذف الخبر' });
+  }
+});
+
+// Agenda Management
+router.post('/agenda', async (req, res) => {
+  try {
+    const { title, type, period, order, zoneId, startTime, endTime, description } = req.body;
+    const item = await prisma.agendaItem.create({
+      data: { title, type, period: period || 'before', order: Number(order) || 0, zoneId, startTime, endTime, description: description || '' }
+    });
+
+    if (req.io) {
+      req.io.emit('agenda:update');
+    }
+
+    res.status(201).json(item);
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في إضافة الفعالية' });
+  }
+});
+
+router.delete('/agenda/:id', async (req, res) => {
+  try {
+    await prisma.agendaItem.delete({ where: { id: req.params.id } });
+
+    if (req.io) {
+      req.io.emit('agenda:update');
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في حذف الفعالية' });
+  }
+});
+
+router.put('/agenda/:id', async (req, res) => {
+  try {
+    const { title, type, period, order, zoneId, startTime, endTime, description } = req.body;
+    const item = await prisma.agendaItem.update({
+      where: { id: req.params.id },
+      data: { title, type, period: period || 'before', order: Number(order) || 0, zoneId, startTime, endTime, description: description || '' }
+    });
+
+    if (req.io) {
+      req.io.emit('agenda:update');
+    }
+
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في تعديل الفعالية' });
+  }
+});
+
+router.post('/agenda/:id/action', async (req, res) => {
+  try {
+    const action = String(req.body.action || '').toLowerCase();
+    const now = new Date();
+    const data = action === 'start'
+      ? { isStarted: true, startedAt: now, isClosed: false, closedAt: null }
+      : action === 'stop' || action === 'close'
+        ? { isClosed: true, closedAt: now }
+        : null;
+    if (!data) return res.status(400).json({ error: 'الإجراء يجب أن يكون start أو stop أو close' });
+    const item = await prisma.agendaItem.update({ where: { id: req.params.id }, data });
+    if (req.io) req.io.emit('agenda:update', { action, agendaId: item.id });
+    res.json(item);
+  } catch (err) {
+    console.error('[Admin Agenda Action]', err);
+    res.status(500).json({ error: 'فشل في تغيير حالة الفعالية' });
+  }
+});
+
+// Reports Management
+router.get('/reports', async (req, res) => {
+  try {
+    let reports = [];
+    try {
+      reports = await prisma.report.findMany({
+        include: { team: { select: safeTeamSelect }, competition: { select: safeCompetitionSelect } },
+        orderBy: { uploadedAt: 'desc' }
+      });
+    } catch (rErr) {
+      console.warn('[Admin Reports] Relation or orderBy failed, falling back:', rErr.message);
+      reports = await prisma.report.findMany();
+    }
+    res.json(reports);
+  } catch (err) {
+    console.error('[Admin Reports Error]:', err);
+    res.status(500).json({ error: 'فشل في جلب التقارير: ' + (err.message || '') });
+  }
+});
+
+router.delete('/reports/:id', async (req, res) => {
+  try {
+    const reportId = req.params.id;
+    const report = await prisma.report.findUnique({
+      where: { id: reportId },
+      include: { team: { select: safeTeamSelect } }
+    });
+
+    if (report) {
+      if (report.fileUrl) {
+        const fileName = path.basename(report.fileUrl);
+        const uploadsDir = path.join(process.cwd(), 'uploads');
+        const fp = path.join(uploadsDir, fileName);
+        if (fs.existsSync(fp)) {
+          try { fs.unlinkSync(fp); } catch (_) { }
+        }
+
+        if (report.team) {
+          const safeFolderName = `Team_${report.team.username}_${report.team.label.replace(/[/\\?%*:|"<>]/g, '_')}`;
+          deleteFromGoogleDrive(fileName, `03_TEAMS_DATA/${safeFolderName}/reports`, 'delete_file').catch(() => { });
+        }
+      }
+
+      await prisma.report.delete({ where: { id: reportId } });
+    }
+
+    res.json({ success: true, message: 'تم حذف التقرير والملف بنجاح' });
+  } catch (err) {
+    console.error('[Delete Report Error]:', err);
+    res.status(500).json({ error: 'فشل في حذف التقرير' });
+  }
+});
+
+// Admin Emergency Freeze / Unfreeze Switch
+router.post('/emergency-freeze', async (req, res) => {
+  try {
+    const { frozen } = req.body;
+    await prisma.systemSetting.upsert({
+      where: { key: 'EMERGENCY_FREEZE' },
+      update: { value: frozen ? 'true' : 'false' },
+      create: { key: 'EMERGENCY_FREEZE', value: frozen ? 'true' : 'false' }
+    });
+
+    if (req.io) {
+      req.io.emit('emergency:freeze', { frozen: !!frozen });
+    }
+
+    res.json({ success: true, frozen: !!frozen });
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في تغيير حالة الطوارئ' });
+  }
+});
+
+// Admin Clean Slate (Reset Test Data before Event)
+router.post('/clean-slate', async (req, res) => {
+  try {
+    const { confirmPassword } = req.body;
+    const admin = await prisma.admin.findUnique({ where: { id: req.user.id } });
+
+    if (!admin) {
+      return res.status(401).json({ error: 'غير مصرح' });
+    }
+
+    const valid = await bcrypt.compare(confirmPassword || '', admin.passwordHash);
+    if (!valid) {
+      return res.status(401).json({ error: 'كلمة السر غير صحيحة لتأكيد التصفير' });
+    }
+
+    // Wipe scores, draft answers, quiz sessions, and test reports
+    await prisma.$transaction([
+      prisma.draftAnswer.deleteMany({}),
+      prisma.quizSession.deleteMany({}),
+      prisma.score.deleteMany({}),
+      prisma.report.deleteMany({})
+    ]);
+
+    if (req.io) {
+      req.io.emit('leaderboard:update');
+      req.io.emit('system:clean-slate');
+    }
+
+    res.json({ success: true, message: 'تم تصفير كافة درجات وتجارب الاختبار بنجاح!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'فشل في تصفير البيانات التجريبية' });
+  }
+});
+
+// Admin Backup Trigger Endpoint
+router.post('/backup/trigger', async (req, res) => {
+  try {
+    const result = await generateFullBackup();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في تشغيل المزامنة والنسخ الاحتياطي' });
+  }
+});
+
+// Admin Manual Git Pull Deploy Endpoint
+router.post('/deploy/git-pull', async (req, res) => {
+  const { exec } = await import('child_process');
+  try {
+    const deployScriptPath = '/var/www/scout-app/deploy.sh';
+    exec(`chmod +x ${deployScriptPath} && ${deployScriptPath}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error('[Deploy Error]:', stderr || error.message);
+        return res.status(500).json({ error: 'حدث خطأ أثناء التحديث', details: stderr || error.message });
+      }
+      res.json({ success: true, message: 'تم سحب وتحديث السيرفر بنجاح من GitHub!', log: stdout });
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في تشغيل سكريبت النشر' });
+  }
+});
+
+// Seed missing competition agenda items
+router.post('/seed-agenda', async (req, res) => {
+  try {
+    const zones = await prisma.zone.findMany();
+    const zoneMap = {};
+    zones.forEach(z => { zoneMap[z.numberLabel] = z.id; });
+
+    const existing = await prisma.agendaItem.findMany();
+    const existingTitles = new Set(existing.map(e => e.title));
+
+    // Clear old agenda items to re-seed with expanded list
+    if (existing.length > 0) {
+      await prisma.agendaItem.deleteMany();
+    }
+
+    const items = [
+      { title: 'تجمع واستقبال الوفود', type: 'ceremony', zoneId: zoneMap['١'], startTime: '08:00', endTime: '09:00', description: 'استقبال جميع الفرق والوفود المشاركة وتوزيع التعليمات التنظيمية', order: 1 },
+      { title: 'تحية العلم وافتتاح المهرجان', type: 'ceremony', zoneId: zoneMap['٥'], startTime: '09:00', endTime: '10:00', description: 'مراسم رفع العلم الكشفي وافتتاح فعاليات المهرجان رسمياً', order: 2 },
+      { title: 'اجتماع القادة وتسليم الأعمال الجاهزة', type: 'workshop', zoneId: zoneMap['١'], startTime: '10:00', endTime: '10:30', description: 'اجتماع فرق القادة وتسليم الأبحاث والعروض الكشفية الجاهزة', order: 3 },
+      { title: 'تسميع القرآن الكريم', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'مسابقة تسميع القرآن الكريم', order: 4 },
+      { title: 'تسميع الأحاديث النبوية', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'مسابقة تسميع الأحاديث النبوية', order: 5 },
+      { title: 'المجال الرياضي', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'تحديات رياضية ميدانية', order: 6 },
+      { title: 'الموسيقى الفني', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'الموسيقى والإلقاء الفني', order: 7 },
+      { title: 'عقد وربطات الكشفية', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'عقد وربطات الكشفية', order: 8 },
+      { title: 'تصميم فيديو كشفي', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'تصميم فيديو دقيقتين', order: 9 },
+      { title: 'عواصم وعملات الدول العربية', type: 'competition', zoneId: zoneMap['٢'], startTime: '10:30', endTime: '11:30', description: 'مسابقة عواصم وعملات الدول العربية', order: 10 },
+      { title: 'تكمية المجال الرياضي', type: 'workshop', zoneId: zoneMap['٢'], startTime: '11:30', endTime: '01:00', description: 'تكمية المجال الرياضي', order: 11 },
+      { title: 'الورشة الفنية', type: 'workshop', zoneId: zoneMap['٢'], startTime: '11:30', endTime: '01:00', description: 'الورشة الفنية', order: 12 },
+      { title: 'النموذج الكشفي', type: 'workshop', zoneId: zoneMap['٢'], startTime: '11:30', endTime: '01:00', description: 'النموذج الكشفي', order: 13 },
+      { title: 'بحث ثلاث أفكار لمبتكرات علمية', type: 'workshop', zoneId: zoneMap['٢'], startTime: '11:30', endTime: '01:00', description: 'بحث ثلاث أفكار لمبتكرات علمية', order: 14 },
+      { title: 'ورقة عمل على خطي الأبجية', type: 'workshop', zoneId: zoneMap['٢'], startTime: '11:30', endTime: '01:00', description: 'ورقة عمل على خطي الأبجية', order: 15 },
+      { title: 'صلاة الجمعة', type: 'ceremony', zoneId: zoneMap['٣'], startTime: '01:00', endTime: '02:00', description: 'صلاة الجمعة الجماعية', order: 16 },
+      { title: 'عرض تنظير الطائرات', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'طائرات ورقية', order: 17 },
+      { title: 'الكرنفال الكشفي', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'الكرنفال الاستعراضي', order: 18 },
+      { title: 'كينج الشفرات', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'فك الشفرات', order: 19 },
+      { title: 'عرض تقديمي عن الموديلات الكشفية', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'الموديلات الكشفية', order: 20 },
+      { title: 'حقيقتان وكذبة', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'تحدي الذكاء', order: 21 },
+      { title: 'المجلة الأرضية', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'المجلة الأرضية والمعرض', order: 22 },
+      { title: 'الكاشف الذكي', type: 'competition', zoneId: zoneMap['٦'], startTime: '02:00', endTime: '04:00', description: 'الكاشف الذكي', order: 23 },
+      { title: 'الخدمة العامة', type: 'workshop', zoneId: zoneMap['٥'], startTime: '04:00', endTime: '05:30', description: 'مشروع الخدمة العامة', order: 24 },
+      { title: 'عرض تقديمي كوميدي', type: 'competition', zoneId: zoneMap['٥'], startTime: '04:00', endTime: '05:30', description: 'عرض كوميدي عن مهارة كشفية', order: 25 },
+      { title: 'مهرجان التلاوة', type: 'competition', zoneId: zoneMap['٥'], startTime: '04:00', endTime: '05:30', description: 'مهرجان التلاوة', order: 26 },
+      { title: 'حفل الختام والسمر', type: 'ceremony', zoneId: zoneMap['٦'], startTime: '05:30', endTime: '08:30', description: 'حفل الختام والسمر الكشفي - التكريمات والجوائز', order: 27 },
+    ];
+
+    let added = 0;
+    for (const item of items) {
+      if (!item.zoneId) continue;
+      await prisma.agendaItem.create({ data: item });
+      added++;
+    }
+
+    // Seed competitions
+    const existingComps = await prisma.competition.findMany();
+    const existingCompSlugs = new Set(existingComps.map(e => e.slug));
+
+    const competitions = [
+      { name: 'مسابقة عبقرينو (من سيربح الكود)', slug: 'genius', type: 'auto_digital', description: 'مسابقة رقمية ذكية', passcode: '1001', duration: 900 },
+      { name: 'مسابقة حقيقتان وكذبة', slug: 'two_truths', type: 'auto_digital', description: 'تحدي الذكاء', passcode: '1002', duration: 600 },
+      { name: 'مسابقة الجغرافيا', slug: 'geography', type: 'auto_digital', description: 'مسابقة جغرافيا رقمية', passcode: '1003', duration: 600 },
+      { name: 'مسابقة تصميم الفيديو الكشفي', slug: 'video', type: 'manual_judged', description: 'تصميم فيديو كشفي', passcode: '1234' },
+      { name: 'تسميع القرآن الكريم', slug: 'quran', type: 'manual_judged', description: 'تسميع القرآن الكريم' },
+      { name: 'تسميع الأحاديث النبوية', slug: 'hadith', type: 'manual_judged', description: 'تسميع الأحاديث النبوية' },
+      { name: 'المجال الرياضي', slug: 'sports', type: 'manual_judged', description: 'تحديات رياضية ميدانية' },
+      { name: 'الموسيقى الفني', slug: 'music', type: 'manual_judged', description: 'الموسيقى والإلقاء الفني' },
+      { name: 'عقد وربطات الكشفية', slug: 'knots', type: 'manual_judged', description: 'عقد وربطات الكشفية' },
+      { name: 'الورشة الفنية', slug: 'art_workshop', type: 'manual_judged', description: 'الورشة الفنية' },
+      { name: 'النموذج الكشفي', slug: 'scout_model', type: 'manual_judged', description: 'النموذج الكشفي' },
+      { name: 'بحث ثلاث أفكار لمبتكرات علمية', slug: 'innovation', type: 'manual_judged', description: 'مبتكرات علمية' },
+      { name: 'ورقة عمل على خطي الأبجية', slug: 'calligraphy', type: 'manual_judged', description: 'خطي الأبجية' },
+      { name: 'عرض تنظير الطائرات', slug: 'planes', type: 'manual_judged', description: 'طائرات ورقية' },
+      { name: 'الكرنفال الكشفي', slug: 'carnival', type: 'manual_judged', description: 'الكرنفال الاستعراضي' },
+      { name: 'كينج الشفرات', slug: 'ciphers', type: 'manual_judged', description: 'فك الشفرات' },
+      { name: 'عرض تقديمي عن الموديلات الكشفية', slug: 'model_presentation', type: 'manual_judged', description: 'الموديلات الكشفية' },
+      { name: 'المجلة الأرضية', slug: 'magazine', type: 'manual_judged', description: 'المجلة الأرضية والمعرض' },
+      { name: 'الكاشف الذكي', slug: 'detector', type: 'manual_judged', description: 'الكاشف الذكي' },
+      { name: 'الخدمة العامة', slug: 'service', type: 'manual_judged', description: 'مشروع الخدمة العامة' },
+      { name: 'عرض تقديمي كوميدي', slug: 'comedy', type: 'manual_judged', description: 'عرض كوميدي عن مهارة كشفية' },
+      { name: 'مهرجان التلاوة', slug: 'tilawa', type: 'manual_judged', description: 'مهرجان التلاوة' },
+      { name: 'سهرة السمر والختام', slug: 'closing_night', type: 'manual_judged', description: 'سهرة السمر والختام' },
+    ];
+
+    let compsAdded = 0;
+    for (const comp of competitions) {
+      if (existingCompSlugs.has(comp.slug)) continue;
+      await prisma.competition.create({ data: { ...comp, isOpen: true } });
+      compsAdded++;
+    }
+
+    if (req.io) {
+      req.io.emit('agenda:update', { action: 'seeded', agendaAdded: added });
+      if (compsAdded > 0) req.io.emit('competition:update', { action: 'seeded', count: compsAdded });
+    }
+    res.json({ success: true, agendaAdded: added, compsAdded, totalAgenda: existing.length + added, totalComps: existingComps.length + compsAdded });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'فشل في إضافة البيانات' });
+  }
+});
+
+// Report permission administration
+router.get('/report-permissions', async (req, res) => {
+  const rows = await prisma.reportPermission.findMany({ include: { team: { select: safeTeamSelect }, competition: { select: safeCompetitionSelect } }, orderBy: { updatedAt: 'desc' } });
+  res.json(rows);
+});
+router.patch('/report-permissions/:teamId/:competitionId', async (req, res) => {
+  try {
+    const { canSubmit, deadline, reopen } = req.body || {};
+    const row = await prisma.reportPermission.upsert({
+      where: { teamId_competitionId: { teamId: req.params.teamId, competitionId: req.params.competitionId } },
+      create: { teamId: req.params.teamId, competitionId: req.params.competitionId, canSubmit: canSubmit !== false, deadline: deadline ? new Date(deadline) : null, reopenedAt: reopen ? new Date() : null, updatedByAdminId: req.user.id },
+      update: { ...(canSubmit !== undefined && { canSubmit: Boolean(canSubmit) }), ...(deadline !== undefined && { deadline: deadline ? new Date(deadline) : null }), ...(reopen && { reopenedAt: new Date(), canSubmit: true }), updatedByAdminId: req.user.id }
+    });
+    res.json(row);
+  } catch (err) { res.status(400).json({ error: 'فشل في تحديث صلاحية التقرير' }); }
+});
+
+// Judge assignments
+router.get('/judges/:judgeId/assignments', async (req, res) => res.json(await prisma.judgeCompetition.findMany({ where: { judgeId: req.params.judgeId }, include: { competition: true } })));
+router.get('/scores/breakdown', async (req, res) => res.json(await prisma.score.findMany({ include: { team: { select: safeTeamSelect }, competition: { select: safeCompetitionSelect }, judgeScores: { include: { judge: { select: { id: true, name: true, username: true } } } }, audits: { orderBy: { createdAt: 'asc' } } } })));
+router.post('/judges/:judgeId/assignments', async (req, res) => {
+  const competitionId = req.body.competitionId;
+  if (!competitionId) return res.status(400).json({ error: 'competitionId مطلوب' });
+  res.status(201).json(await prisma.judgeCompetition.upsert({ where: { judgeId_competitionId: { judgeId: req.params.judgeId, competitionId } }, create: { judgeId: req.params.judgeId, competitionId }, update: {} }));
+});
+router.delete('/judges/:judgeId/assignments/:competitionId', async (req, res) => { await prisma.judgeCompetition.deleteMany({ where: { judgeId: req.params.judgeId, competitionId: req.params.competitionId } }); res.json({ success: true }); });
+router.patch('/judges/:id', async (req, res) => {
+  const { name, username, password } = req.body || {}; const data = {};
+  if (name !== undefined) data.name = String(name).trim(); if (username !== undefined) data.username = String(username).trim();
+  if (password !== undefined) { if (String(password).length < 12) return res.status(400).json({ error: 'كلمة السر يجب ألا تقل عن 12 حرفاً' }); data.passwordHash = await bcrypt.hash(String(password), 12); data.authVersion = { increment: 1 }; }
+  res.json(await prisma.judge.update({ where: { id: req.params.id }, data, select: safeJudgeSelect }));
+});
+
+// Score finalization controls
+router.post('/scores/:id/unlock', async (req, res) => {
+  const reason = String(req.body?.reason || '').trim(); if (!reason) return res.status(400).json({ error: 'سبب فتح القفل مطلوب' });
+  const score = await prisma.score.findUnique({ where: { id: req.params.id } }); if (!score) return res.status(404).json({ error: 'النتيجة غير موجودة' });
+  await prisma.$transaction([prisma.score.update({ where: { id: score.id }, data: { isFinal: false, unlockedAt: new Date(), unlockedByAdminId: req.user.id, unlockReason: reason } }), prisma.scoreAudit.create({ data: { scoreId: score.id, competitionId: score.competitionId, teamId: score.teamId, adminId: req.user.id, action: 'unlock', reason, previousData: JSON.stringify(score) } })]);
+  res.json({ success: true });
+});
+router.post('/scores/:id/lock', async (req, res) => { const score = await prisma.score.update({ where: { id: req.params.id }, data: { isFinal: true } }); res.json(score); });
+
+
+export default router;

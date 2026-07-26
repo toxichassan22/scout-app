@@ -1,13 +1,23 @@
-import fs from 'fs';
-import path from 'path';
+import { access, copyFile, mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import crypto from 'node:crypto';
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from 'node:url';
+import os from 'node:os';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { PrismaClient } from '@prisma/client';
 import prisma from './db.js';
+import {
+  assertSafeBackupTarget,
+  quoteSqliteString,
+  resolveDatabasePath,
+  sqliteFileUrl,
+  timestampForFilename,
+} from '../scripts/sqlite-operations-lib.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const BACKUP_ROOT = path.join(__dirname, '..', '..', 'scout-backups');
+const BACKUP_ROOT = path.resolve(process.env.SQLITE_BACKUP_DIR || path.join(__dirname, '..', '..', 'scout-backups'));
 const GDRIVE_WEBHOOK_URL = String(process.env.GDRIVE_WEBHOOK_URL || '').trim();
 const GDRIVE_BEARER = String(process.env.GDRIVE_WEBHOOK_BEARER_TOKEN || '').trim();
 const GDRIVE_SIGNING_SECRET = String(process.env.GDRIVE_WEBHOOK_SIGNING_SECRET || '').trim();
@@ -60,9 +70,55 @@ export async function deleteFromGoogleDrive(fileName = '', folderPath = '', acti
  * 2. 02_SCORES_LEADERBOARD: Full JSON leaderboard & scores summary
  * 3. 03_TEAMS_DATA: Individual team folders with user info, scores, and uploaded PDF/Video reports
  */
-export async function generateFullBackup() {
+export async function createVerifiedSqliteSnapshot({ destinationDirectory = path.join(BACKUP_ROOT, '01_DATABASE'), filePrefix = 'dev-backup' } = {}) {
+  let source;
+  let backup;
+  let temporaryDirectory;
+  let snapshotPath;
   try {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    await mkdir(destinationDirectory, { recursive: true });
+    const sourceDbPath = resolveDatabasePath();
+    const sourceInfo = await stat(sourceDbPath);
+    if (!sourceInfo.isFile() || sourceInfo.size === 0) throw new Error(`SQLite database is not a non-empty file: ${sourceDbPath}`);
+    source = new PrismaClient({ datasources: { db: { url: sqliteFileUrl(sourceDbPath) } } });
+    await source.$connect();
+    const sourceIntegrity = await source.$queryRawUnsafe('PRAGMA integrity_check;');
+    if (sourceIntegrity.length !== 1 || String(Object.values(sourceIntegrity[0])[0]).toLowerCase() !== 'ok') throw new Error(`Source database integrity check failed: ${JSON.stringify(sourceIntegrity)}`);
+    await source.$queryRawUnsafe('PRAGMA wal_checkpoint(PASSIVE);');
+    const name = `${filePrefix}-${timestampForFilename()}-${crypto.randomBytes(6).toString('hex')}.db`;
+    snapshotPath = path.join(destinationDirectory, name);
+    assertSafeBackupTarget(sourceDbPath, snapshotPath);
+    await source.$executeRawUnsafe(`VACUUM INTO ${quoteSqliteString(snapshotPath.replaceAll('\\', '/'))};`);
+    backup = new PrismaClient({ datasources: { db: { url: sqliteFileUrl(snapshotPath) } } });
+    await backup.$connect();
+    const backupIntegrity = await backup.$queryRawUnsafe('PRAGMA integrity_check;');
+    if (backupIntegrity.length !== 1 || String(Object.values(backupIntegrity[0])[0]).toLowerCase() !== 'ok') throw new Error(`Backup integrity check failed: ${JSON.stringify(backupIntegrity)}`);
+    temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), 'scout-backup-verify-'));
+    const restoreCandidate = path.join(temporaryDirectory, 'restore.db');
+    await copyFile(snapshotPath, restoreCandidate);
+    const restored = new PrismaClient({ datasources: { db: { url: sqliteFileUrl(restoreCandidate) } } });
+    try {
+      await restored.$connect();
+      const restoreIntegrity = await restored.$queryRawUnsafe('PRAGMA integrity_check;');
+      if (restoreIntegrity.length !== 1 || String(Object.values(restoreIntegrity[0])[0]).toLowerCase() !== 'ok') throw new Error(`Restore candidate integrity check failed: ${JSON.stringify(restoreIntegrity)}`);
+    } finally {
+      await restored.$disconnect();
+    }
+    return { snapshotPath, sourceDbPath, sourceBytes: sourceInfo.size };
+  } catch (error) {
+    if (snapshotPath) await unlink(snapshotPath).catch(() => { });
+    throw error;
+  } finally {
+    await backup?.$disconnect().catch(() => { });
+    await source?.$disconnect().catch(() => { });
+    if (temporaryDirectory) await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+}
+
+export async function generateFullBackup() {
+  let snapshotPath;
+  try {
+    const timestamp = timestampForFilename();
     console.log(`[Backup] Starting full structured backup generation at ${timestamp}...`);
 
     // Ensure local directory structure
@@ -70,24 +126,17 @@ export async function generateFullBackup() {
     const summaryDir = path.join(BACKUP_ROOT, '02_SCORES_LEADERBOARD');
     const teamsBackupDir = path.join(BACKUP_ROOT, '03_TEAMS_DATA');
 
-    fs.mkdirSync(dbBackupDir, { recursive: true });
-    fs.mkdirSync(teamsBackupDir, { recursive: true });
-    fs.mkdirSync(summaryDir, { recursive: true });
+    await Promise.all([
+      mkdir(dbBackupDir, { recursive: true }),
+      mkdir(teamsBackupDir, { recursive: true }),
+      mkdir(summaryDir, { recursive: true }),
+    ]);
 
-    // 1️⃣ Create a verified SQLite snapshot; never copy a live WAL database file directly.
-    const sourceDbPath = path.resolve(process.env.SQLITE_DATABASE_PATH || path.join(__dirname, '..', 'prisma', 'dev.db'));
-    if (fs.existsSync(sourceDbPath)) {
-      const timestampedDbName = `dev-backup-${timestamp}.db`;
-      const destDbPath = path.join(dbBackupDir, 'dev.db');
-      const timestampedDbPath = path.join(dbBackupDir, timestampedDbName);
-      const snapshot = await prisma.$queryRawUnsafe(`VACUUM INTO '${timestampedDbPath.replace(/'/g, "''")}'`);
-      if (!snapshot) throw new Error('SQLite snapshot could not be created');
-      fs.copyFileSync(timestampedDbPath, destDbPath);
-
-      // Upload DB backup to Google Drive folder: 01_DATABASE
-      const dbBuffer = fs.readFileSync(timestampedDbPath);
-      await uploadToGoogleDrive(timestampedDbName, 'application/x-sqlite3', dbBuffer, '01_DATABASE');
-    }
+    const snapshot = await createVerifiedSqliteSnapshot({ destinationDirectory: dbBackupDir, filePrefix: 'dev-backup' });
+    snapshotPath = snapshot.snapshotPath;
+    const timestampedDbName = path.basename(snapshotPath);
+    const dbBuffer = await readFile(snapshotPath);
+    await uploadToGoogleDrive(timestampedDbName, 'application/x-sqlite3', dbBuffer, '01_DATABASE');
 
     // 2️⃣ Fetch All Teams, Scores, Competitions & Reports
     const teams = await prisma.team.findMany({
@@ -129,10 +178,7 @@ export async function generateFullBackup() {
 
     const summaryBuffer = Buffer.from(JSON.stringify(summaryData, null, 2), 'utf8');
 
-    fs.writeFileSync(
-      path.join(summaryDir, 'leaderboard_summary.json'),
-      summaryBuffer
-    );
+    await writeFile(path.join(summaryDir, 'leaderboard_summary.json'), summaryBuffer);
 
     // Upload Leaderboard summary to Google Drive folder: 02_SCORES_LEADERBOARD
     await uploadToGoogleDrive(`leaderboard-summary-${timestamp}.json`, 'application/json', summaryBuffer, '02_SCORES_LEADERBOARD');
@@ -146,14 +192,11 @@ export async function generateFullBackup() {
       const teamFolderPath = path.join(teamsBackupDir, safeFolderName);
       const teamReportsFolderPath = path.join(teamFolderPath, 'reports');
 
-      fs.mkdirSync(teamReportsFolderPath, { recursive: true });
+      await mkdir(teamReportsFolderPath, { recursive: true });
 
       // Save Team Profile & Scores JSON
       const teamDataBuffer = Buffer.from(JSON.stringify(team, null, 2), 'utf8');
-      fs.writeFileSync(
-        path.join(teamFolderPath, 'scores_detail.json'),
-        teamDataBuffer
-      );
+      await writeFile(path.join(teamFolderPath, 'scores_detail.json'), teamDataBuffer);
 
       // Upload Team Profile JSON to Google Drive folder: 03_TEAMS_DATA/Team_Name
       await uploadToGoogleDrive('scores_detail.json', 'application/json', teamDataBuffer, `03_TEAMS_DATA/${safeFolderName}`);
@@ -164,13 +207,16 @@ export async function generateFullBackup() {
           if (report.fileUrl) {
             const fileNameOnly = path.basename(report.fileUrl);
             const sourceFilePath = path.join(uploadsSourceDir, fileNameOnly);
-            if (fs.existsSync(sourceFilePath)) {
-              const safeReportName = `${report.title.replace(/[/\\?%*:|"<>]/g, '_') || 'report'}_${fileNameOnly}`;
-              const reportBuffer = fs.readFileSync(sourceFilePath);
-              fs.writeFileSync(path.join(teamReportsFolderPath, safeReportName), reportBuffer);
+            try {
+              await access(sourceFilePath);
+              const safeReportName = `${String(report.title || 'report').replace(/[/\\?%*:|"<>]/g, '_') || 'report'}_${fileNameOnly}`;
+              const reportBuffer = await readFile(sourceFilePath);
+              await writeFile(path.join(teamReportsFolderPath, safeReportName), reportBuffer);
 
               // Upload Team Report to Google Drive folder: 03_TEAMS_DATA/Team_Name/reports
               await uploadToGoogleDrive(safeReportName, 'application/pdf', reportBuffer, `03_TEAMS_DATA/${safeFolderName}/reports`);
+            } catch (fileError) {
+              if (fileError.code !== 'ENOENT') throw fileError;
             }
           }
         }
@@ -178,9 +224,10 @@ export async function generateFullBackup() {
     }
 
     console.log('[Backup] Structured Backup & Google Drive Folders Sync completed!');
-    return { success: true, timestamp, totalTeams: teams.length, gdriveSynced: Boolean(GDRIVE_WEBHOOK_URL) };
+    return { success: true, timestamp, databaseBackup: snapshotPath, totalTeams: teams.length, gdriveSynced: Boolean(GDRIVE_WEBHOOK_URL) };
 
   } catch (err) {
+    if (snapshotPath) await unlink(snapshotPath).catch(() => { });
     console.error('[Backup Error]:', err);
     return { success: false, error: err.message };
   }
@@ -188,5 +235,5 @@ export async function generateFullBackup() {
 
 // Allow CLI standalone execution
 if (process.argv[1] && process.argv[1].endsWith('backup-exporter.js')) {
-  generateFullBackup().then(() => process.exit(0));
+  generateFullBackup().then(result => process.exit(result.success ? 0 : 1));
 }
