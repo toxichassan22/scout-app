@@ -61,4 +61,12 @@ if (jwtSecret.length === 0 || isWeakJwtSecret(jwtSecret)) {
 upsertEnv(lines, 'NODE_ENV', 'production');
 upsertEnv(lines, 'PORT', '5000');
 
+const dbPath = process.env.SQLITE_DATABASE_PATH
+    || '/var/www/scout-app/server/prisma/dev.db';
+const dbUrl = process.env.DATABASE_URL
+    || `file:${dbPath}`;
+
+upsertEnv(lines, 'DATABASE_URL', dbUrl);
+upsertEnv(lines, 'SQLITE_DATABASE_PATH', dbPath);
+
 writeEnvLines(lines);
