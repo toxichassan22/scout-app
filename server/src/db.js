@@ -1,6 +1,15 @@
 import { PrismaClient } from '@prisma/client';
 import logger from './logger.js';
 
+// SQLite can only handle one writer at a time. Without a single connection
+// pool, concurrent interactive transactions hit the 5s engine query timeout
+// (P1008) even though PRAGMA busy_timeout is much higher.
+let databaseUrl = process.env.DATABASE_URL || '';
+if (databaseUrl && !/[?&]connection_limit=/.test(databaseUrl)) {
+  databaseUrl += (databaseUrl.includes('?') ? '&' : '?') + 'connection_limit=1';
+  process.env.DATABASE_URL = databaseUrl;
+}
+
 const prisma = new PrismaClient();
 
 const DEFAULT_TX_MAX_WAIT = 30000;
