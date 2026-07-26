@@ -1,4 +1,3 @@
-import { error } from '../response.js';
 import { Router } from 'express';
 import prisma from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -97,7 +96,7 @@ router.get('/', authenticateToken, async (req, res) => {
     res.json(paginatedResponse({ data, page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'failed to fetch leaderboard');
-    error(res, 'فشل في جلب الترتيب العام', 500);
+    res.status(500).json({ success: false, error: 'فشل في جلب الترتيب العام', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

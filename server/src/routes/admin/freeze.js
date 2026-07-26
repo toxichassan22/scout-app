@@ -1,4 +1,3 @@
-import { error } from '../../response.js';
 import { Router } from 'express';
 import prisma from '../../db.js';
 import { validate, zBoolean } from '../../middleware/validate.js';
@@ -23,7 +22,7 @@ router.post('/emergency-freeze', validate(emergencyFreezeSchema), async (req, re
     res.json({ success: true, frozen: !!frozen });
   } catch (err) {
     req.log.error({ err }, 'admin emergency freeze failed');
-    error(res, 'فشل في تغيير حالة الطوارئ', 500);
+    res.status(500).json({ success: false, error: 'فشل في تغيير حالة الطوارئ', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

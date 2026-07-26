@@ -1,4 +1,3 @@
-import { error } from '../response.js';
 import { Router } from 'express';
 import prisma from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -44,7 +43,7 @@ router.get('/', authenticateToken, async (req, res) => {
     res.json({ success: true, zones, agenda, festivalDate: process.env.FESTIVAL_DATE || '2026-08-21', pagination: { page, limit, total, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 }, timestamp: new Date().toISOString() });
   } catch (err) {
     req.log.error({ err }, 'failed to fetch agenda');
-    error(res, 'فشل في جلب الجدول والمناطق', 500);
+    res.status(500).json({ success: false, error: 'فشل في جلب الجدول والمناطق', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

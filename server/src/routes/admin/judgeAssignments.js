@@ -1,4 +1,3 @@
-import { error } from '../../response.js';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../../db.js';
@@ -23,7 +22,7 @@ router.get('/judges/:judgeId/assignments', validate({ params: { judgeId: zId('ا
     res.json(paginatedResponse({ data: rows, page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'admin judge assignments failed');
-    error(res, 'فشل في جلب تعيينات المحكم', 500);
+    res.status(500).json({ success: false, error: 'فشل في جلب تعيينات المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 router.get('/scores/breakdown', async (req, res) => {
@@ -36,7 +35,7 @@ router.get('/scores/breakdown', async (req, res) => {
     res.json(paginatedResponse({ data: rows, page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'admin scores breakdown failed');
-    error(res, 'فشل في جلب تفاصيل الدرجات', 500);
+    res.status(500).json({ success: false, error: 'فشل في جلب تفاصيل الدرجات', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 const judgeAssignmentSchema = { params: { judgeId: zId('المحكم') }, body: { competitionId: zId('المسابقة') } };
@@ -47,7 +46,7 @@ router.post('/judges/:judgeId/assignments', validate(judgeAssignmentSchema), asy
     res.status(201).json(row);
   } catch (err) {
     req.log.error({ err }, 'admin assign judge failed');
-    error(res, 'فشل في تعيين المحكم', 500);
+    res.status(500).json({ success: false, error: 'فشل في تعيين المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 router.delete('/judges/:judgeId/assignments/:competitionId', validate({ params: { judgeId: zId('المحكم'), competitionId: zId('المسابقة') } }), async (req, res) => {
@@ -56,7 +55,7 @@ router.delete('/judges/:judgeId/assignments/:competitionId', validate({ params: 
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, 'admin remove judge assignment failed');
-    error(res, 'فشل في إزالة تعيين المحكم', 500);
+    res.status(500).json({ success: false, error: 'فشل في إزالة تعيين المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 const judgeUpdateSchema = { params: { id: zId('المحكم') }, body: { name: zString('الاسم', { min: 1, max: 120 }).optional(), username: zString('اسم المستخدم', { min: 1, max: 80 }).optional(), password: zString('كلمة السر', { min: 12, max: 256 }).optional() } };
@@ -70,7 +69,7 @@ router.patch('/judges/:id', validate(judgeUpdateSchema), async (req, res) => {
     res.json(await prisma.judge.update({ where: { id: req.params.id }, data, select: safeJudgeSelect }));
   } catch (err) {
     req.log.error({ err }, 'admin update judge failed');
-    error(res, 'فشل في تحديث المحكم', 400);
+    res.status(400).json({ success: false, error: 'فشل في تحديث المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -79,12 +78,12 @@ const scoreUnlockSchema = { params: { id: zId('النتيجة') }, body: { reaso
 router.post('/scores/:id/unlock', validate(scoreUnlockSchema), async (req, res) => {
   try {
     const { reason } = req.body;
-    const score = await prisma.score.findUnique({ where: { id: req.params.id } }); if (!score) return error(res, 'النتيجة غير موجودة', 404);
+    const score = await prisma.score.findUnique({ where: { id: req.params.id } }); if (!score) return res.status(404).json({ success: false, error: 'النتيجة غير موجودة', requestId: req.requestId, timestamp: new Date().toISOString() });
     await prisma.$transaction([prisma.score.update({ where: { id: score.id }, data: { isFinal: false, unlockedAt: new Date(), unlockedByAdminId: req.user.id, unlockReason: reason } }), prisma.scoreAudit.create({ data: { scoreId: score.id, competitionId: score.competitionId, teamId: score.teamId, adminId: req.user.id, action: 'unlock', reason, previousData: JSON.stringify(score) } })]);
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, 'admin unlock score failed');
-    error(res, 'فشل في فتح القفل', 500);
+    res.status(500).json({ success: false, error: 'فشل في فتح القفل', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 router.post('/scores/:id/lock', validate({ params: { id: zId('النتيجة') } }), async (req, res) => {
@@ -93,7 +92,7 @@ router.post('/scores/:id/lock', validate({ params: { id: zId('النتيجة') }
     res.json(score);
   } catch (err) {
     req.log.error({ err }, 'admin lock score failed');
-    error(res, 'فشل في قفل النتيجة', 500);
+    res.status(500).json({ success: false, error: 'فشل في قفل النتيجة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

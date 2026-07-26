@@ -1,4 +1,3 @@
-import { error } from '../response.js';
 import { Router } from 'express';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { enforceNotFrozen } from '../freeze.js';
@@ -19,7 +18,7 @@ const submitSchema = { body: { sessionId: zSessionId } };
 router.post('/start', ...teamOnly, validate(startSchema), async (req, res) => {
   try {
     const { competitionId, entryCode } = req.body || {};
-    if (!competitionId) return error(res, 'المسابقة مطلوبة', 400);
+    if (!competitionId) return res.status(400).json({ error: 'المسابقة مطلوبة' });
     const result = await startDigitalSession({ teamId: req.user.id, competitionId, deviceId: req.user.deviceId, entryCode });
     if (result.finalized || result.kind === 'finalized') {
       return res.json({ success: true, finalized: true, completed: true, totalScore: result.score.total, scoreId: result.score.id });
@@ -29,7 +28,7 @@ router.post('/start', ...teamOnly, validate(startSchema), async (req, res) => {
   } catch (error) {
     if (error.status) return res.status(error.status).json({ success: false, error: error.message, requestId: req.requestId, timestamp: new Date().toISOString() });
     req.log.error({ error }, 'failed to start quiz session');
-    error(res, 'حدث خطأ أثناء بدء المسابقة', 500);
+    res.status(500).json({ success: false, error: 'حدث خطأ أثناء بدء المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -41,7 +40,7 @@ router.post('/save-answer', ...teamOnly, validate(answerSchema), async (req, res
   } catch (error) {
     if (error.status) return res.status(error.status).json({ success: false, error: error.message, requestId: req.requestId, timestamp: new Date().toISOString() });
     req.log.error({ error }, 'failed to save quiz answer');
-    error(res, 'فشل في الحفظ اللحظي للإجابة', 500);
+    res.status(500).json({ success: false, error: 'فشل في الحفظ اللحظي للإجابة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -55,7 +54,7 @@ router.post('/submit', ...teamOnly, validate(submitSchema), idempotent('quiz:sub
   } catch (error) {
     if (error.status) return res.status(error.status).json({ success: false, error: error.message, requestId: req.requestId, timestamp: new Date().toISOString() });
     req.log.error({ error }, 'failed to submit quiz session');
-    error(res, 'حدث خطأ أثناء إنهاء المسابقة', 500);
+    res.status(500).json({ success: false, error: 'حدث خطأ أثناء إنهاء المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

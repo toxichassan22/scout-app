@@ -1,4 +1,3 @@
-import { error } from '../../response.js';
 import fs from 'fs';
 import path from 'path';
 import { Router } from 'express';
@@ -41,7 +40,7 @@ router.get('/teams', async (req, res) => {
     res.json(paginatedResponse({ data: teams, page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'admin teams query failed');
-    error(res, 'فشل في جلب الفرق: ' + (err.message || ''), 500);
+    res.status(500).json({ success: false, error: 'فشل في جلب الفرق: ' + (err.message || ''), requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -61,7 +60,7 @@ router.get('/teams/:teamId/members', validate({ params: { teamId: zId('الفر�
     res.json(paginatedResponse({ data: members, page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'admin team members failed');
-    error(res, 'فشل في جلب أعضاء الفريق: ' + (err.message || ''), 500);
+    res.status(500).json({ success: false, error: 'فشل في جلب أعضاء الفريق: ' + (err.message || ''), requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -85,7 +84,7 @@ router.post('/teams/:teamId/members', validate(addMemberSchema), async (req, res
     res.status(201).json(member);
   } catch (err) {
     req.log.error({ err }, 'admin add member failed');
-    error(res, 'فشل في إضافة العضو', 500);
+    res.status(500).json({ success: false, error: 'فشل في إضافة العضو', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -99,7 +98,7 @@ router.delete('/members/:memberId', validate({ params: { memberId: zId('العض
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, 'admin delete member failed');
-    error(res, 'فشل في حذف العضو', 500);
+    res.status(500).json({ success: false, error: 'فشل في حذف العضو', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -118,7 +117,7 @@ router.get('/teams/:teamId/devices', validate({ params: { teamId: zId('الفر�
     res.json(paginatedResponse({ data: devices, page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'admin team devices failed');
-    error(res, 'فشل في جلب أجهزة الفريق', 500);
+    res.status(500).json({ success: false, error: 'فشل في جلب أجهزة الفريق', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -127,7 +126,7 @@ router.delete('/devices/:deviceId', validate({ params: { deviceId: zId('الجه
   try {
     const { deviceId } = req.params;
     const device = await prisma.teamDevice.findUnique({ where: { id: deviceId } });
-    if (!device) return error(res, 'الجهاز غير موجود', 404);
+    if (!device) return res.status(404).json({ error: 'الجهاز غير موجود' });
     await prisma.teamDevice.update({
       where: { id: deviceId },
       data: { revokedAt: new Date(), tokenVersion: { increment: 1 } }
@@ -142,7 +141,7 @@ router.delete('/devices/:deviceId', validate({ params: { deviceId: zId('الجه
     res.json({ success: true, message: 'تم إلغاء اعتماد الجهاز بنجاح' });
   } catch (err) {
     req.log.error({ err }, 'admin revoke device failed');
-    error(res, 'فشل في إلغاء اعتماد الجهاز', 500);
+    res.status(500).json({ success: false, error: 'فشل في إلغاء اعتماد الجهاز', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -155,7 +154,7 @@ router.patch('/teams/:teamId/device-limit', validate(deviceLimitSchema), async (
     res.json({ success: true, team });
   } catch (err) {
     req.log.error({ err }, 'admin update device limit failed');
-    error(res, 'فشل في تحديث حد الأجهزة', 500);
+    res.status(500).json({ success: false, error: 'فشل في تحديث حد الأجهزة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -173,14 +172,14 @@ router.patch('/teams/:id', validate(teamUpdateSchema), async (req, res) => {
     }
     if (maxDevices !== undefined) {
       const n = Number(maxDevices);
-      if (!Number.isInteger(n) || n < 1 || n > 1000) return error(res, 'حد الأجهزة غير صالح', 400);
+      if (!Number.isInteger(n) || n < 1 || n > 1000) return res.status(400).json({ error: 'حد الأجهزة غير صالح' });
       data.maxDevices = n;
     }
     const team = await prisma.team.update({ where: { id: req.params.id }, data, select: safeTeamSelect });
     res.json(team);
   } catch (err) {
     req.log.error({ err }, 'admin update team failed');
-    error(res, 'فشل في تحديث الفريق', 400);
+    res.status(400).json({ success: false, error: 'فشل في تحديث الفريق', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -202,7 +201,7 @@ router.post('/teams', validate(teamCreateSchema), async (req, res) => {
     res.status(201).json(team);
   } catch (err) {
     req.log.error({ err }, 'admin create team failed');
-    error(res, 'فشل في إنشاء الفريق (ربما اسم المستخدم مكرر)', 400);
+    res.status(400).json({ success: false, error: 'فشل في إنشاء الفريق (ربما اسم المستخدم مكرر)', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -211,7 +210,7 @@ router.post('/teams/import', validate(teamImportSchema), async (req, res) => {
   try {
     const { teams } = req.body || {}; // Array of { username, password, label }
     if (!Array.isArray(teams) || teams.length === 0 || teams.length > 500) {
-      return error(res, 'قائمة الفرق غير صالحة أو أكبر من الحد المسموح', 400);
+      return res.status(400).json({ error: 'قائمة الفرق غير صالحة أو أكبر من الحد المسموح' });
     }
 
     const created = [];
@@ -234,7 +233,7 @@ router.post('/teams/import', validate(teamImportSchema), async (req, res) => {
     }
   } catch (err) {
     req.log.error({ err }, 'admin import teams failed');
-    error(res, 'فشل في استيراد الفرق', 500);
+    res.status(500).json({ success: false, error: 'فشل في استيراد الفرق', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -273,7 +272,7 @@ router.delete('/teams/:id', validate({ params: { id: zId('الفريق') } }), a
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, 'admin delete team failed');
-    error(res, 'فشل في حذف الفريق', 500);
+    res.status(500).json({ success: false, error: 'فشل في حذف الفريق', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

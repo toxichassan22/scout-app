@@ -1,4 +1,3 @@
-import { error } from '../../response.js';
 import { Router } from 'express';
 import prisma from '../../db.js';
 import { validate, zString, zId } from '../../middleware/validate.js';
@@ -20,7 +19,7 @@ router.post('/news', validate(newsCreateSchema), async (req, res) => {
   try {
     const { title, body, photoUrl, category, targetTeamIds } = req.body;
     if (!title || !body) {
-      return error(res, 'العنوان والمحتوى مطلوبان', 400);
+      return res.status(400).json({ error: 'العنوان والمحتوى مطلوبان' });
     }
 
     const news = await prisma.news.create({
@@ -41,7 +40,7 @@ router.post('/news', validate(newsCreateSchema), async (req, res) => {
     res.status(201).json(news);
   } catch (err) {
     req.log.error({ err }, 'admin create news failed');
-    error(res, 'فشل في نشر الخبر', 500);
+    res.status(500).json({ success: false, error: 'فشل في نشر الخبر', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -68,7 +67,7 @@ router.patch('/news/:id', validate(newsUpdateSchema), async (req, res) => {
     res.json(news);
   } catch (err) {
     req.log.error({ err }, 'admin update news failed');
-    error(res, 'فشل في تعديل الخبر', 400);
+    res.status(400).json({ success: false, error: 'فشل في تعديل الخبر', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -83,7 +82,7 @@ router.delete('/news/:id', validate({ params: { id: zId('الخبر') } }), asyn
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, 'admin delete news failed');
-    error(res, 'فشل في حذف الخبر', 500);
+    res.status(500).json({ success: false, error: 'فشل في حذف الخبر', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

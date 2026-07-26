@@ -1,4 +1,3 @@
-import { error } from '../../response.js';
 import { emitLeaderboardUpdate } from '../../realtime.js';
 import { Router } from 'express';
 import prisma from '../../db.js';
@@ -19,10 +18,10 @@ router.patch('/scores/:id', validate(scoreOverrideSchema), async (req, res) => {
     const { total, values, reason } = req.body;
     const adminId = req.user.id;
     const existing = await prisma.score.findUnique({ where: { id: req.params.id } });
-    if (!existing) return error(res, 'النتيجة غير موجودة', 404);
-    if (existing.isFinal) return error(res, 'يجب فتح قفل النتيجة أولاً', 409);
+    if (!existing) return res.status(404).json({ error: 'النتيجة غير موجودة' });
+    if (existing.isFinal) return res.status(409).json({ error: 'يجب فتح قفل النتيجة أولاً' });
     const numericTotal = Number(total);
-    if (!Number.isFinite(numericTotal) || !String(reason || '').trim()) return error(res, 'الدرجة وسبب التصحيح مطلوبان', 400);
+    if (!Number.isFinite(numericTotal) || !String(reason || '').trim()) return res.status(400).json({ error: 'الدرجة وسبب التصحيح مطلوبان' });
     const score = await prisma.$transaction(async tx => {
       const updated = await tx.score.update({ where: { id: existing.id }, data: { total: numericTotal, ...(values !== undefined && { values: typeof values === 'string' ? values : JSON.stringify(values) }), editedByAdminId: adminId, editedAt: new Date(), isFinal: true } });
       await tx.scoreAudit.create({ data: { scoreId: existing.id, competitionId: existing.competitionId, teamId: existing.teamId, adminId, action: 'admin_correction', reason: String(reason).trim(), previousData: JSON.stringify(existing), newData: JSON.stringify(updated) } });
@@ -36,7 +35,7 @@ router.patch('/scores/:id', validate(scoreOverrideSchema), async (req, res) => {
     res.json(score);
   } catch (err) {
     req.log.error({ err }, 'admin score override failed');
-    error(res, 'فشل في تعديل الدرجة', 500);
+    res.status(500).json({ success: false, error: 'فشل في تعديل الدرجة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

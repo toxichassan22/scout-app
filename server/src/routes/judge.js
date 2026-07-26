@@ -1,4 +1,3 @@
-import { error } from '../response.js';
 import { Router } from 'express';
 import prisma from '../db.js';
 import { createMemoryRateLimiter } from '../security.js';
@@ -54,7 +53,7 @@ router.post('/unlock', validate(unlockSchema), async (req, res) => {
 
     const { passcode } = req.body;
     if (!passcode) {
-      return error(res, 'كود المسابقة مطلوب', 400);
+      return res.status(400).json({ error: 'كود المسابقة مطلوب' });
     }
 
     const competition = await prisma.competition.findFirst({
@@ -68,7 +67,7 @@ router.post('/unlock', validate(unlockSchema), async (req, res) => {
         count: newCount,
         resetAt: Date.now() + 60000 // 1 minute lockout after 5 failed attempts
       });
-      return error(res, 'كود المسابقة غير صحيح أو المسابقة مغلقة حالياً', 404);
+      return res.status(404).json({ error: 'كود المسابقة غير صحيح أو المسابقة مغلقة حالياً' });
     }
 
     // Reset attempts on successful unlock
@@ -90,7 +89,7 @@ router.post('/unlock', validate(unlockSchema), async (req, res) => {
     });
   } catch (err) {
     req.log.error({ err }, 'judge unlock failed');
-    error(res, 'خطأ في التحقق من كود المسابقة', 500);
+    res.status(500).json({ success: false, error: 'خطأ في التحقق من كود المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -102,7 +101,7 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
     const competition = await prisma.competition.findFirst({
       where: { id: competitionId, judgeAssignments: { some: { judgeId: req.user.id } } }
     });
-    if (!competition) return error(res, 'المحكم غير مكلف بهذه المسابقة', 403);
+    if (!competition) return res.status(403).json({ success: false, error: 'المحكم غير مكلف بهذه المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
 
     const { page, limit, skip } = parsePagination(req.query);
     const [teams, total] = await Promise.all([
@@ -152,7 +151,7 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
     res.json(paginatedResponse({ data: formattedTeams, page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'failed to fetch judge teams');
-    error(res, 'فشل في جلب قائمة الفرق والتقارير', 500);
+    res.status(500).json({ success: false, error: 'فشل في جلب قائمة الفرق والتقارير', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -163,7 +162,7 @@ router.post('/scores', enforceNotFrozen, validate(scoreSchema), idempotent('judg
     const judgeId = req.user.id;
 
     if (!competitionId || !teamId || total === undefined) {
-      return error(res, 'البيانات غير مكتملة', 400);
+      return res.status(400).json({ error: 'البيانات غير مكتملة' });
     }
 
     // Verify assignment and competition is open
@@ -172,18 +171,18 @@ router.post('/scores', enforceNotFrozen, validate(scoreSchema), idempotent('judg
     });
 
     if (!competition || !competition.isOpen) {
-      return error(res, 'المسابقة مغلقة أو غير موجودة', 400);
+      return res.status(400).json({ error: 'المسابقة مغلقة أو غير موجودة' });
     }
 
     let parsedValues;
-    try { parsedValues = typeof values === 'string' ? JSON.parse(values) : values; } catch { return error(res, 'قيم التقييم ليست JSON صالحاً', 400); }
-    if (!parsedValues || typeof parsedValues !== 'object' || Array.isArray(parsedValues)) return error(res, 'قيم التقييم غير صالحة', 400);
-    let criteria = []; try { criteria = JSON.parse(competition.criteria || '[]'); } catch { return error(res, 'معايير المسابقة غير صالحة', 400); }
+    try { parsedValues = typeof values === 'string' ? JSON.parse(values) : values; } catch { return res.status(400).json({ error: 'قيم التقييم ليست JSON صالحاً' }); }
+    if (!parsedValues || typeof parsedValues !== 'object' || Array.isArray(parsedValues)) return res.status(400).json({ error: 'قيم التقييم غير صالحة' });
+    let criteria = []; try { criteria = JSON.parse(competition.criteria || '[]'); } catch { return res.status(400).json({ error: 'معايير المسابقة غير صالحة' }); }
     const expected = new Set(criteria.map(c => String(c.key)));
-    if (expected.size && (Object.keys(parsedValues).length !== expected.size || Object.keys(parsedValues).some(k => !expected.has(k)))) return error(res, 'يجب إرسال جميع معايير المسابقة فقط', 400);
+    if (expected.size && (Object.keys(parsedValues).length !== expected.size || Object.keys(parsedValues).some(k => !expected.has(k)))) return res.status(400).json({ error: 'يجب إرسال جميع معايير المسابقة فقط' });
     let calculated = 0;
     for (const criterion of criteria) { const n = Number(parsedValues[criterion.key]); const max = Number(criterion.maxScore); if (!Number.isFinite(n) || n < 0 || !Number.isFinite(max) || n > max) return res.status(400).json({ error: `قيمة المعيار ${criterion.key} غير صالحة` }); calculated += n; }
-    if (Math.abs(calculated - Number(total)) > 0.0001) return error(res, 'المجموع لا يطابق قيم المعايير', 400);
+    if (Math.abs(calculated - Number(total)) > 0.0001) return res.status(400).json({ error: 'المجموع لا يطابق قيم المعايير' });
 
     const serializedValues = JSON.stringify(parsedValues);
     const scoreRecord = await prisma.$transaction(async tx => {
@@ -206,7 +205,7 @@ router.post('/scores', enforceNotFrozen, validate(scoreSchema), idempotent('judg
 
     res.json({ success: true, score: scoreRecord });
   } catch (err) {
-    if (err.code === 'P2002') return error(res, 'تم تسجيل تقييم لهذا الفريق بالفعل', 409);
+    if (err.code === 'P2002') return res.status(409).json({ success: false, error: 'تم تسجيل تقييم لهذا الفريق بالفعل', requestId: req.requestId, timestamp: new Date().toISOString() });
     req.log.error({ err }, 'judge score submission failed');
     res.status(err.statusCode || err.status || 500).json({ success: false, error: err.statusCode || err.status ? err.message : 'فشل في حفظ التقييم', requestId: req.requestId, timestamp: new Date().toISOString() });
   }

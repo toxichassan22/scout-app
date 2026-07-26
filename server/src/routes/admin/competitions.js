@@ -1,4 +1,3 @@
-import { error } from '../../response.js';
 import { Router } from 'express';
 import crypto from 'node:crypto';
 import prisma from '../../db.js';
@@ -20,7 +19,7 @@ router.get('/competitions', async (req, res) => {
     res.json(paginatedResponse({ data: comps, page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'admin competitions failed');
-    error(res, 'فشل في جلب المسابقات', 500);
+    res.status(500).json({ success: false, error: 'فشل في جلب المسابقات', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -31,7 +30,7 @@ router.post('/competitions', validate(competitionCreateSchema), async (req, res)
     const cleanName = boundedString(name, 'name', { min: 1, max: 200 });
     const cleanSlug = boundedString(slug, 'slug', { min: 1, max: 100 });
     const cleanType = type === undefined ? 'auto_digital' : String(type);
-    if (!['auto_digital', 'manual_judged'].includes(cleanType)) return error(res, 'نوع المسابقة غير صالح', 400);
+    if (!['auto_digital', 'manual_judged'].includes(cleanType)) return res.status(400).json({ error: 'نوع المسابقة غير صالح' });
     const comp = await prisma.competition.create({
       data: {
         name: cleanName,
@@ -44,7 +43,7 @@ router.post('/competitions', validate(competitionCreateSchema), async (req, res)
     res.status(201).json(comp);
   } catch (err) {
     req.log.error({ err }, 'admin create competition failed');
-    error(res, 'فشل في إنشاء المسابقة', 500);
+    res.status(500).json({ success: false, error: 'فشل في إنشاء المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -88,7 +87,7 @@ router.patch('/competitions/:id', validate(competitionUpdateSchema), async (req,
     res.json(comp);
   } catch (err) {
     req.log.error({ err }, 'admin update competition failed');
-    error(res, 'فشل في تحديث المسابقة', 500);
+    res.status(500).json({ success: false, error: 'فشل في تحديث المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -103,7 +102,7 @@ router.post('/competitions/:id/passcode', validate({ params: { id: zId('المس
     res.json({ passcode: comp.passcode });
   } catch (err) {
     req.log.error({ err }, 'admin generate passcode failed');
-    error(res, 'فشل في توليد كود المسابقة', 500);
+    res.status(500).json({ success: false, error: 'فشل في توليد كود المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

@@ -1,4 +1,3 @@
-import { error } from '../response.js';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -44,10 +43,10 @@ router.post('/team/login', validate(loginSchema), async (req, res) => {
     const { username, password } = req.body;
     const rawDeviceId = req.body.deviceId || req.headers['x-device-id'];
     const deviceId = typeof rawDeviceId === 'string' ? rawDeviceId.trim() : '';
-    if (!deviceId) return error(res, 'معرف الجهاز مطلوب', 400);
+    if (!deviceId) return res.status(400).json({ error: 'معرف الجهاز مطلوب' });
     const userAgent = String(req.body.userAgent || req.headers['user-agent'] || 'Unknown Device').slice(0, 500);
     const team = await prisma.team.findUnique({ where: { username }, select: { ...accountSelect, label: true, maxDevices: true } });
-    if (!team || !(await bcrypt.compare(password, team.passwordHash))) return error(res, 'اسم المستخدم أو كلمة السر غير صحيحة', 401);
+    if (!team || !(await bcrypt.compare(password, team.passwordHash))) return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
 
     let created = false;
     const device = await prisma.$transaction(async tx => {
@@ -66,9 +65,9 @@ router.post('/team/login', validate(loginSchema), async (req, res) => {
   } catch (err) {
     if (err.message === 'limit') return res.status(403).json({ error: 'وصل الفريق للحد الأقصى للأجهزة المسموح بها', maxDevicesReached: true });
     if (err.message === 'revoked') return res.status(401).json({ error: 'تم إلغاء اعتماد هذا الجهاز', forceLogout: true, deviceRevoked: true });
-    if (err.statusCode === 400 || err.status === 400) return error(res, err.message, 400);
+    if (err.statusCode === 400 || err.status === 400) return res.status(400).json({ error: err.message });
     req.log.error({ err }, 'team login failed');
-    error(res, 'خطأ في السيرفر عند تسجيل الدخول', 500);
+    res.status(500).json({ error: 'خطأ في السيرفر عند تسجيل الدخول' });
   }
 });
 
@@ -78,15 +77,15 @@ async function roleLogin(req, res, role) {
     const model = role === 'judge' ? prisma.judge : prisma.admin;
     const select = role === 'judge' ? { ...accountSelect, name: true } : accountSelect;
     const account = await model.findUnique({ where: { username }, select });
-    if (!account || !(await bcrypt.compare(password, account.passwordHash))) return error(res, 'اسم المستخدم أو كلمة السر غير صحيحة', 401);
+    if (!account || !(await bcrypt.compare(password, account.passwordHash))) return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
     const user = role === 'judge'
       ? { id: account.id, name: account.name, username: account.username, role }
       : { id: account.id, username: account.username, role };
     res.json({ token: signToken({ ...user, authVersion: account.authVersion }), user });
   } catch (err) {
-    if (err.statusCode === 400 || err.status === 400) return error(res, err.message, 400);
+    if (err.statusCode === 400 || err.status === 400) return res.status(400).json({ error: err.message });
     req.log.error({ err, role }, 'role login failed');
-    error(res, 'خطأ في السيرفر عند تسجيل الدخول', 500);
+    res.status(500).json({ error: 'خطأ في السيرفر عند تسجيل الدخول' });
   }
 }
 

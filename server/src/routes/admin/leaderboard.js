@@ -1,4 +1,3 @@
-import { error } from '../../response.js';
 import { Router } from 'express';
 import prisma from '../../db.js';
 import { parsePagination, paginatedResponse } from '../../pagination.js';
@@ -36,7 +35,7 @@ router.get('/leaderboard', async (req, res) => {
     res.json(paginatedResponse({ data: leaderboard, page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'admin leaderboard failed');
-    error(res, 'فشل في جلب الترتيب التفصيلي', 500);
+    res.status(500).json({ success: false, error: 'فشل في جلب الترتيب التفصيلي', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
