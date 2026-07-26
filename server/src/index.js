@@ -141,6 +141,9 @@ app.use((error, req, res, next) => {
 
 export { app, server, io };
 
+let finalizeInterval;
+let idempotencyTimer;
+
 export async function startServer(port = PORT) {
   await databaseReady;
   try {
@@ -150,18 +153,19 @@ export async function startServer(port = PORT) {
   }
   try {
     await purgeIdempotencyKeys();
-    startIdempotencyCleanup();
+    idempotencyTimer = startIdempotencyCleanup();
   } catch (err) {
     logger.warn({ err }, 'failed to start idempotency cleanup');
   }
   const FINALIZE_INTERVAL_MS = Number(process.env.FINALIZE_EXPIRED_SESSIONS_MS) || 30_000;
-  setInterval(async () => {
+  finalizeInterval = setInterval(async () => {
     try {
       await finalizeExpiredSessions();
     } catch (err) {
       logger.warn({ err }, 'expired session finalizer failed');
     }
-  }, FINALIZE_INTERVAL_MS).unref?.();
+  }, FINALIZE_INTERVAL_MS);
+  finalizeInterval.unref?.();
   return new Promise((resolve, reject) => {
     const onError = (error) => {
       server.off('listening', onListening);
@@ -187,6 +191,35 @@ process.on('uncaughtException', (error) => {
   logger.fatal(error, 'uncaught exception');
   process.exit(1);
 });
+
+async function shutdown(signal) {
+  logger.info({ signal }, 'graceful shutdown started');
+  if (finalizeInterval) clearInterval(finalizeInterval);
+  if (idempotencyTimer) clearInterval(idempotencyTimer);
+
+  io?.close?.();
+  server.closeAllConnections?.();
+
+  const forceExit = setTimeout(() => {
+    logger.error('graceful shutdown timed out; forcing exit');
+    process.exit(1);
+  }, 10000).unref?.();
+
+  if (server.listening) {
+    server.close(async (err) => {
+      clearTimeout(forceExit);
+      if (err) logger.error({ err }, 'server close error');
+      try { await prisma.$disconnect(); } catch (e) { logger.error({ e }, 'prisma disconnect error'); }
+      process.exit(0);
+    });
+  } else {
+    clearTimeout(forceExit);
+    try { await prisma.$disconnect(); } catch (e) { logger.error({ e }, 'prisma disconnect error'); }
+    process.exit(0);
+  }
+}
+
+['SIGTERM', 'SIGINT'].forEach((signal) => process.on(signal, () => shutdown(signal)));
 
 if (!process.env.SCOUT_NO_AUTOSTART) {
   startServer().catch((error) => {
