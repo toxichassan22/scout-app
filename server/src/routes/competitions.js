@@ -1,9 +1,8 @@
-import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { enforceNotFrozen } from '../freeze.js';
-import { startDigitalSession, finalizeDigitalSession } from '../quizService.js';
+import { startDigitalSession, finalizeDigitalSession, MAX_ATTEMPTS } from '../quizService.js';
 import { getAnonymousLeaderboard, clearLeaderboardCache } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { normalizeArabicText } from '../textNormalization.js';
@@ -47,7 +46,16 @@ const videoPatchSchema = {
   body: { videoUrl: zString('رابط الفيديو', { max: 2048 }) },
 };
 
-const publicCompetition = (comp, myScore = null) => ({
+function computeAttemptCount(comp, myScore, videoAttemptCount) {
+  if (typeof videoAttemptCount === 'number') return videoAttemptCount;
+  if (!isVideoCompetition(comp)) return 0;
+  if (myScore && myScore.values) {
+    return (parseJson(myScore.values, {}).attempts || []).length;
+  }
+  return 0;
+}
+
+const publicCompetition = (comp, myScore = null, videoAttemptCount) => ({
   id: comp.id,
   name: comp.name,
   slug: comp.slug,
@@ -58,10 +66,7 @@ const publicCompetition = (comp, myScore = null) => ({
   hasEntryCode: Boolean(comp.entryCode),
   completed: Boolean(myScore),
   myTotal: myScore ? myScore.total : null,
-  attemptCount:
-    myScore && myScore.values
-      ? (parseJson(myScore.values, {}).attempts || []).length
-      : 0,
+  attemptCount: computeAttemptCount(comp, myScore, videoAttemptCount),
 });
 
 // List competitions for teams
@@ -80,14 +85,21 @@ router.get('/', authenticateToken, requireRole(['team', 'admin']), async (req, r
     ]);
 
     let myScores = [];
+    let videoAttemptCounts = [];
     if (req.user.role === 'team') {
       myScores = await prisma.score.findMany({
         where: { teamId: req.user.id },
       });
+      videoAttemptCounts = await prisma.videoAttempt.groupBy({
+        by: ['competitionId'],
+        where: { teamId: req.user.id },
+        _count: { id: true },
+      });
     }
     const scoreByComp = Object.fromEntries(myScores.map((s) => [s.competitionId, s]));
+    const attemptCountByComp = Object.fromEntries(videoAttemptCounts.map((v) => [v.competitionId, v._count.id]));
 
-    res.json(paginatedResponse({ data: comps.map((c) => publicCompetition(c, scoreByComp[c.id])), page, limit, total }));
+    res.json(paginatedResponse({ data: comps.map((c) => publicCompetition(c, scoreByComp[c.id], attemptCountByComp[c.id])), page, limit, total }));
   } catch (err) {
     req.log.error({ err }, 'failed to fetch competitions');
     res.status(500).json({ success: false, error: 'فشل في جلب المسابقات', requestId: req.requestId, timestamp: new Date().toISOString() });
@@ -140,6 +152,13 @@ router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforc
       });
     }
 
+    let videoAttemptCount = 0;
+    if (req.user.role === 'team' && isVideoCompetition(competition)) {
+      videoAttemptCount = await prisma.videoAttempt.count({
+        where: { competitionId: competition.id, teamId: req.user.id },
+      });
+    }
+
     const sessionInfo = {};
     if (competition.type === 'auto_digital') {
       const result = await startDigitalSession({
@@ -159,7 +178,7 @@ router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforc
     }
     res.json({
       ok: true,
-      competition: publicCompetition(competition, existing),
+      competition: publicCompetition(competition, existing, videoAttemptCount),
       ...sessionInfo,
     });
   } catch (err) {
@@ -232,11 +251,25 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
     }
 
     if (isVideoCompetition(competition)) {
-      const values = existing ? parseJson(existing.values, {}) : {};
+      const [attempts, videoAttemptCount] = await Promise.all([
+        prisma.videoAttempt.findMany({
+          where: { competitionId: competition.id, teamId: req.user.id },
+          orderBy: { attemptNumber: 'asc' },
+        }),
+        prisma.videoAttempt.count({
+          where: { competitionId: competition.id, teamId: req.user.id },
+        }),
+      ]);
       return res.json({
-        competition: publicCompetition(competition, existing),
-        attempts: values.attempts || [],
-        maxAttempts: 3,
+        competition: publicCompetition(competition, existing, videoAttemptCount),
+        attempts: attempts.map((a) => ({
+          id: a.id,
+          prompt: a.prompt,
+          videoUrl: a.videoUrl,
+          videoStatus: a.videoStatus,
+          at: a.createdAt.toISOString(),
+        })),
+        maxAttempts: MAX_ATTEMPTS,
       });
     }
 
@@ -270,25 +303,37 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
   }
 });
 
-async function upsertScore({ competitionId, teamId, total, values, judgeId = null }) {
-  return prisma.score.upsert({
-    where: {
-      competitionId_teamId: { competitionId, teamId },
-    },
-    create: {
-      competitionId,
-      teamId,
-      judgeId,
-      total,
-      values: typeof values === 'string' ? values : JSON.stringify(values || {}),
-    },
-    update: {
-      judgeId,
-      total,
-      values: typeof values === 'string' ? values : JSON.stringify(values || {}),
-      submittedAt: new Date(),
-    },
-  });
+async function createVideoAttempt({ competitionId, teamId, prompt, videoUrl, videoStatus }) {
+  const MAX_RETRIES = 3;
+  for (let i = 0; i < MAX_RETRIES; i += 1) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      return await prisma.$transaction(async (tx) => {
+        const count = await tx.videoAttempt.count({ where: { competitionId, teamId } });
+        if (count >= MAX_ATTEMPTS) {
+          throw Object.assign(new Error('تم استنفاد الحد الأقصى (3 محاولات)'), { status: 400 });
+        }
+        await tx.videoAttempt.create({
+          data: { competitionId, teamId, attemptNumber: count + 1, prompt, videoUrl, videoStatus },
+        });
+        const score = await tx.score.upsert({
+          where: { competitionId_teamId: { competitionId, teamId } },
+          create: { competitionId, teamId, total: 0, values: JSON.stringify({ mode: 'video' }), judgeId: null },
+          update: {},
+        });
+        const attempts = await tx.videoAttempt.findMany({
+          where: { competitionId, teamId },
+          orderBy: { attemptNumber: 'asc' },
+        });
+        return { attempts, remaining: Math.max(0, MAX_ATTEMPTS - attempts.length), scoreId: score.id };
+      });
+    } catch (err) {
+      if (err.status === 400) throw err;
+      if (err.code !== 'P2002' || i === MAX_RETRIES - 1) throw err;
+      // P2002 on the unique constraint means a concurrent insert won the race; retry.
+    }
+  }
+  throw Object.assign(new Error('تم استنفاد الحد الأقصى (3 محاولات)'), { status: 400 });
 }
 
 function validateSubmissionAnswers(answers, competition) {
@@ -430,47 +475,31 @@ router.post('/:idOrSlug/video-attempt', authenticateToken, requireRole(['team'])
     if (videoUrl !== undefined && videoUrl !== null && !isAllowedVideoUrl(videoUrl)) return res.status(400).json({ error: 'رابط الفيديو غير صالح' });
     if (competition.entryCode && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) return res.status(403).json({ error: 'يجب إدخال كود المسابقة أولاً' });
 
-    const existing = await prisma.score.findUnique({
-      where: {
-        competitionId_teamId: {
-          competitionId: competition.id,
-          teamId: req.user.id,
-        },
-      },
-    });
-
-    const values = existing ? parseJson(existing.values, {}) : {};
-    const attempts = Array.isArray(values.attempts) ? values.attempts : [];
-
-    if (attempts.length >= 3) {
-      return res.status(400).json({ error: 'تم استنفاد الحد الأقصى (3 محاولات)' });
-    }
-
-    attempts.push({
-      id: randomUUID(),
+    const result = await createVideoAttempt({
+      competitionId: competition.id,
+      teamId: req.user.id,
       prompt: cleanPrompt,
       videoUrl: videoUrl || null,
       videoStatus: videoUrl ? 'generated' : 'pending',
-      at: new Date().toISOString(),
-    });
-
-    const score = await upsertScore({
-      competitionId: competition.id,
-      teamId: req.user.id,
-      total: existing?.total || 0,
-      values: { ...values, attempts },
-      judgeId: existing?.judgeId || null,
     });
 
     res.json({
       success: true,
-      attempts,
-      remaining: Math.max(0, 3 - attempts.length),
-      scoreId: score.id,
+      attempts: result.attempts.map((a) => ({
+        id: a.id,
+        prompt: a.prompt,
+        videoUrl: a.videoUrl,
+        videoStatus: a.videoStatus,
+        at: a.createdAt.toISOString(),
+      })),
+      remaining: result.remaining,
+      scoreId: result.scoreId,
     });
   } catch (err) {
     req.log.error({ err }, 'failed to save video attempt');
-    res.status(500).json({ success: false, error: 'فشل في حفظ محاولة الفيديو', requestId: req.requestId, timestamp: new Date().toISOString() });
+    const status = err.status || err.statusCode || 500;
+    const message = status < 500 ? err.message : 'فشل في حفظ محاولة الفيديو';
+    res.status(status).json({ success: false, error: message, requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
@@ -492,43 +521,42 @@ router.patch('/:idOrSlug/video-attempt/:attemptId', authenticateToken, requireRo
     if (!isAllowedVideoUrl(videoUrl)) return res.status(400).json({ error: 'رابط الفيديو غير صالح' });
     if (competition.entryCode && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) return res.status(403).json({ error: 'يجب إدخال كود المسابقة أولاً' });
 
-    const existing = await prisma.score.findUnique({
-      where: {
-        competitionId_teamId: {
-          competitionId: competition.id,
-          teamId: req.user.id,
-        },
-      },
+    const attempt = await prisma.videoAttempt.findUnique({
+      where: { id: attemptId },
     });
-    if (!existing) {
-      return res.status(404).json({ error: 'لا توجد محاولات محفوظة' });
-    }
-
-    const values = parseJson(existing.values, {});
-    const attempts = Array.isArray(values.attempts) ? values.attempts : [];
-    const idx = attempts.findIndex((a) => a.id === attemptId);
-    if (idx < 0) {
+    if (!attempt || attempt.competitionId !== competition.id || attempt.teamId !== req.user.id) {
       return res.status(404).json({ error: 'المحاولة غير موجودة' });
     }
 
-    attempts[idx] = {
-      ...attempts[idx],
-      videoUrl: videoUrl || attempts[idx].videoUrl,
-      videoStatus: videoUrl ? 'generated' : attempts[idx].videoStatus,
-    };
-
-    await upsertScore({
-      competitionId: competition.id,
-      teamId: req.user.id,
-      total: existing.total,
-      values: { ...values, attempts },
-      judgeId: existing.judgeId,
+    const updated = await prisma.videoAttempt.update({
+      where: { id: attemptId },
+      data: {
+        videoUrl: videoUrl || attempt.videoUrl,
+        videoStatus: videoUrl ? 'generated' : attempt.videoStatus,
+      },
     });
 
-    res.json({ success: true, attempts });
+    const attempts = await prisma.videoAttempt.findMany({
+      where: { competitionId: competition.id, teamId: req.user.id },
+      orderBy: { attemptNumber: 'asc' },
+    });
+
+    res.json({
+      success: true,
+      attempts: attempts.map((a) => ({
+        id: a.id,
+        prompt: a.prompt,
+        videoUrl: a.videoUrl,
+        videoStatus: a.videoStatus,
+        at: a.createdAt.toISOString(),
+      })),
+      attempt: updated,
+    });
   } catch (err) {
     req.log.error({ err }, 'failed to update video attempt');
-    res.status(500).json({ success: false, error: 'فشل تحديث الفيديو', requestId: req.requestId, timestamp: new Date().toISOString() });
+    const status = err.status || err.statusCode || 500;
+    const message = status < 500 ? err.message : 'فشل تحديث الفيديو';
+    res.status(status).json({ success: false, error: message, requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

@@ -24,6 +24,7 @@ model Team {
   members           TeamMember[]
   devices           TeamDevice[]
   competitionAccess CompetitionAccess[]
+  videoAttempts     VideoAttempt[]
   standing          TeamStanding?
 }
 
@@ -93,6 +94,7 @@ model Competition {
   judgeScores       JudgeScore[]
   scoreAudits       ScoreAudit[]
   teamAccess        CompetitionAccess[]
+  videoAttempts     VideoAttempt[]
 }
 
 model CompetitionAccess {
@@ -119,6 +121,23 @@ model Question {
   createdAt     DateTime    @default(now())
 
   @@index([competitionId])
+}
+
+model VideoAttempt {
+  id            String      @id @default(uuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  teamId        String
+  team          Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  attemptNumber Int
+  prompt        String
+  videoUrl      String?
+  videoStatus   String      @default("pending")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([competitionId, teamId, attemptNumber])
+  @@index([competitionId, teamId])
 }
 
 model GeographyCountry {
