@@ -27,7 +27,9 @@ async function cleanupIdempotencyKeys() {
 }
 
 export function startIdempotencyCleanup(intervalMs = 60 * 60 * 1000) {
-  return setInterval(cleanupIdempotencyKeys, intervalMs);
+  const timer = setInterval(cleanupIdempotencyKeys, intervalMs);
+  timer.unref?.();
+  return timer;
 }
 
 export async function purgeIdempotencyKeys() {

@@ -26,7 +26,10 @@ try {
 
   const deviceId = `device-${suffix}`;
 
-  const session = await startDigitalSession({ teamId: team.id, competitionId: competition.id, deviceId, entryCode: 'UNIT-123' });
+  const started = await startDigitalSession({ teamId: team.id, competitionId: competition.id, deviceId, entryCode: 'UNIT-123' });
+  assert.equal(started.kind, 'session', 'a fresh start should return a live session');
+  assert.equal(started.finalized, false, 'a fresh start should not be finalized');
+  const session = started.session;
   assert.ok(session.id, 'session should have an id');
   assert.equal(session.teamId, team.id, 'session teamId should match');
   assert.ok(session.expiresAt > new Date(), 'session should expire in the future');
@@ -39,11 +42,10 @@ try {
   assert.equal(result.totalScore, 10, 'total score should equal answer points');
   assert.ok(result.score, 'score record should be returned');
 
-  await assert.rejects(
-    () => startDigitalSession({ teamId: team.id, competitionId: competition.id, deviceId, entryCode: 'UNIT-123' }),
-    (err) => err.status === 409,
-    'starting a new session after finalization should fail with 409'
-  );
+  const restarted = await startDigitalSession({ teamId: team.id, competitionId: competition.id, deviceId, entryCode: 'UNIT-123' });
+  assert.equal(restarted.kind, 'finalized', 'restarting after finalization should report finalized');
+  assert.equal(restarted.session, null, 'restarting after finalization should not create a session');
+  assert.equal(restarted.score.total, 10, 'restarting should return the existing score');
 
   const otherTeam = await prisma.team.create({
     data: { username: `quiz-other-${suffix}`, label: 'Quiz Unit Other', passwordHash: await bcrypt.hash('test1234', 4), maxDevices: 2 },
