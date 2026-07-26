@@ -24,10 +24,18 @@ npm --prefix server ci
 # Prisma CLI validation runs before PM2 starts and therefore needs the same
 # database URL that the backend will use. Production may provide it through the
 # service environment; otherwise use the repository's persistent SQLite path.
-export DATABASE_URL="${DATABASE_URL:-file:${APP_DIR}/server/prisma/dev.db}"
 export SQLITE_DATABASE_PATH="${SQLITE_DATABASE_PATH:-${APP_DIR}/server/prisma/dev.db}"
+export DATABASE_URL="${DATABASE_URL:-file:${SQLITE_DATABASE_PATH}}"
 
-echo Generating and validating Prisma client..."
+# Prisma resolves env vars from the current shell, while PM2 receives the same
+# values through this deploy process. Fail early instead of allowing a hidden
+# .env or an empty DATABASE_URL to reach production.
+if [ -z "${DATABASE_URL//[[:space:]]/}" ]; then
+  echo "Deployment failed: DATABASE_URL is empty." >&2
+  exit 1
+fi
+
+echo "Generating and validating Prisma client..."
 npm --prefix server run prisma:validate
 npm --prefix server run prisma:generate
 
