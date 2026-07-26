@@ -69,4 +69,22 @@ const dbUrl = process.env.DATABASE_URL
 upsertEnv(lines, 'DATABASE_URL', dbUrl);
 upsertEnv(lines, 'SQLITE_DATABASE_PATH', dbPath);
 
+const PUBLIC_DOMAIN = process.env.SCOUT_PUBLIC_DOMAIN || 'manshya-festival-30.cfd';
+const DEFAULT_ORIGINS = [
+    `https://${PUBLIC_DOMAIN}`,
+    `https://www.${PUBLIC_DOMAIN}`,
+    `http://${PUBLIC_DOMAIN}`,
+    `http://www.${PUBLIC_DOMAIN}`,
+].join(',');
+
+const existingOrigins = lines.find(l => l.startsWith('CORS_ORIGINS='))?.slice('CORS_ORIGINS='.length)?.trim() || '';
+const corsOrigins = process.env.CORS_ORIGINS || existingOrigins || DEFAULT_ORIGINS;
+upsertEnv(lines, 'CORS_ORIGINS', corsOrigins, 'Explicit production allowlist; startup is refused when this is empty.');
+upsertEnv(lines, 'FRONTEND_URL', `https://${PUBLIC_DOMAIN}`);
+
+// Nginx is the only hop in front of the backend, so trust exactly one proxy for correct client IPs.
+upsertEnv(lines, 'TRUST_PROXY', process.env.TRUST_PROXY || '1');
+
+console.log(`[ensure-env] CORS_ORIGINS set to ${corsOrigins}`);
+
 writeEnvLines(lines);
