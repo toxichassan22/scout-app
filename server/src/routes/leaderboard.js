@@ -10,39 +10,22 @@ export function clearLeaderboardCache() {
 }
 
 async function fetchAllStandings() {
-  const [standings, teams] = await Promise.all([
-    prisma.teamStanding.findMany(),
-    prisma.team.findMany({ select: { id: true } }),
-  ]);
+  // Single DB query: all teams, left-joined with their standing, sorted by score then submission time.
+  const rows = await prisma.$queryRaw`
+    SELECT t.id as teamId, COALESCE(s.totalScore, 0) as totalScore, s.latestSubmitted
+    FROM Team t
+    LEFT JOIN TeamStanding s ON t.id = s.teamId
+    ORDER BY totalScore DESC,
+             CASE WHEN s.latestSubmitted IS NULL THEN 1 ELSE 0 END ASC,
+             s.latestSubmitted ASC
+  `;
 
-  const standingIds = new Set(standings.map((s) => s.teamId));
-  const missing = teams
-    .filter((t) => !standingIds.has(t.id))
-    .map((t) => ({
-      id: t.id,
-      totalScore: 0,
-      latestSubmission: 0,
-    }));
-
-  const teamTotals = [
-    ...standings.map((s) => ({
-      id: s.teamId,
-      totalScore: Number(s.totalScore || 0),
-      latestSubmission: s.latestSubmitted ? new Date(s.latestSubmitted).getTime() : 0,
-    })),
-    ...missing,
-  ];
-
-  // Sort descending by totalScore, then ascending by submission time (speed tie-breaker)
-  teamTotals.sort((a, b) => {
-    if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
-    return a.latestSubmission - b.latestSubmission;
-  });
-
-  return teamTotals.map((item, index) => {
+  return rows.map((item, index) => {
     const rank = index + 1;
-    const points = Math.round(item.totalScore * 10) / 10;
-    const gapToNext = index > 0 ? Math.round((teamTotals[index - 1].totalScore - item.totalScore) * 10) / 10 : 0;
+    const points = Math.round(Number(item.totalScore || 0) * 10) / 10;
+    const gapToNext = index > 0
+      ? Math.round((Number(rows[index - 1].totalScore || 0) - points) * 10) / 10
+      : 0;
     return { rank, points, gapToNext };
   });
 }
