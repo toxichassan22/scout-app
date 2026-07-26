@@ -43,9 +43,16 @@ try {
     const foreignKeyCheck = await prisma.$queryRawUnsafe('PRAGMA foreign_key_check;');
     if (foreignKeyCheck.length) throw new Error(`Foreign key violations: ${JSON.stringify(foreignKeyCheck)}`);
 
-    const journalRows = await prisma.$queryRawUnsafe('PRAGMA journal_mode;');
-    const journalMode = String(Object.values(journalRows[0] || {})[0] || '').toLowerCase();
-    if (journalMode !== 'wal') throw new Error(`Expected WAL journal mode, found ${journalMode || 'unknown'}`);
+    let journalRows = await prisma.$queryRawUnsafe('PRAGMA journal_mode;');
+    let journalMode = String(Object.values(journalRows[0] || {})[0] || '').toLowerCase();
+    if (journalMode !== 'wal') {
+        // Newly-created SQLite files start in DELETE journal mode. WAL is required for
+        // concurrent readers/writers, so switch it on as part of readiness validation.
+        await prisma.$queryRawUnsafe('PRAGMA journal_mode=WAL;');
+        journalRows = await prisma.$queryRawUnsafe('PRAGMA journal_mode;');
+        journalMode = String(Object.values(journalRows[0] || {})[0] || '').toLowerCase();
+        if (journalMode !== 'wal') throw new Error(`Could not enable WAL journal mode, found ${journalMode || 'unknown'}`);
+    }
 
     const tableRows = await prisma.$queryRawUnsafe("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name;");
     const actualTables = new Set(tableRows.map(row => row.name));
