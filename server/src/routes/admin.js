@@ -168,13 +168,36 @@ router.delete('/devices/:deviceId', async (req, res) => {
 // Update device limit for a specific team (Admin can raise/lower from default 24)
 router.patch('/teams/:teamId/device-limit', async (req, res) => {
   try {
-    const { teamId } = req.params;
-    const { maxDevices } = req.body;
-    // Note: This requires adding a maxDevices field to Team model in a future migration.
-    // For now, the global 24-device limit is enforced in auth.js.
-    res.json({ success: true, message: 'حد الأجهزة الافتراضي هو 24 لكل فريق. لتعديله تواصل مع المطور.' });
+    const maxDevices = Number(req.body.maxDevices);
+    if (!Number.isInteger(maxDevices) || maxDevices < 1 || maxDevices > 1000) {
+      return res.status(400).json({ error: 'حد الأجهزة يجب أن يكون رقماً صحيحاً بين 1 و1000' });
+    }
+    const team = await prisma.team.update({ where: { id: req.params.teamId }, data: { maxDevices } });
+    res.json({ success: true, team });
   } catch (err) {
     res.status(500).json({ error: 'فشل في تحديث حد الأجهزة' });
+  }
+});
+
+router.patch('/teams/:id', async (req, res) => {
+  try {
+    const { username, label, password, maxDevices } = req.body || {};
+    const data = {};
+    if (username !== undefined) data.username = String(username).trim();
+    if (label !== undefined) data.label = String(label).trim();
+    if (password !== undefined) {
+      if (String(password).length < 4) return res.status(400).json({ error: 'كلمة السر قصيرة جداً' });
+      data.passwordHash = await bcrypt.hash(String(password), 10);
+    }
+    if (maxDevices !== undefined) {
+      const n = Number(maxDevices);
+      if (!Number.isInteger(n) || n < 1 || n > 1000) return res.status(400).json({ error: 'حد الأجهزة غير صالح' });
+      data.maxDevices = n;
+    }
+    const team = await prisma.team.update({ where: { id: req.params.id }, data });
+    res.json(team);
+  } catch (err) {
+    res.status(400).json({ error: 'فشل في تحديث الفريق' });
   }
 });
 
@@ -346,15 +369,20 @@ router.post('/competitions', async (req, res) => {
 
 router.patch('/competitions/:id', async (req, res) => {
   try {
-    const { isOpen, name, criteria } = req.body;
-    const comp = await prisma.competition.update({
-      where: { id: req.params.id },
-      data: {
-        ...(isOpen !== undefined && { isOpen }),
-        ...(name && { name }),
-        ...(criteria && { criteria: typeof criteria === 'string' ? criteria : JSON.stringify(criteria) })
-      }
-    });
+    const { isOpen, name, description, type, criteria, duration, entryCode, passcode, custom, revoke } = req.body;
+    const data = {
+      ...(isOpen !== undefined && { isOpen: Boolean(isOpen) }),
+      ...(name !== undefined && { name: String(name).trim() }),
+      ...(description !== undefined && { description: String(description) }),
+      ...(type !== undefined && { type: String(type) }),
+      ...(criteria !== undefined && { criteria: typeof criteria === 'string' ? criteria : JSON.stringify(criteria) }),
+      ...(duration !== undefined && { duration: duration === null ? null : Number(duration) }),
+      ...(entryCode !== undefined && { entryCode: entryCode ? String(entryCode) : null }),
+      ...(passcode !== undefined && { passcode: passcode ? String(passcode) : null }),
+    };
+    if (custom !== undefined) data.type = custom ? 'manual_judged' : data.type;
+    if (revoke === true) { data.passcode = null; data.entryCode = null; data.isOpen = false; }
+    const comp = await prisma.competition.update({ where: { id: req.params.id }, data });
 
     if (req.io) {
       req.io.emit('competition:update', { action: 'updated', competitionId: comp.id, isOpen: comp.isOpen });
@@ -409,19 +437,20 @@ router.delete('/questions/:id', async (req, res) => {
   }
 });
 
-// Score Override (Admin Audit)
+// Score Override (Admin Audit; requires an explicit unlock first)
 router.patch('/scores/:id', async (req, res) => {
   try {
-    const { total } = req.body;
+    const { total, values, reason } = req.body;
     const adminId = req.user.id;
-
-    const score = await prisma.score.update({
-      where: { id: req.params.id },
-      data: {
-        total: parseFloat(total),
-        editedByAdminId: adminId,
-        editedAt: new Date()
-      }
+    const existing = await prisma.score.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: 'النتيجة غير موجودة' });
+    if (existing.isFinal) return res.status(409).json({ error: 'يجب فتح قفل النتيجة أولاً' });
+    const numericTotal = Number(total);
+    if (!Number.isFinite(numericTotal) || !String(reason || '').trim()) return res.status(400).json({ error: 'الدرجة وسبب التصحيح مطلوبان' });
+    const score = await prisma.$transaction(async tx => {
+      const updated = await tx.score.update({ where: { id: existing.id }, data: { total: numericTotal, ...(values !== undefined && { values: typeof values === 'string' ? values : JSON.stringify(values) }), editedByAdminId: adminId, editedAt: new Date(), isFinal: true } });
+      await tx.scoreAudit.create({ data: { scoreId: existing.id, competitionId: existing.competitionId, teamId: existing.teamId, adminId, action: 'admin_correction', reason: String(reason).trim(), previousData: JSON.stringify(existing), newData: JSON.stringify(updated) } });
+      return updated;
     });
 
     if (req.io) {
@@ -438,7 +467,7 @@ router.patch('/scores/:id', async (req, res) => {
 // News Management
 router.post('/news', async (req, res) => {
   try {
-    const { title, body, photoUrl } = req.body;
+    const { title, body, photoUrl, category, targetTeamIds } = req.body;
     if (!title || !body) {
       return res.status(400).json({ error: 'العنوان والمحتوى مطلوبان' });
     }
@@ -448,6 +477,8 @@ router.post('/news', async (req, res) => {
         title,
         body,
         photoUrl: photoUrl || null,
+        category: category || 'general',
+        targetTeamIds: JSON.stringify(Array.isArray(targetTeamIds) ? targetTeamIds : []),
         createdByAdminId: req.user.id
       }
     });
@@ -460,6 +491,20 @@ router.post('/news', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'فشل في نشر الخبر' });
   }
+});
+
+router.patch('/news/:id', async (req, res) => {
+  try {
+    const { title, body, photoUrl, category, targetTeamIds } = req.body || {};
+    const news = await prisma.news.update({
+      where: { id: req.params.id }, data: {
+        ...(title !== undefined && { title }), ...(body !== undefined && { body }),
+        ...(photoUrl !== undefined && { photoUrl: photoUrl || null }), ...(category !== undefined && { category }),
+        ...(targetTeamIds !== undefined && { targetTeamIds: JSON.stringify(Array.isArray(targetTeamIds) ? targetTeamIds : []) })
+      }
+    });
+    res.json(news);
+  } catch (err) { res.status(400).json({ error: 'فشل في تعديل الخبر' }); }
 });
 
 router.delete('/news/:id', async (req, res) => {
@@ -551,7 +596,7 @@ router.get('/reports', async (req, res) => {
     let reports = [];
     try {
       reports = await prisma.report.findMany({
-        include: { team: true },
+        include: { team: true, competition: true },
         orderBy: { uploadedAt: 'desc' }
       });
     } catch (rErr) {
@@ -779,5 +824,47 @@ router.post('/seed-agenda', async (req, res) => {
     res.status(500).json({ error: 'فشل في إضافة البيانات' });
   }
 });
+
+// Report permission administration
+router.get('/report-permissions', async (req, res) => {
+  const rows = await prisma.reportPermission.findMany({ include: { team: true, competition: true }, orderBy: { updatedAt: 'desc' } });
+  res.json(rows);
+});
+router.patch('/report-permissions/:teamId/:competitionId', async (req, res) => {
+  try {
+    const { canSubmit, deadline, reopen } = req.body || {};
+    const row = await prisma.reportPermission.upsert({
+      where: { teamId_competitionId: { teamId: req.params.teamId, competitionId: req.params.competitionId } },
+      create: { teamId: req.params.teamId, competitionId: req.params.competitionId, canSubmit: canSubmit !== false, deadline: deadline ? new Date(deadline) : null, reopenedAt: reopen ? new Date() : null, updatedByAdminId: req.user.id },
+      update: { ...(canSubmit !== undefined && { canSubmit: Boolean(canSubmit) }), ...(deadline !== undefined && { deadline: deadline ? new Date(deadline) : null }), ...(reopen && { reopenedAt: new Date(), canSubmit: true }), updatedByAdminId: req.user.id }
+    });
+    res.json(row);
+  } catch (err) { res.status(400).json({ error: 'فشل في تحديث صلاحية التقرير' }); }
+});
+
+// Judge assignments
+router.get('/judges/:judgeId/assignments', async (req, res) => res.json(await prisma.judgeCompetition.findMany({ where: { judgeId: req.params.judgeId }, include: { competition: true } })));
+router.get('/scores/breakdown', async (req, res) => res.json(await prisma.score.findMany({ include: { team: true, competition: true, judgeScores: { include: { judge: { select: { id: true, name: true, username: true } } } }, audits: { orderBy: { createdAt: 'asc' } } } })));
+router.post('/judges/:judgeId/assignments', async (req, res) => {
+  const competitionId = req.body.competitionId;
+  if (!competitionId) return res.status(400).json({ error: 'competitionId مطلوب' });
+  res.status(201).json(await prisma.judgeCompetition.upsert({ where: { judgeId_competitionId: { judgeId: req.params.judgeId, competitionId } }, create: { judgeId: req.params.judgeId, competitionId }, update: {} }));
+});
+router.delete('/judges/:judgeId/assignments/:competitionId', async (req, res) => { await prisma.judgeCompetition.deleteMany({ where: { judgeId: req.params.judgeId, competitionId: req.params.competitionId } }); res.json({ success: true }); });
+router.patch('/judges/:id', async (req, res) => {
+  const { name, username, password } = req.body || {}; const data = {};
+  if (name !== undefined) data.name = String(name).trim(); if (username !== undefined) data.username = String(username).trim();
+  if (password !== undefined) data.passwordHash = await bcrypt.hash(String(password), 10);
+  res.json(await prisma.judge.update({ where: { id: req.params.id }, data }));
+});
+
+// Score finalization controls
+router.post('/scores/:id/unlock', async (req, res) => {
+  const reason = String(req.body?.reason || '').trim(); if (!reason) return res.status(400).json({ error: 'سبب فتح القفل مطلوب' });
+  const score = await prisma.score.findUnique({ where: { id: req.params.id } }); if (!score) return res.status(404).json({ error: 'النتيجة غير موجودة' });
+  await prisma.$transaction([prisma.score.update({ where: { id: score.id }, data: { isFinal: false, unlockedAt: new Date(), unlockedByAdminId: req.user.id, unlockReason: reason } }), prisma.scoreAudit.create({ data: { scoreId: score.id, competitionId: score.competitionId, teamId: score.teamId, adminId: req.user.id, action: 'unlock', reason, previousData: JSON.stringify(score) } })]);
+  res.json({ success: true });
+});
+router.post('/scores/:id/lock', async (req, res) => { const score = await prisma.score.update({ where: { id: req.params.id }, data: { isFinal: true } }); res.json(score); });
 
 export default router;

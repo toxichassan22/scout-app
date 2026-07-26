@@ -1,116 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Trophy, Edit3, Save, CheckCircle2 } from 'lucide-react';
-import { getAdminLeaderboard, updateScoreOverride } from '../../services/api';
+import React, { useEffect, useState } from 'react';
+import { Edit3, Lock, Save, ShieldCheck, Trophy, Unlock } from 'lucide-react';
+import { getScoreBreakdown, lockScore, unlockScore, updateScoreOverride } from '../../services/api';
 
+const json = value => { try { return typeof value === 'string' ? JSON.parse(value || '{}') : value || {}; } catch { return {}; } };
 const AdminScoring = () => {
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [editingScoreId, setEditingScoreId] = useState(null);
-  const [editValue, setEditValue] = useState('');
-
-  useEffect(() => {
-    fetchLeaderboard();
-  }, []);
-
-  const fetchLeaderboard = async () => {
-    try {
-      const data = await getAdminLeaderboard();
-      setLeaderboard(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveOverride = async (scoreId) => {
-    try {
-      await updateScoreOverride(scoreId, editValue);
-      setEditingScoreId(null);
-      fetchLeaderboard();
-    } catch (err) {
-      alert(err.message || 'فشل تعديل الدرجة');
-    }
-  };
-
-  return (
-    <div className="p-6 text-right dir-rtl">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-black text-white flex items-center gap-2">
-            لوحة الدرجات الشاملة وتعديل النتائج
-            <Trophy size={24} className="text-amber-400" />
-          </h1>
-          <p className="text-slate-400 text-xs mt-1">الرؤية الكاملة لأسماء الفرق الحقيقية والدرجات التفصيلية مع إمكانية التعديل الإداري الفوري</p>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="py-16 text-center text-slate-500">جاري تحميل لوحة الدرجات...</div>
-      ) : (
-        <div className="space-y-4">
-          {leaderboard.map((team, idx) => (
-            <div key={team.id} className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-3">
-                  <span className="text-xl font-mono font-black text-amber-400">{team.totalScore} نقطة</span>
-                  <span className="text-xs text-slate-500 font-mono">@{team.username}</span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <h2 className="text-lg font-bold text-white">{team.label}</h2>
-                  <span className="h-7 w-7 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 font-black text-xs flex items-center justify-center">
-                    #{idx + 1}
-                  </span>
-                </div>
-              </div>
-
-              {/* Detailed Competition Scores */}
-              <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {team.scores.map((sc) => (
-                  <div key={sc.id} className="p-3 rounded-xl bg-slate-950/40 border border-slate-800 text-right space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400 font-bold">{sc.competition?.name || 'مسابقة'}</span>
-                      {sc.editedAt && (
-                        <span className="text-[9px] text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded">مُعَدَّل من الأدمن</span>
-                      )}
-                    </div>
-
-                    {editingScoreId === sc.id ? (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleSaveOverride(sc.id)}
-                          className="px-2 py-1 bg-emerald-600 text-white rounded text-xs font-bold flex items-center gap-1"
-                        >
-                          <Save size={12} /> حفظ
-                        </button>
-                        <input
-                          type="number"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          className="ai-input text-left text-xs font-mono font-bold w-20 py-1"
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between">
-                        <button
-                          onClick={() => { setEditingScoreId(sc.id); setEditValue(sc.total); }}
-                          className="text-slate-500 hover:text-amber-400 text-xs flex items-center gap-1"
-                        >
-                          <Edit3 size={13} /> تعديل
-                        </button>
-                        <span className="text-sm font-mono font-black text-emerald-400">{sc.total} ن</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  const [scores, setScores] = useState([]), [loading, setLoading] = useState(true), [editing, setEditing] = useState(null), [total, setTotal] = useState(''), [values, setValues] = useState('{}'), [reason, setReason] = useState('');
+  const load = async () => { try { setScores(await getScoreBreakdown()) } finally { setLoading(false) } };
+  useEffect(() => { load().catch(console.error) }, []);
+  const unlock = async s => { const why = prompt('اكتب سبب فتح القفل (يسجل في سجل التدقيق):', 'تصحيح إداري'); if (!why) return; try { await unlockScore(s.id, why); await load() } catch (e) { alert(e.message) } };
+  const begin = s => { setEditing(s.id); setTotal(s.total); setValues(JSON.stringify(json(s.values), null, 2)); setReason('') };
+  const save = async s => { if (!reason.trim()) return alert('سبب التصحيح مطلوب'); let parsed; try { parsed = JSON.parse(values) } catch { return alert('قيم المعايير JSON غير صحيحة') } try { await updateScoreOverride(s.id, { total: Number(total), values: parsed, reason }); setEditing(null); await load() } catch (e) { alert(e.message) } };
+  return <div className="p-6 text-right dir-rtl text-white"><header className="mb-8"><h1 className="text-2xl font-black flex gap-2">الدرجات والقفل وسجل التدقيق <Trophy className="text-amber-400" /></h1><p className="text-xs text-slate-400">لا يمكن التصحيح إلا بعد فتح صريح بسبب، ثم تعاد النتيجة إلى الحالة النهائية تلقائياً</p></header>
+    {loading ? <p className="py-16 text-center text-slate-500">جاري التحميل...</p> : <div className="space-y-4">{scores.map(s => <article key={s.id} className="card p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
+      <div className="flex flex-wrap justify-between gap-3 border-b border-slate-800 pb-3"><div className="flex gap-2"><span className={`px-2 py-1 rounded text-xs ${s.isFinal ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'}`}>{s.isFinal ? <><Lock size={12} className="inline" /> نهائي مقفل</> : <><Unlock size={12} className="inline" /> مفتوح للتصحيح</>}</span><b className="text-emerald-400">{s.total} نقطة</b></div><h2 className="font-black">{s.team?.label} • {s.competition?.name}</h2></div>
+      <div className="grid md:grid-cols-2 gap-4 mt-4"><div><h3 className="text-xs text-slate-400 mb-2">المحكم وقيم المعايير</h3>{s.judgeScores?.map(j => <div key={j.id} className="p-3 bg-slate-950 rounded-xl text-xs mb-2"><b className="text-sky-400">{j.judge?.name || 'محكم'} — {j.total}</b><div className="flex flex-wrap gap-2 mt-2">{Object.entries(json(j.values)).map(([k, v]) => <span key={k} className="bg-slate-800 px-2 py-1 rounded">{k}: {v}</span>)}</div></div>)}</div>
+        <div><h3 className="text-xs text-slate-400 mb-2">سجل التدقيق</h3><div className="space-y-1 max-h-32 overflow-auto">{s.audits?.map(a => <div key={a.id} className="text-[10px] bg-slate-950 p-2 rounded"><ShieldCheck size={11} className="inline text-violet-400" /> {a.action} • {a.reason || 'بدون سبب'} • {new Date(a.createdAt).toLocaleString('ar-EG')}</div>)}</div></div></div>
+      {editing === s.id ? <div className="mt-4 p-4 bg-slate-950 rounded-xl space-y-2"><input type="number" step="0.5" className="ai-input" value={total} onChange={e => setTotal(e.target.value)} /><textarea dir="ltr" className="ai-input text-left font-mono min-h-28" value={values} onChange={e => setValues(e.target.value)} /><input className="ai-input" placeholder="سبب التصحيح الإلزامي" value={reason} onChange={e => setReason(e.target.value)} /><button onClick={() => save(s)} className="px-4 py-2 rounded bg-emerald-600 font-bold flex gap-2"><Save size={15} /> حفظ وإعادة القفل</button></div> : <div className="mt-4 flex gap-2">{s.isFinal ? <button onClick={() => unlock(s)} className="px-3 py-2 bg-amber-500 text-slate-950 rounded-xl text-xs font-black flex gap-1"><Unlock size={14} /> فتح بسبب</button> : <><button onClick={() => begin(s)} className="px-3 py-2 bg-blue-600 rounded-xl text-xs font-bold flex gap-1"><Edit3 size={14} /> تصحيح</button><button onClick={() => lockScore(s.id).then(load)} className="px-3 py-2 bg-slate-700 rounded-xl text-xs font-bold flex gap-1"><Lock size={14} /> قفل دون تعديل</button></>}</div>}
+    </article>)}</div>}
+  </div>;
 };
-
 export default AdminScoring;

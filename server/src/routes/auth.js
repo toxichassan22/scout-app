@@ -37,10 +37,12 @@ router.post('/team/login', async (req, res) => {
     if (!deviceRecord) {
       // New device — check if team already has 24 registered devices
       const deviceCount = await prisma.teamDevice.count({ where: { teamId: team.id } });
-      if (deviceCount >= 24) {
+      const maxDevices = Number.isInteger(team.maxDevices) ? team.maxDevices : 24;
+      if (deviceCount >= maxDevices) {
         return res.status(403).json({
-          error: 'عفواً، وصل الفريق للحد الأقصى للأجهزة المسموح بها (24 جهازاً). يرجى مراجعة إدارة المهرجان.',
-          maxDevicesReached: true
+          error: `عفواً، وصل الفريق للحد الأقصى للأجهزة المسموح بها (${maxDevices} جهازاً). يرجى مراجعة إدارة المهرجان.`,
+          maxDevicesReached: true,
+          maxDevices
         });
       }
 
@@ -53,7 +55,7 @@ router.post('/team/login', async (req, res) => {
           lastLoginAt: new Date()
         }
       });
-      console.log(`[Device Registered] Team ${team.username} — Device ${finalDeviceId} (${deviceCount + 1}/24)`);
+      console.log(`[Device Registered] Team ${team.username} — Device ${finalDeviceId} (${deviceCount + 1}/${team.maxDevices})`);
 
       // Emit real-time event so admin panel updates live
       if (req.io) {

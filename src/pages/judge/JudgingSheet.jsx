@@ -44,12 +44,17 @@ const JudgingSheet = () => {
     }
   }, [competition, socket]);
 
-  const fetchTeams = async () => {
+  const fetchTeams = async (completedTeamId = null) => {
     try {
       const data = await getJudgeTeams(competition.id);
       setTeams(data);
-      if (data.length > 0 && !selectedTeam) {
-        selectTeam(data[0]);
+      if (completedTeamId) {
+        const next = data.find(t => !t.isFinal && t.id !== completedTeamId);
+        if (next) selectTeam(next);
+        else { setSelectedTeam(null); setScores({}); }
+      } else if ((!selectedTeam || selectedTeam.isFinal) && data.length > 0) {
+        const firstUnlocked = data.find(t => !t.isFinal);
+        if (firstUnlocked) selectTeam(firstUnlocked);
       }
     } catch (err) {
       console.error('Failed to load teams:', err);
@@ -59,7 +64,10 @@ const JudgingSheet = () => {
   };
 
   const selectTeam = (team) => {
+    if (team.isFinal) return;
     setSelectedTeam(team);
+    setMessage('');
+    setShowReportModal(false);
     // Populate existing or initial scores
     const initialScores = {};
     (competition.criteria || []).forEach(c => {
@@ -91,9 +99,11 @@ const JudgingSheet = () => {
         total
       });
 
-      setMessage('تم حفظ النتيجة وتحديث لوحة الشرف أوتوماتيكياً!');
+      const completedId = selectedTeam.id;
+      setMessage('تم اعتماد النتيجة نهائياً، وتم الانتقال للفريق التالي المتاح.');
       setShowConfirm(false);
-      await fetchTeams();
+      setScores({});
+      await fetchTeams(completedId);
     } catch (err) {
       setMessage(err.message || 'فشل في حفظ التقييم');
     } finally {
@@ -138,14 +148,14 @@ const JudgingSheet = () => {
                 <button
                   key={t.id}
                   onClick={() => selectTeam(t)}
-                  className={`w-full text-right p-3 rounded-xl border text-xs font-bold transition flex items-center justify-between ${
-                    selectedTeam?.id === t.id
+                  disabled={t.isFinal}
+                  className={`w-full text-right p-3 rounded-xl border text-xs font-bold transition flex items-center justify-between ${t.isFinal ? 'border-slate-800 bg-slate-950/60 text-slate-600 cursor-not-allowed opacity-60' : selectedTeam?.id === t.id
                       ? 'border-amber-500/50 bg-amber-500/10 text-amber-300'
                       : 'border-slate-800 bg-slate-900/50 text-slate-300 hover:border-slate-700'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2 truncate">
-                    {t.hasSubmitted ? (
+                    {t.isFinal ? (
                       <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
                     ) : (
                       <AlertCircle size={15} className="text-amber-500 shrink-0" />
@@ -154,13 +164,11 @@ const JudgingSheet = () => {
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {t.report && (
+                    {t.isFinal && <span className="text-[9px] text-emerald-400">معتمد نهائياً</span>}
+                    {!t.isFinal && t.report && (
                       <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] px-1.5 py-0.5 rounded font-mono">
                         📄 تقرير
                       </span>
-                    )}
-                    {t.hasSubmitted && (
-                      <span className="text-[10px] font-mono text-emerald-400 font-bold">{t.existingScore} ن</span>
                     )}
                   </div>
                 </button>
@@ -177,7 +185,7 @@ const JudgingSheet = () => {
               <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-800">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                    {selectedTeam.hasSubmitted ? 'تم تقييمه سابقاً' : 'في انتظار التقييم'}
+                    في انتظار التقييم
                   </span>
 
                   {/* 📄 Report View Action Button for Judge */}
@@ -241,7 +249,8 @@ const JudgingSheet = () => {
 
               <button
                 onClick={() => setShowConfirm(true)}
-                className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 transition shadow-glow-amber"
+                disabled={selectedTeam.isFinal || submitting}
+                className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-black text-sm flex items-center justify-center gap-2 transition shadow-glow-amber"
               >
                 <Save size={18} />
                 اعتماد وحفظ نتيجة الفريق
@@ -259,7 +268,7 @@ const JudgingSheet = () => {
       {showReportModal && selectedTeam?.report && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 dir-rtl">
           <div className="card p-6 rounded-3xl bg-slate-900 border border-purple-500/30 max-w-2xl w-full text-right shadow-2xl relative max-h-[90vh] flex flex-col">
-            
+
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <button
@@ -301,7 +310,7 @@ const JudgingSheet = () => {
               {selectedTeam.report.fileUrl && (
                 <div>
                   <span className="text-xs text-slate-400 font-bold block mb-2">الملف المرفق من الفريق:</span>
-                  
+
                   {/* PDF or Image Viewer Embed */}
                   {selectedTeam.report.fileUrl.endsWith('.pdf') ? (
                     <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950 h-80">

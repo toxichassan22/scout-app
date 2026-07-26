@@ -174,6 +174,12 @@ export const getAdminTeams = () =>
 export const createTeam = (teamData) =>
   apiFetch('/admin/teams', { method: 'POST', body: JSON.stringify(teamData) });
 
+export const updateTeam = (id, teamData) =>
+  apiFetch(`/admin/teams/${id}`, { method: 'PATCH', body: JSON.stringify(teamData) });
+
+export const updateTeamDeviceLimit = (teamId, maxDevices) =>
+  apiFetch(`/admin/teams/${teamId}/device-limit`, { method: 'PATCH', body: JSON.stringify({ maxDevices }) });
+
 export const importTeams = (teams) =>
   apiFetch('/admin/teams/import', { method: 'POST', body: JSON.stringify({ teams }) });
 
@@ -202,8 +208,20 @@ export const getAdminJudges = () =>
 export const createJudge = (data) =>
   apiFetch('/admin/judges', { method: 'POST', body: JSON.stringify(data) });
 
+export const updateJudge = (id, data) =>
+  apiFetch(`/admin/judges/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+
 export const deleteJudge = (id) =>
   apiFetch(`/admin/judges/${id}`, { method: 'DELETE' });
+
+export const getJudgeAssignments = (judgeId) =>
+  apiFetch(`/admin/judges/${judgeId}/assignments`);
+
+export const assignJudgeCompetition = (judgeId, competitionId) =>
+  apiFetch(`/admin/judges/${judgeId}/assignments`, { method: 'POST', body: JSON.stringify({ competitionId }) });
+
+export const unassignJudgeCompetition = (judgeId, competitionId) =>
+  apiFetch(`/admin/judges/${judgeId}/assignments/${competitionId}`, { method: 'DELETE' });
 
 export const getCompetitions = () => apiFetch('/competitions');
 
@@ -225,11 +243,23 @@ export const createQuestion = (data) =>
 export const deleteQuestion = (id) =>
   apiFetch(`/admin/questions/${id}`, { method: 'DELETE' });
 
-export const updateScoreOverride = (id, total) =>
-  apiFetch(`/admin/scores/${id}`, { method: 'PATCH', body: JSON.stringify({ total }) });
+export const getScoreBreakdown = () =>
+  apiFetch('/admin/scores/breakdown');
+
+export const unlockScore = (id, reason) =>
+  apiFetch(`/admin/scores/${id}/unlock`, { method: 'POST', body: JSON.stringify({ reason }) });
+
+export const lockScore = (id) =>
+  apiFetch(`/admin/scores/${id}/lock`, { method: 'POST' });
+
+export const updateScoreOverride = (id, data) =>
+  apiFetch(`/admin/scores/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 
 export const publishNews = (data) =>
   apiFetch('/admin/news', { method: 'POST', body: JSON.stringify(data) });
+
+export const updateNews = (id, data) =>
+  apiFetch(`/admin/news/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 
 export const deleteNews = (id) =>
   apiFetch(`/admin/news/${id}`, { method: 'DELETE' });
@@ -249,11 +279,29 @@ export const agendaAction = (id, action) =>
 export const getAdminReports = () =>
   apiFetch('/admin/reports');
 
+export const deleteAdminReport = (id) =>
+  apiFetch(`/admin/reports/${id}`, { method: 'DELETE' });
+
+export const getReportPermissions = () =>
+  apiFetch('/admin/report-permissions');
+
+export const updateReportPermission = (teamId, competitionId, data) =>
+  apiFetch(`/admin/report-permissions/${teamId}/${competitionId}`, { method: 'PATCH', body: JSON.stringify(data) });
+
+export const getMyReportPermissions = () =>
+  apiFetch('/reports/permissions');
+
+export const getMyReports = () =>
+  apiFetch('/reports/mine');
+
 export const uploadTeamReport = (data) =>
   apiFetch('/reports', {
     method: 'POST',
     body: JSON.stringify(data),
   });
+
+export const resubmitTeamReport = (id, data) =>
+  apiFetch(`/reports/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 
 // Device ID Generator / Helper
 export const getDeviceId = () => {

@@ -32,7 +32,7 @@ router.post('/unlock', async (req, res) => {
     }
 
     const competition = await prisma.competition.findFirst({
-      where: { passcode, isOpen: true, type: 'manual_judged' }
+      where: { passcode, isOpen: true, type: 'manual_judged', judgeAssignments: { some: { judgeId: req.user.id } } }
     });
 
     if (!competition) {
@@ -73,9 +73,10 @@ router.get('/teams/:competitionId', async (req, res) => {
   try {
     const { competitionId } = req.params;
 
-    const competition = await prisma.competition.findUnique({
-      where: { id: competitionId }
+    const competition = await prisma.competition.findFirst({
+      where: { id: competitionId, judgeAssignments: { some: { judgeId: req.user.id } } }
     });
+    if (!competition) return res.status(403).json({ error: 'المحكم غير مكلف بهذه المسابقة' });
 
     const teams = await prisma.team.findMany({
       orderBy: { label: 'asc' },
@@ -96,17 +97,19 @@ router.get('/teams/:competitionId', async (req, res) => {
         r => r.competitionId === competitionId || (competition && r.title === competition.name)
       );
 
+      const finalized = Boolean(t.scores[0]?.isFinal);
       return {
         id: t.id,
         label: t.label,
         hasSubmitted: t.scores.length > 0,
-        existingScore: t.scores[0] ? t.scores[0].total : null,
-        report: compReport ? {
+        isFinal: finalized,
+        existingScore: finalized ? null : (t.scores[0] ? t.scores[0].total : null),
+        report: !finalized && compReport ? {
           id: compReport.id,
           title: compReport.title,
           content: compReport.content,
           fileUrl: compReport.fileUrl,
-          createdAt: compReport.createdAt
+          createdAt: compReport.uploadedAt
         } : null
       };
     });
@@ -128,42 +131,37 @@ router.post('/scores', async (req, res) => {
       return res.status(400).json({ error: 'البيانات غير مكتملة' });
     }
 
-    // Verify competition is open
+    // Verify assignment and competition is open
     const competition = await prisma.competition.findUnique({
-      where: { id: competitionId }
+      where: { id: competitionId, judgeAssignments: { some: { judgeId } } }
     });
 
     if (!competition || !competition.isOpen) {
       return res.status(400).json({ error: 'المسابقة مغلقة أو غير موجودة' });
     }
 
+    let parsedValues;
+    try { parsedValues = typeof values === 'string' ? JSON.parse(values) : values; } catch { return res.status(400).json({ error: 'قيم التقييم ليست JSON صالحاً' }); }
+    if (!parsedValues || typeof parsedValues !== 'object' || Array.isArray(parsedValues)) return res.status(400).json({ error: 'قيم التقييم غير صالحة' });
+    let criteria = []; try { criteria = JSON.parse(competition.criteria || '[]'); } catch { return res.status(400).json({ error: 'معايير المسابقة غير صالحة' }); }
+    const expected = new Set(criteria.map(c => String(c.key)));
+    if (expected.size && (Object.keys(parsedValues).length !== expected.size || Object.keys(parsedValues).some(k => !expected.has(k)))) return res.status(400).json({ error: 'يجب إرسال جميع معايير المسابقة فقط' });
+    let calculated = 0;
+    for (const criterion of criteria) { const n = Number(parsedValues[criterion.key]); const max = Number(criterion.maxScore); if (!Number.isFinite(n) || n < 0 || !Number.isFinite(max) || n > max) return res.status(400).json({ error: `قيمة المعيار ${criterion.key} غير صالحة` }); calculated += n; }
+    if (Math.abs(calculated - Number(total)) > 0.0001) return res.status(400).json({ error: 'المجموع لا يطابق قيم المعايير' });
+
     // Check if score already exists
     const existingScore = await prisma.score.findFirst({
       where: { competitionId, teamId }
     });
 
-    let scoreRecord;
-    if (existingScore) {
-      scoreRecord = await prisma.score.update({
-        where: { id: existingScore.id },
-        data: {
-          judgeId,
-          values: typeof values === 'string' ? values : JSON.stringify(values),
-          total: parseFloat(total),
-          submittedAt: new Date()
-        }
-      });
-    } else {
-      scoreRecord = await prisma.score.create({
-        data: {
-          competitionId,
-          teamId,
-          judgeId,
-          values: typeof values === 'string' ? values : JSON.stringify(values),
-          total: parseFloat(total)
-        }
-      });
-    }
+    if (existingScore?.isFinal) return res.status(409).json({ error: 'تم اعتماد التقييم نهائياً ولا يمكن تعديله' });
+    if (existingScore) return res.status(409).json({ error: 'لا يحق للمحكم تعديل نتيجة قائمة؛ التصحيح متاح للإدارة فقط' });
+    const scoreRecord = await prisma.score.create({ data: { competitionId, teamId, judgeId, values: JSON.stringify(parsedValues), total: calculated, isFinal: true } });
+    await prisma.$transaction([
+      prisma.judgeScore.create({ data: { scoreId: scoreRecord.id, competitionId, teamId, judgeId, values: JSON.stringify(parsedValues), total: calculated } }),
+      prisma.scoreAudit.create({ data: { scoreId: scoreRecord.id, competitionId, teamId, judgeId, action: 'judge_submit', newData: JSON.stringify({ values: parsedValues, total: calculated }) } })
+    ]);
 
     // Broadcast socket updates if req.io is available
     if (req.io) {

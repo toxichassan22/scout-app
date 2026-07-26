@@ -12,12 +12,16 @@ model Team {
   username     String   @unique
   passwordHash String
   label        String
+  maxDevices   Int      @default(24)
   createdAt    DateTime @default(now())
 
-  scores  Score[]
-  reports Report[]
-  members TeamMember[]
-  devices TeamDevice[]
+  scores            Score[]
+  reports           Report[]
+  reportPermissions ReportPermission[]
+  judgeScores       JudgeScore[]
+  scoreAudits       ScoreAudit[]
+  members           TeamMember[]
+  devices           TeamDevice[]
 }
 
 model TeamMember {
@@ -30,13 +34,13 @@ model TeamMember {
 }
 
 model TeamDevice {
-  id        String   @id @default(uuid())
-  teamId    String
-  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  deviceId  String   // Unique browser/device fingerprint from localStorage
-  userAgent String   @default("")
+  id          String   @id @default(uuid())
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  deviceId    String // Unique browser/device fingerprint from localStorage
+  userAgent   String   @default("")
   lastLoginAt DateTime @default(now())
-  createdAt DateTime @default(now())
+  createdAt   DateTime @default(now())
 
   @@unique([teamId, deviceId])
 }
@@ -55,7 +59,10 @@ model Judge {
   passwordHash String
   createdAt    DateTime @default(now())
 
-  scores Score[]
+  scores      Score[]
+  assignments JudgeCompetition[]
+  judgeScores JudgeScore[]
+  scoreAudits ScoreAudit[]
 }
 
 model Competition {
@@ -71,9 +78,13 @@ model Competition {
   criteria    String   @default("[]") // JSON [{ key, label, maxScore }]
   createdAt   DateTime @default(now())
 
-  scores    Score[]
-  questions Question[]
-  reports   Report[]
+  scores            Score[]
+  questions         Question[]
+  reports           Report[]
+  reportPermissions ReportPermission[]
+  judgeAssignments  JudgeCompetition[]
+  judgeScores       JudgeScore[]
+  scoreAudits       ScoreAudit[]
 }
 
 model Question {
@@ -101,20 +112,72 @@ model GeographyCountry {
 }
 
 model Score {
-  id              String      @id @default(uuid())
-  competitionId   String
-  competition     Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  teamId          String
-  team            Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  judgeId         String?
-  judge           Judge?      @relation(fields: [judgeId], references: [id], onDelete: SetNull)
-  values          String      @default("{}") // JSON
-  total           Float
-  submittedAt     DateTime    @default(now())
-  editedByAdminId String?
-  editedAt        DateTime?
+  id                String       @id @default(uuid())
+  competitionId     String
+  competition       Competition  @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  teamId            String
+  team              Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  judgeId           String?
+  judge             Judge?       @relation(fields: [judgeId], references: [id], onDelete: SetNull)
+  values            String       @default("{}") // JSON
+  total             Float
+  submittedAt       DateTime     @default(now())
+  isFinal           Boolean      @default(true)
+  unlockedAt        DateTime?
+  unlockedByAdminId String?
+  unlockReason      String?
+  editedByAdminId   String?
+  editedAt          DateTime?
+  judgeScores       JudgeScore[]
+  audits            ScoreAudit[]
 
   @@unique([competitionId, teamId])
+}
+
+model JudgeCompetition {
+  id            String      @id @default(uuid())
+  judgeId       String
+  judge         Judge       @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@unique([judgeId, competitionId])
+}
+
+model JudgeScore {
+  id            String      @id @default(uuid())
+  scoreId       String
+  score         Score       @relation(fields: [scoreId], references: [id], onDelete: Cascade)
+  judgeId       String
+  judge         Judge       @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  teamId        String
+  team          Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  values        String      @default("{}")
+  total         Float
+  submittedAt   DateTime    @default(now())
+
+  @@unique([judgeId, competitionId, teamId])
+}
+
+model ScoreAudit {
+  id            String      @id @default(uuid())
+  scoreId       String
+  score         Score       @relation(fields: [scoreId], references: [id], onDelete: Cascade)
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  teamId        String
+  team          Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  judgeId       String?
+  judge         Judge?      @relation(fields: [judgeId], references: [id], onDelete: SetNull)
+  adminId       String?
+  action        String
+  reason        String?
+  previousData  String?
+  newData       String?
+  createdAt     DateTime    @default(now())
 }
 
 model News {
@@ -122,8 +185,11 @@ model News {
   title            String
   body             String
   photoUrl         String?
+  category         String   @default("general")
+  targetTeamIds    String   @default("[]") // JSON; empty means public
   createdByAdminId String
   createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
 }
 
 model Zone {
@@ -140,7 +206,7 @@ model Zone {
 model AgendaItem {
   id          String    @id @default(uuid())
   title       String
-  type        String    // competition | workshop | ceremony
+  type        String // competition | workshop | ceremony
   period      String    @default("before")
   order       Int       @default(0)
   zoneId      String
@@ -166,16 +232,36 @@ model Report {
   fileUrl       String
   fileName      String
   uploadedAt    DateTime     @default(now())
+  updatedAt     DateTime     @default(now()) @updatedAt
+
+  @@unique([teamId, competitionId])
+}
+
+model ReportPermission {
+  id               String      @id @default(uuid())
+  teamId           String
+  team             Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  competitionId    String
+  competition      Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  canSubmit        Boolean     @default(true)
+  deadline         DateTime?
+  reopenedAt       DateTime?
+  grantedAt        DateTime    @default(now())
+  revokedAt        DateTime?
+  updatedByAdminId String?
+  updatedAt        DateTime    @default(now()) @updatedAt
+
+  @@unique([teamId, competitionId])
 }
 
 model QuizSession {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   teamId        String
   competitionId String
-  deviceId      String   // Unique device fingerprint that started the quiz
-  startedAt     DateTime @default(now())
+  deviceId      String // Unique device fingerprint that started the quiz
+  startedAt     DateTime  @default(now())
   expiresAt     DateTime
-  isCompleted   Boolean  @default(false)
+  isCompleted   Boolean   @default(false)
   completedAt   DateTime?
 
   draftAnswers DraftAnswer[]
@@ -200,4 +286,3 @@ model SystemSetting {
   key   String @id
   value String
 }
-

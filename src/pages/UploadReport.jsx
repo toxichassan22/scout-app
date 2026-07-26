@@ -6,20 +6,22 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
-import { uploadTeamReport, getCompetitions } from '../services/api';
+import { getMyReportPermissions, getMyReports, resubmitTeamReport, uploadTeamReport } from '../services/api';
 
 const UploadReport = () => {
   const { user } = useAuth();
-  const { submitEntry, submissions } = useCompetitions();
-
+  const { submitEntry } = useCompetitions();
+  const [permissions, setPermissions] = useState([]);
+  const [backendReports, setBackendReports] = useState([]);
   const [competitions, setCompetitions] = useState([]);
 
   useEffect(() => {
     const fetchComps = async () => {
       try {
-        const res = await getCompetitions();
-        const judged = res.filter(c => c.type === 'manual_judged');
-        setCompetitions(judged);
+        const [permissionRows, reportRows] = await Promise.all([getMyReportPermissions(), getMyReports()]);
+        setPermissions(permissionRows);
+        setBackendReports(reportRows);
+        setCompetitions(permissionRows.map(row => row.competition));
       } catch (err) {
         console.error('Failed to load competitions:', err);
       }
@@ -45,9 +47,12 @@ const UploadReport = () => {
   const teamName = user?.label || user?.name || user?.username || 'فرقة الصقور';
 
   // Submissions for this team
-  const myReports = submissions.filter(
-    (s) => (s.teamName === teamName || s.teamName === user?.username) && s.data?.type === 'report'
-  );
+  const myReports = backendReports.map(report => ({
+    ...report,
+    data: { title: report.title, fileName: report.fileName, reportIndex: 1, isLate: false },
+    competitionName: competitions.find(c => c.id === report.competitionId)?.name || 'مسابقة',
+    timestamp: report.uploadedAt
+  }));
 
   const reportCount = myReports.length;
   const currentReportNumber = Math.min(reportCount + 1, MAX_REPORTS);
@@ -55,16 +60,15 @@ const UploadReport = () => {
 
   const sameId = (a, b) => String(a) === String(b);
   const activeComp = competitions.find((c) => sameId(c.id, selectedCompId));
+  const activePermission = permissions.find(p => sameId(p.competitionId, selectedCompId));
+  const existingReport = backendReports.find(r => sameId(r.competitionId, selectedCompId));
+  const deadlineExpired = Boolean(activePermission?.deadline && new Date(activePermission.deadline) < new Date());
+  const canSubmit = Boolean(activePermission?.canSubmit && !deadlineExpired && (!activePermission.hasReport || activePermission.reopened));
 
-  const getDeadlineText = (comp) => {
-    if (!comp) return '';
-    if (!comp.startTime || !comp.duration) return 'مفتوح (تسليم مستمر)';
-    const end = new Date(comp.startTime).getTime() + comp.duration * 1000;
-    const left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
-    if (left <= 0) return 'منتهي الصلاحية';
-    const minutes = Math.floor(left / 60);
-    const seconds = left % 60;
-    return `متبقي ${minutes} دقيقة و ${seconds} ثانية`;
+  const getDeadlineText = () => {
+    if (!activePermission?.deadline) return 'لا يوجد موعد نهائي محدد';
+    if (deadlineExpired) return 'انتهى موعد التسليم';
+    return `متاح حتى ${new Date(activePermission.deadline).toLocaleString('ar-EG')}`;
   };
 
   const MAX_FILE_SIZE_MB = 50;
@@ -102,16 +106,10 @@ const UploadReport = () => {
     }
 
     const comp = competitions.find((c) => sameId(c.id, selectedCompId));
-    if (!comp) {
-      setError('المسابقة غير موجودة');
-      return;
-    }
-
-    let isLate = false;
-    if (comp.startTime && comp.duration) {
-      const end = new Date(comp.startTime).getTime() + comp.duration * 1000;
-      if (Date.now() > end) isLate = true;
-    }
+    if (!comp) { setError('المسابقة غير موجودة'); return; }
+    if (!canSubmit) { setError(deadlineExpired ? 'انتهى موعد التسليم' : existingReport ? 'تم التسليم مرة واحدة ولا يمكن إعادة الإرسال إلا بعد فتحه من الإدارة' : 'لا تملك صلاحية التسليم لهذه المسابقة'); return; }
+    if (existingReport && fileInput) { setError('إعادة الإرسال عبر PATCH تدعم تعديل العنوان والمحتوى فقط؛ الملف السابق سيظل محفوظاً'); return; }
+    const isLate = false;
 
     setSubmitting(true);
 
@@ -126,14 +124,21 @@ const UploadReport = () => {
         });
       }
 
-      // 1️⃣ Real Backend API call (saves to SQLite & uploads directly to Google Drive)
-      await uploadTeamReport({
-        title: reportTitle || comp.name,
-        content: reportContent || `تقرير مسابقة ${comp.name} لفرقة ${teamName}`,
-        competitionId: String(comp.id),
-        fileName: fileInput ? fileInput.name : '',
-        fileBase64,
-      });
+      if (existingReport) {
+        await resubmitTeamReport(existingReport.id, {
+          title: reportTitle || comp.name,
+          content: reportContent || `تقرير مسابقة ${comp.name} لفرقة ${teamName}`,
+          fileName: existingReport.fileName
+        });
+      } else {
+        await uploadTeamReport({
+          title: reportTitle || comp.name,
+          content: reportContent || `تقرير مسابقة ${comp.name} لفرقة ${teamName}`,
+          competitionId: String(comp.id),
+          fileName: fileInput ? fileInput.name : '',
+          fileBase64,
+        });
+      }
 
       // 2️⃣ Local state persistence
       submitEntry(comp.id, teamName, {
@@ -146,7 +151,9 @@ const UploadReport = () => {
         type: 'report',
       });
 
-      setMessage(`تم رفع التقرير رقم #${currentReportNumber} بنجاح وأُرسل للجنة التحكيم ولـ Google Drive!`);
+      setMessage(existingReport ? 'تمت إعادة إرسال التقرير المفتوح بنجاح.' : `تم رفع التقرير رقم #${currentReportNumber} بنجاح وأُرسل للجنة التحكيم ولـ Google Drive!`);
+      const [permissionRows, reportRows] = await Promise.all([getMyReportPermissions(), getMyReports()]);
+      setPermissions(permissionRows); setBackendReports(reportRows); setCompetitions(permissionRows.map(row => row.competition));
       setReportTitle('');
       setReportContent('');
       setFileInput(null);
@@ -276,13 +283,12 @@ const UploadReport = () => {
             return (
               <div
                 key={num}
-                className={`relative flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all duration-300 ${
-                  isUploaded
+                className={`relative flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all duration-300 ${isUploaded
                     ? 'border-[rgba(16,185,129,0.5)] bg-[rgba(16,185,129,0.15)] text-[#6ee7b7]'
                     : isCurrent
-                    ? 'border-[rgba(245,158,11,0.6)] bg-[rgba(245,158,11,0.2)] text-[#fcd34d] animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.3)]'
-                    : 'border-[rgba(255,255,255,0.08)] bg-[rgba(7,6,12,0.4)] text-[#6e6889]'
-                }`}
+                      ? 'border-[rgba(245,158,11,0.6)] bg-[rgba(245,158,11,0.2)] text-[#fcd34d] animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                      : 'border-[rgba(255,255,255,0.08)] bg-[rgba(7,6,12,0.4)] text-[#6e6889]'
+                  }`}
               >
                 <span className="font-mono text-xs font-black">{num}</span>
                 <span className="text-[9px] font-bold mt-0.5">
@@ -344,9 +350,9 @@ const UploadReport = () => {
             className="input-field appearance-none"
           >
             <option value="">— اختر المسابقة المعنية بهذا التقرير —</option>
-            {competitions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
+            {permissions.map((p) => (
+              <option key={p.competitionId} value={p.competitionId} disabled={!p.canSubmit || (p.hasReport && !p.reopened)}>
+                {p.competition.name} {p.hasReport ? (p.reopened ? '— إعادة إرسال مفتوحة' : '— تم التسليم') : ''} {!p.canSubmit ? '— غير مسموح' : ''}
               </option>
             ))}
           </select>
@@ -359,7 +365,7 @@ const UploadReport = () => {
             animate={{ opacity: 1, scale: 1 }}
             className="flex items-center justify-between rounded-2xl border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.07)] p-4"
           >
-            <span className="font-mono text-sm font-black text-[#fcd34d]">{getDeadlineText(activeComp)}</span>
+            <span className={`font-mono text-sm font-black ${canSubmit ? 'text-[#6ee7b7]' : 'text-[#fda4af]'}`}>{getDeadlineText()} • {canSubmit ? (existingReport ? 'إعادة الإرسال مسموحة' : 'مسموح بالتسليم') : 'التسليم غير متاح'}</span>
             <div className="flex items-center gap-2 text-xs font-bold text-[#a9a3c2]">
               <span>توقيت تسليم {activeComp.name}</span>
               <Clock size={15} className="text-[#fcd34d]" />
@@ -378,13 +384,12 @@ const UploadReport = () => {
               setDragging(false);
               pickFile(e.dataTransfer.files?.[0]);
             }}
-            className={`relative rounded-3xl border-2 border-dashed p-8 text-center transition-all duration-300 ${
-              dragging
+            className={`relative rounded-3xl border-2 border-dashed p-8 text-center transition-all duration-300 ${dragging
                 ? 'border-[rgba(139,92,246,0.6)] bg-[rgba(139,92,246,0.1)]'
                 : fileInput
                   ? 'border-[rgba(16,185,129,0.45)] bg-[rgba(16,185,129,0.06)]'
                   : 'border-[rgba(255,255,255,0.12)] bg-[rgba(7,6,12,0.4)] hover:border-[rgba(139,92,246,0.4)]'
-            }`}
+              }`}
           >
             <input
               type="file"
@@ -430,8 +435,8 @@ const UploadReport = () => {
           </motion.p>
         )}
 
-        <button type="submit" className="btn-ember btn-shine w-full !py-4 text-base font-black">
-          تسليم التقرير رسمياً (#{currentReportNumber})
+        <button type="submit" disabled={!canSubmit || submitting} className="btn-ember btn-shine w-full !py-4 text-base font-black disabled:opacity-40 disabled:cursor-not-allowed">
+          {submitting ? 'جاري الإرسال...' : existingReport ? 'إعادة إرسال التقرير المفتوح' : `تسليم التقرير رسمياً (#${currentReportNumber})`}
           <Send size={19} />
         </button>
       </motion.form>

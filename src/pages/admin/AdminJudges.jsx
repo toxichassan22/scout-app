@@ -1,194 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { UserCheck, Plus, Trash2, KeyRound, ShieldAlert, Sparkles } from 'lucide-react';
-import { getAdminJudges, createJudge, deleteJudge, getAdminCompetitions, generateCompetitionPasscode } from '../../services/api';
+import React, { useEffect, useState } from 'react';
+import { Eye, KeyRound, Pencil, Plus, Trash2, UserCheck } from 'lucide-react';
+import {
+  assignJudgeCompetition, createJudge, deleteJudge, generateCompetitionPasscode,
+  getAdminCompetitions, getAdminJudges, getJudgeAssignments, getScoreBreakdown,
+  unassignJudgeCompetition, updateCompetition, updateJudge
+} from '../../services/api';
 
 const AdminJudges = () => {
-  const [judges, setJudges] = useState([]);
-  const [competitions, setCompetitions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [name, setName] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [generatedPasscodes, setGeneratedPasscodes] = useState({});
-
-  const fetchData = async () => {
-    try {
-      const [jList, cList] = await Promise.all([getAdminJudges(), getAdminCompetitions()]);
-      setJudges(jList);
-      setCompetitions(cList.filter(c => c.type === 'manual_judged'));
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleAddJudge = async (e) => {
-    e.preventDefault();
-    setError('');
-    try {
-      await createJudge({ name, username, password });
-      setName('');
-      setUsername('');
-      setPassword('');
-      fetchData();
-    } catch (err) {
-      setError(err.message || 'فشل في إنشاء المحكم');
-    }
-  };
-
-  const handleDeleteJudge = async (id) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا المحكم؟')) return;
-    try {
-      await deleteJudge(id);
-      fetchData();
-    } catch (err) {
-      alert('فشل الحذف');
-    }
-  };
-
-  const handleGeneratePasscode = async (compId) => {
-    try {
-      const res = await generateCompetitionPasscode(compId);
-      setGeneratedPasscodes(prev => ({ ...prev, [compId]: res.passcode }));
-      fetchData();
-    } catch (err) {
-      alert('فشل في توليد الكود');
-    }
-  };
-
-  return (
-    <div className="p-6 text-right dir-rtl">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-black text-white flex items-center gap-2">
-            إدارة المحكمين وأكواد التقييم
-            <UserCheck size={24} className="text-blue-400" />
-          </h1>
-          <p className="text-slate-400 text-xs mt-1">إنشاء حسابات المحكمين وتوليد أكواد المرور لفتح المسابقات الميدانية</p>
-        </div>
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Form: Create Judge */}
-        <div className="card p-6 rounded-2xl border border-slate-800 bg-slate-900/60">
-          <h2 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-            <Plus size={16} className="text-blue-400" />
-            إضافة محكّم جديد
-          </h2>
-
-          <form onSubmit={handleAddJudge} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-400 mb-1">اسم المحكّم الكامل</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="ai-input text-right text-xs"
-                placeholder="مثال: د. أحمد المحكم"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-400 mb-1">اسم المستخدم للدخول</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="ai-input text-right text-xs"
-                placeholder="judge1"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-400 mb-1">كلمة السر</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="ai-input text-right text-xs"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            {error && <p className="text-xs text-red-400 font-bold">{error}</p>}
-
-            <button type="submit" className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition">
-              إنشاء حساب المحكّم
-            </button>
-          </form>
-        </div>
-
-        {/* Passcode Generator Section */}
-        <div className="card p-6 rounded-2xl border border-slate-800 bg-slate-900/60">
-          <h2 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-            <KeyRound size={16} className="text-amber-400" />
-            أكواد مسابقات التقييم اليدوي
-          </h2>
-
-          {competitions.length === 0 ? (
-            <p className="text-xs text-slate-500">لا توجد مسابقات من نوع تقييم يدوي حالياً</p>
-          ) : (
-            <div className="space-y-3">
-              {competitions.map((comp) => (
-                <div key={comp.id} className="p-3 rounded-xl bg-slate-950/40 border border-slate-800 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${comp.isOpen ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                      {comp.isOpen ? 'مفتوحة' : 'مغلقة'}
-                    </span>
-                    <span className="text-xs font-bold text-slate-200">{comp.name}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1">
-                    <button
-                      onClick={() => handleGeneratePasscode(comp.id)}
-                      className="px-3 py-1 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 text-[11px] font-bold transition"
-                    >
-                      توليد كود جديد
-                    </button>
-                    <span className="text-sm font-mono font-black text-amber-400 tracking-wider">
-                      {generatedPasscodes[comp.id] || comp.passcode || '----'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Judges List */}
-        <div className="card p-6 rounded-2xl border border-slate-800 bg-slate-900/60">
-          <h2 className="text-sm font-bold text-white mb-4">قائمة المحكّمين المعتمدين ({judges.length})</h2>
-
-          {loading ? (
-            <div className="text-xs text-slate-500 py-4 text-center">جاري التحميل...</div>
-          ) : (
-            <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-              {judges.map((j) => (
-                <div key={j.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-950/40 border border-slate-800">
-                  <button onClick={() => handleDeleteJudge(j.id)} className="text-red-400 hover:text-red-300 p-1">
-                    <Trash2 size={15} />
-                  </button>
-                  <div>
-                    <p className="text-xs font-bold text-slate-200">{j.name}</p>
-                    <p className="text-[10px] text-slate-500 font-mono">@{j.username}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  const [judges, setJudges] = useState([]), [competitions, setCompetitions] = useState([]), [scores, setScores] = useState([]);
+  const [form, setForm] = useState({ name: '', username: '', password: '' }), [editing, setEditing] = useState(null), [assignments, setAssignments] = useState({}), [showScores, setShowScores] = useState(false);
+  const load = async () => { const [j, c, s] = await Promise.all([getAdminJudges(), getAdminCompetitions(), getScoreBreakdown()]); setJudges(j); setCompetitions(c.filter(x => x.type === 'manual_judged')); setScores(s); const pairs = await Promise.all(j.map(async x => [x.id, await getJudgeAssignments(x.id)])); setAssignments(Object.fromEntries(pairs)); };
+  useEffect(() => { load().catch(console.error) }, []);
+  const saveJudge = async e => { e.preventDefault(); try { if (editing) { const p = { name: form.name, username: form.username }; if (form.password) p.password = form.password; await updateJudge(editing, p) } else await createJudge(form); setEditing(null); setForm({ name: '', username: '', password: '' }); await load() } catch (err) { alert(err.message) } };
+  const startEdit = j => { setEditing(j.id); setForm({ name: j.name, username: j.username, password: '' }) };
+  const assigned = (jid, cid) => assignments[jid]?.some(a => a.competitionId === cid);
+  const toggleAssignment = async (jid, cid) => { try { assigned(jid, cid) ? await unassignJudgeCompetition(jid, cid) : await assignJudgeCompetition(jid, cid); await load() } catch (e) { alert(e.message) } };
+  const setCode = async (c, mode) => { try { if (mode === 'generate') await generateCompetitionPasscode(c.id); else if (mode === 'revoke') await updateCompetition(c.id, { revoke: true }); else { const code = prompt('أدخل كود المحكم المخصص', c.passcode || ''); if (code !== null) await updateCompetition(c.id, { passcode: code, isOpen: true }) } await load() } catch (e) { alert(e.message) } };
+  return <div className="p-6 text-right dir-rtl text-white"><header className="mb-7"><h1 className="text-2xl font-black flex gap-2">المحكمون والتكليفات <UserCheck className="text-blue-400" /></h1></header>
+    <form onSubmit={saveJudge} className="card p-5 rounded-2xl bg-slate-900/60 border border-slate-800 grid md:grid-cols-4 gap-3 mb-6"><input className="ai-input" placeholder="اسم المحكم" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required /><input className="ai-input" placeholder="اسم المستخدم" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} required /><input type="password" className="ai-input" placeholder={editing ? 'كلمة جديدة (اختياري)' : 'كلمة السر'} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required={!editing} /><button className="bg-blue-600 rounded-xl font-bold flex justify-center items-center gap-2"><Plus size={16} />{editing ? 'حفظ التعديل' : 'إضافة محكم'}</button></form>
+    <div className="grid lg:grid-cols-2 gap-5"><section className="card p-5 rounded-2xl bg-slate-900/60 border border-slate-800"><h2 className="font-black mb-4">الحسابات والتكليفات</h2><div className="space-y-4">{judges.map(j => <article key={j.id} className="p-4 rounded-xl bg-slate-950/50 border border-slate-800"><div className="flex justify-between"><div className="flex gap-2"><button onClick={() => deleteJudge(j.id).then(load)} className="text-red-400"><Trash2 size={15} /></button><button onClick={() => startEdit(j)} className="text-amber-400"><Pencil size={15} /></button></div><p className="font-bold">{j.name} <span className="text-xs text-slate-500">@{j.username}</span></p></div><div className="flex flex-wrap gap-2 mt-3">{competitions.map(c => <button key={c.id} onClick={() => toggleAssignment(j.id, c.id)} className={`px-2 py-1 rounded text-[10px] border ${assigned(j.id, c.id) ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>{assigned(j.id, c.id) ? '✓ ' : ''}{c.name}</button>)}</div></article>)}</div></section>
+      <section className="card p-5 rounded-2xl bg-slate-900/60 border border-slate-800"><h2 className="font-black mb-4 flex gap-2">أكواد المسابقات <KeyRound className="text-amber-400" /></h2><div className="space-y-3">{competitions.map(c => <article key={c.id} className="p-3 rounded-xl bg-slate-950/50 border border-slate-800"><div className="flex justify-between"><span className="font-mono text-amber-400">{c.passcode || '----'}</span><b className="text-xs">{c.name}</b></div><div className="flex gap-2 mt-2"><button onClick={() => setCode(c, 'generate')} className="text-[10px] bg-amber-500 text-slate-950 px-2 py-1 rounded">توليد</button><button onClick={() => setCode(c, 'custom')} className="text-[10px] bg-blue-600 px-2 py-1 rounded">كود مخصص</button><button onClick={() => setCode(c, 'revoke')} className="text-[10px] bg-red-600 px-2 py-1 rounded">إلغاء وإغلاق</button></div></article>)}</div></section></div>
+    <button onClick={() => setShowScores(!showScores)} className="mt-6 px-4 py-2 bg-violet-600 rounded-xl font-bold flex gap-2"><Eye size={17} /> {showScores ? 'إخفاء' : 'عرض'} تفاصيل درجات المحكمين</button>
+    {showScores && <div className="mt-4 space-y-3">{scores.map(s => <article key={s.id} className="p-4 rounded-xl bg-slate-900 border border-slate-800"><h3 className="font-bold">{s.team?.label} • {s.competition?.name} • {s.total} نقطة</h3>{s.judgeScores?.map(js => <div key={js.id} className="mt-2 text-xs bg-slate-950 p-3 rounded"><b className="text-sky-400">{js.judge?.name}</b> — {js.total} <pre dir="ltr" className="text-left text-slate-400 mt-1 whitespace-pre-wrap">{JSON.stringify(JSON.parse(js.values || '{}'), null, 2)}</pre></div>)}</article>)}</div>}
+  </div>;
 };
-
 export default AdminJudges;

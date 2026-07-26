@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Trash2, Upload, UserCheck, X, UserPlus, ShieldAlert, Award } from 'lucide-react';
+import { Users, Plus, Trash2, Upload, UserCheck, X, UserPlus, ShieldAlert, Pencil, Save } from 'lucide-react';
 import {
-  getAdminTeams, createTeam, deleteTeam, importTeams,
+  getAdminTeams, createTeam, updateTeam, deleteTeam, importTeams,
   getTeamMembers, addTeamMember, deleteTeamMember,
   getTeamDevices, revokeTeamDevice
 } from '../../services/api';
@@ -16,6 +16,9 @@ const AdminTeams = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { socket } = useSocket();
+  const [editingTeam, setEditingTeam] = useState(null);
+  const [editForm, setEditForm] = useState({ username: '', label: '', password: '', maxDevices: 24 });
+  const [savingTeam, setSavingTeam] = useState(false);
 
   // Selected Team Roster Modal State
   const [selectedTeam, setSelectedTeam] = useState(null);
@@ -199,6 +202,25 @@ const AdminTeams = () => {
     }
   };
 
+  const openEditTeam = (team) => {
+    setEditingTeam(team);
+    setEditForm({ username: team.username, label: team.label, password: '', maxDevices: team.maxDevices || 24 });
+  };
+
+  const handleUpdateTeam = async (e) => {
+    e.preventDefault();
+    setSavingTeam(true);
+    try {
+      const payload = { username: editForm.username, label: editForm.label, maxDevices: Number(editForm.maxDevices) };
+      if (editForm.password) payload.password = editForm.password;
+      await updateTeam(editingTeam.id, payload);
+      setEditingTeam(null);
+      await fetchTeams();
+    } catch (err) {
+      alert(err.message || 'فشل تحديث الفريق');
+    } finally { setSavingTeam(false); }
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('هل أنت متأكد من حذف هذا الفريق؟ سيتم حذف درجاته وأعضائه أيضاً.')) return;
     try {
@@ -316,6 +338,9 @@ const AdminTeams = () => {
                     className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-800 flex items-center justify-between hover:border-slate-700 transition"
                   >
                     <div className="flex items-center gap-2">
+                      <button onClick={() => openEditTeam(t)} className="text-amber-400 p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20" title="تعديل بيانات الفريق">
+                        <Pencil size={14} />
+                      </button>
                       <button
                         onClick={() => handleDelete(t.id)}
                         className="text-red-400 hover:text-red-300 p-1.5 rounded-lg bg-red-500/10 border border-red-500/20"
@@ -339,7 +364,7 @@ const AdminTeams = () => {
                         title="الأجهزة المسجلة للفريق"
                       >
                         <ShieldAlert size={13} />
-                        الأجهزة ({t._count?.devices || 0}/24)
+                        الأجهزة ({t._count?.devices || 0}/{t.maxDevices || 24})
                       </button>
                     </div>
 
@@ -358,11 +383,24 @@ const AdminTeams = () => {
         </div>
       </div>
 
+      {editingTeam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 dir-rtl">
+          <form onSubmit={handleUpdateTeam} className="card p-6 rounded-3xl bg-slate-900 border border-amber-500/30 max-w-md w-full space-y-4 text-right">
+            <div className="flex justify-between"><button type="button" onClick={() => setEditingTeam(null)}><X /></button><h3 className="font-black text-white">تعديل الفريق</h3></div>
+            <label className="block text-xs text-slate-400">اسم العرض<input className="ai-input mt-1" value={editForm.label} onChange={e => setEditForm({ ...editForm, label: e.target.value })} required /></label>
+            <label className="block text-xs text-slate-400">اسم المستخدم<input className="ai-input mt-1" value={editForm.username} onChange={e => setEditForm({ ...editForm, username: e.target.value })} required /></label>
+            <label className="block text-xs text-slate-400">كلمة سر جديدة (اتركها فارغة دون تغيير)<input type="password" minLength="4" className="ai-input mt-1" value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} /></label>
+            <label className="block text-xs text-slate-400">الحد الأقصى للأجهزة<input type="number" min="1" max="1000" className="ai-input mt-1" value={editForm.maxDevices} onChange={e => setEditForm({ ...editForm, maxDevices: e.target.value })} required /></label>
+            <button disabled={savingTeam} className="w-full py-3 rounded-xl bg-amber-500 text-slate-950 font-black flex justify-center gap-2"><Save size={17} />{savingTeam ? 'جاري الحفظ...' : 'حفظ التعديلات'}</button>
+          </form>
+        </div>
+      )}
+
       {/* ═══ Team Members Roster Modal ═══ */}
       {selectedTeam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 dir-rtl">
           <div className="card p-6 rounded-3xl bg-slate-900 border border-emerald-500/30 max-w-xl w-full text-right shadow-2xl relative max-h-[90vh] flex flex-col">
-            
+
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <button
@@ -487,12 +525,11 @@ const AdminTeams = () => {
               </button>
 
               <div className="flex items-center gap-2">
-                <span className={`text-xs px-3 py-1 rounded-full font-mono font-bold border ${
-                  devices.length >= 24
+                <span className={`text-xs px-3 py-1 rounded-full font-mono font-bold border ${devices.length >= (selectedTeamDevices.maxDevices || 24)
                     ? 'bg-red-500/20 text-red-300 border-red-500/30'
                     : 'bg-sky-500/20 text-sky-300 border-sky-500/30'
-                }`}>
-                  {devices.length} / 24 جهاز مسجل
+                  }`}>
+                  {devices.length} / {selectedTeamDevices.maxDevices || 24} جهاز مسجل
                 </span>
                 <h3 className="text-base font-black text-white">
                   أجهزة فريق: <span className="text-amber-400">{selectedTeamDevices.label}</span>
@@ -502,7 +539,7 @@ const AdminTeams = () => {
 
             {/* Info Banner */}
             <div className="mb-4 p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-[11px] text-sky-300 leading-5">
-              📱 كل جهاز يسجل دخول الفريق من موبايل يُحسب هنا تلقائياً. الحد الأقصى <strong>24 جهاز</strong> لكل فريق.
+              📱 كل جهاز يسجل دخول الفريق من موبايل يُحسب هنا تلقائياً. الحد الأقصى <strong>{selectedTeamDevices.maxDevices || 24} جهاز</strong> لهذا الفريق.
               إلغاء اعتماد أي جهاز سيؤدي لتسجيل خروجه فوراً وتفريغ مكان لجهاز جديد.
             </div>
 
@@ -546,7 +583,7 @@ const AdminTeams = () => {
 
             {/* Footer */}
             <div className="pt-4 border-t border-slate-800 mt-4 flex justify-between items-center text-[11px] text-slate-500">
-              <span>الحد الأقصى التلقائي: 24 جهاز لكل فريق</span>
+              <span>الحد الحالي: {selectedTeamDevices.maxDevices || 24} جهاز</span>
               <button
                 onClick={closeDevicesModal}
                 className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition"
