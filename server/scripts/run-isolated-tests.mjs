@@ -57,6 +57,10 @@ try {
     ]);
 
     await run(process.execPath, [
+        path.join(scriptDirectory, 'integration-smoke.mjs')
+    ]);
+
+    await run(process.execPath, [
         path.join(scriptDirectory, 'integration-permissions.mjs')
     ]);
 

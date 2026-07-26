@@ -61,7 +61,8 @@ try {
 
     result = await request(base, 'GET', '/api/admin/teams', undefined, adminToken, null);
     assert.equal(result.response.status, 200);
-    assert.equal('passwordHash' in result.data.find((row) => row.id === team.id), false);
+    const teamsData = Array.isArray(result.data) ? result.data : result.data?.data;
+    assert.equal('passwordHash' in teamsData.find((row) => row.id === team.id), false);
 
     result = await request(base, 'GET', '/api/auth/me', undefined, teamToken);
     assert.equal(result.response.status, 200);
