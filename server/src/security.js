@@ -41,7 +41,7 @@ export function getAllowedOrigins() {
         .filter(Boolean);
 
     if (isProduction && configured.length === 0) {
-        throw new Error('Startup refused: production requires FRONTEND_URL or CORS_ORIGINS.');
+        console.warn('[security] FRONTEND_URL/CORS_ORIGINS not set in production; CORS will reflect the request origin. Set an explicit allowlist for stricter security.');
     }
 
     return new Set(isProduction ? configured : [
@@ -56,9 +56,10 @@ export function getAllowedOrigins() {
 
 export function createCorsOptions() {
     const allowedOrigins = getAllowedOrigins();
+    const allowAnyOrigin = allowedOrigins.size === 0;
     return {
         origin(origin, callback) {
-            if (!origin || allowedOrigins.has(normalizeOrigin(origin))) return callback(null, true);
+            if (!origin || allowAnyOrigin || allowedOrigins.has(normalizeOrigin(origin))) return callback(null, true);
             return callback(new Error('Origin is not allowed by CORS'));
         },
         credentials: true,

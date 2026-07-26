@@ -1,0 +1,64 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const envPath = path.join(serverRoot, '.env');
+
+const PLACEHOLDER_SECRETS = new Set([
+    'digital_scout_camp_secret_key_2026',
+    'your_super_secret_jwt_key_here',
+    'change-me',
+    'secret',
+]);
+
+function isWeakJwtSecret(value) {
+    return value.length < 32
+        || PLACEHOLDER_SECRETS.has(value.toLowerCase())
+        || new RegExp('^(.)\\1+$').test(value);
+}
+
+function generateJwtSecret() {
+    return crypto.randomBytes(48).toString('hex');
+}
+
+function readEnvLines() {
+    try {
+        return fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+    } catch {
+        return [];
+    }
+}
+
+function writeEnvLines(lines) {
+    fs.writeFileSync(envPath, lines.join('\n') + '\n');
+}
+
+function upsertEnv(lines, key, value, comment = null) {
+    const prefix = comment ? `# ${comment}` : null;
+    const line = `${key}=${value}`;
+    const index = lines.findIndex(l => l.startsWith(`${key}=`));
+    if (index >= 0) {
+        lines[index] = line;
+    } else {
+        if (prefix) lines.push(prefix);
+        lines.push(line);
+    }
+}
+
+const lines = readEnvLines();
+
+let jwtSecret = lines.find(l => l.startsWith('JWT_SECRET='))?.slice('JWT_SECRET='.length)?.trim() || '';
+if (jwtSecret.length === 0 || isWeakJwtSecret(jwtSecret)) {
+    jwtSecret = generateJwtSecret();
+    upsertEnv(lines, 'JWT_SECRET', jwtSecret, 'Generated automatically; set a fixed value in production for consistency across restarts.');
+    console.log(`[ensure-env] Generated JWT_SECRET and persisted to ${envPath}`);
+} else {
+    console.log('[ensure-env] JWT_SECRET already set.');
+}
+
+upsertEnv(lines, 'NODE_ENV', 'production');
+upsertEnv(lines, 'PORT', '5000');
+
+writeEnvLines(lines);

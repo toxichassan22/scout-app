@@ -58,11 +58,14 @@ if [ "${ALLOW_PRODUCTION_SEED:-}" = "I_UNDERSTAND_THIS_MODIFIES_DATA" ]; then
   npm --prefix server run seed
 fi
 
+printf '%s\n' 'Ensuring server environment (JWT_SECRET, NODE_ENV, PORT)...'
+node server/scripts/ensure-env.mjs
+
 printf '%s\n' 'Building frontend...'
 npm run build
 
 printf '%s\n' 'Restarting backend...'
-if pm2 describe scout-app >/dev/null 2>&1; then
+if pm2 describe scout-backend >/dev/null 2>&1; then
   pm2 restart server/ecosystem.config.cjs --env production --update-env
 else
   pm2 start server/ecosystem.config.cjs --env production
@@ -77,7 +80,7 @@ while [ "$attempt" -le 30 ]; do
 
   if [ "$attempt" -eq 30 ]; then
     printf '%s\n' 'Deployment failed: backend did not become ready.' >&2
-    pm2 logs scout-app --lines 100 --nostream || true
+    pm2 logs scout-backend --lines 100 --nostream || true
     exit 1
   fi
 
