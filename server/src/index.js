@@ -134,7 +134,7 @@ export async function startServer(port = PORT) {
   });
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+if (!process.env.SCOUT_NO_AUTOSTART) {
   startServer().catch((error) => {
     console.error('[Server Startup Error]', error);
     process.exitCode = 1;

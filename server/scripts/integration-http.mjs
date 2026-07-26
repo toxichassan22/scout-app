@@ -1,3 +1,5 @@
+process.env.SCOUT_NO_AUTOSTART = '1';
+
 import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
 import { once } from 'node:events';
