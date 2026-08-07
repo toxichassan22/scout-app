@@ -158,7 +158,7 @@ router.patch('/teams/:teamId/device-limit', validate(deviceLimitSchema), async (
   }
 });
 
-const teamUpdateSchema = { params: { id: zId('الفريق') }, body: { username: zString('اسم المستخدم', { min: 1, max: 80 }).optional(), label: zString('الاسم', { min: 1, max: 160 }).optional(), password: zString('كلمة السر', { min: 12, max: 256 }).optional(), maxDevices: zNumber('حد الأجهزة', { min: 1, max: 1000, int: true, optional: true }) } };
+const teamUpdateSchema = { params: { id: zId('الفريق') }, body: { username: zString('اسم المستخدم', { min: 1, max: 80 }).optional(), label: zString('الاسم', { min: 1, max: 160 }).optional(), password: zString('كلمة السر', { min: 6, max: 256 }).optional(), maxDevices: zNumber('حد الأجهزة', { min: 1, max: 1000, int: true, optional: true }) } };
 router.patch('/teams/:id', validate(teamUpdateSchema), async (req, res) => {
   try {
     const { username, label, password, maxDevices } = req.body || {};
@@ -183,7 +183,7 @@ router.patch('/teams/:id', validate(teamUpdateSchema), async (req, res) => {
   }
 });
 
-const teamCreateSchema = { body: { username: zString('اسم المستخدم', { min: 1, max: 80 }), label: zString('الاسم', { min: 1, max: 160 }), password: zString('كلمة السر', { min: 12, max: 256 }) } };
+const teamCreateSchema = { body: { username: zString('اسم المستخدم', { min: 1, max: 80 }), label: zString('الاسم', { min: 1, max: 160 }), password: zString('كلمة السر', { min: 6, max: 256 }) } };
 router.post('/teams', validate(teamCreateSchema), async (req, res) => {
   try {
     const { username, password, label } = req.body || {};
@@ -205,7 +205,7 @@ router.post('/teams', validate(teamCreateSchema), async (req, res) => {
   }
 });
 
-const teamImportSchema = { body: { teams: z.array(z.object({ username: zString('اسم المستخدم', { min: 1, max: 80 }), label: zString('الاسم', { min: 1, max: 160 }), password: zString('كلمة السر', { min: 12, max: 256 }) })).min(1).max(500) } };
+const teamImportSchema = { body: { teams: z.array(z.object({ username: zString('اسم المستخدم', { min: 1, max: 80 }), label: zString('الاسم', { min: 1, max: 160 }), password: zString('كلمة السر', { min: 6, max: 256 }) })).min(1).max(500) } };
 router.post('/teams/import', validate(teamImportSchema), async (req, res) => {
   try {
     const { teams } = req.body || {}; // Array of { username, password, label }

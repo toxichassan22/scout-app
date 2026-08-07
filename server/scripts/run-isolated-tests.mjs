@@ -83,6 +83,10 @@ try {
     ]);
 
     await run(process.execPath, [
+        path.join(scriptDirectory, 'unit-passwordPolicy.mjs')
+    ]);
+
+    await run(process.execPath, [
         path.join(scriptDirectory, 'unit-workbook.mjs')
     ]);
 

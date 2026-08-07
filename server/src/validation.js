@@ -19,11 +19,7 @@ export function enumValue(value, name, allowed) {
 }
 
 export function strongPassword(value, name = 'password') {
-    const password = boundedString(value, name, { min: 12, max: 256, trim: false });
-    if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
-        throw Object.assign(new Error('كلمة السر يجب أن تحتوي على حروف كبيرة وصغيرة ورقم ورمز'), { status: 400 });
-    }
-    return password;
+    return boundedString(value, name, { min: 6, max: 256, trim: false });
 }
 
 export const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);

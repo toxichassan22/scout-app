@@ -59,7 +59,7 @@ router.delete('/judges/:judgeId/assignments/:competitionId', validate({ params: 
     res.status(500).json({ success: false, error: 'فشل في إزالة تعيين المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
-const judgeUpdateSchema = { params: { id: zId('المحكم') }, body: { name: zString('الاسم', { min: 1, max: 120 }).optional(), username: zString('اسم المستخدم', { min: 1, max: 80 }).optional(), password: zString('كلمة السر', { min: 12, max: 256 }).optional() } };
+const judgeUpdateSchema = { params: { id: zId('المحكم') }, body: { name: zString('الاسم', { min: 1, max: 120 }).optional(), username: zString('اسم المستخدم', { min: 1, max: 80 }).optional(), password: zString('كلمة السر', { min: 6, max: 256 }).optional() } };
 router.patch('/judges/:id', validate(judgeUpdateSchema), async (req, res) => {
   try {
     const { name, username, password } = req.body;

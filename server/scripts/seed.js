@@ -94,8 +94,8 @@ async function seed() {
   const adminPassword = process.env.INITIAL_ADMIN_PASSWORD;
   const judgePassword = process.env.INITIAL_JUDGE_PASSWORD;
   const teamPassword = process.env.INITIAL_TEAM_PASSWORD;
-  if (!adminPassword || !judgePassword || !teamPassword || [adminPassword, judgePassword, teamPassword].some(value => value.length < 12)) {
-    throw new Error('Seed requires env-provided initial passwords of at least 12 characters; no default credentials are allowed.');
+  if (!adminPassword || !judgePassword || !teamPassword || [adminPassword, judgePassword, teamPassword].some(value => value.length < 6)) {
+    throw new Error('Seed requires env-provided initial passwords of at least 6 characters; no default credentials are allowed.');
   }
   console.log('[Seed] Explicitly authorized idempotent seed...');
 
