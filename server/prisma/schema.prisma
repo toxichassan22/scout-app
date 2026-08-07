@@ -455,7 +455,7 @@ model TeamWallet {
   balance      Int                 @default(0)
   totalEarned  Int                 @default(0)
   totalSpent   Int                 @default(0)
-  updatedAt    DateTime            @updatedAt
+  updatedAt    DateTime            @default(now()) @updatedAt
 }
 
 model WalletTransaction {
