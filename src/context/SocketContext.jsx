@@ -17,7 +17,8 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     const socketInstance = io(SOCKET_URL, {
       path: '/socket.io',
-      transports: ['websocket', 'polling'],
+      transports: ['polling'],
+      upgrade: false,
       auth: {},
       autoConnect: true,
       reconnection: true,
