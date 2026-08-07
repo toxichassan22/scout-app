@@ -65,7 +65,7 @@ fi
 
 if [ "${BOOTSTRAP_ADMIN:-false}" = true ]; then
   printf '%s\n' 'Running one-time admin bootstrap...'
-  npm --prefix server run admin:bootstrap
+  (cd server && npm run admin:bootstrap)
 fi
 
 printf '%s\n' 'Ensuring server environment (JWT_SECRET, NODE_ENV, PORT)...'
