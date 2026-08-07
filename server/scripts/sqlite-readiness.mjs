@@ -11,10 +11,12 @@ import {
 } from './sqlite-operations-lib.mjs';
 
 const expectedTables = [
-    'Admin', 'AgendaItem', 'Competition', 'CompetitionAccess', 'DraftAnswer',
-    'GeographyCountry', 'Judge', 'JudgeCompetition', 'JudgeScore', 'News',
+    'Activity', 'ActivityParticipant', 'ActivitySession', 'Admin', 'AgendaItem',
+    'Competition', 'CompetitionAccess', 'DraftAnswer', 'GeographyCountry', 'IdempotencyKey',
+    'Judge', 'JudgeCompetition', 'JudgeScore', 'News', 'PendingUpload', 'Purchase',
     'Question', 'QuizSession', 'Report', 'ReportPermission', 'Score', 'ScoreAudit',
-    'SystemSetting', 'Team', 'TeamDevice', 'TeamMember', 'Zone',
+    'ShopItem', 'SystemSetting', 'Team', 'TeamDevice', 'TeamMember', 'TeamStanding',
+    'TeamWallet', 'WalletTransaction', 'Zone',
 ];
 const databasePath = resolveDatabasePath();
 const backupDirectory = resolveBackupDirectory();

@@ -2,6 +2,9 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import prisma from '../../db.js';
 import { boundedString } from '../../validation.js';
+import { finalizeCompetitionSessions } from '../../quizService.js';
+import { emitLeaderboardUpdate } from '../../realtime.js';
+import { getAnonymousLeaderboard } from '../leaderboard.js';
 import { validate, zString, zId, zNumber, zBoolean } from '../../middleware/validate.js';
 import { z } from 'zod';
 import { parsePagination, paginatedResponse } from '../../pagination.js';
@@ -23,10 +26,10 @@ router.get('/competitions', async (req, res) => {
   }
 });
 
-const competitionCreateSchema = { body: { name: zString('الاسم', { min: 1, max: 200 }), slug: zString('الرمز', { min: 1, max: 100 }), type: zString('النوع', { min: 1, max: 50 }).optional(), criteria: z.union([z.string(), z.array(z.any())]).optional() } };
+const competitionCreateSchema = { body: { name: zString('الاسم', { min: 1, max: 200 }), slug: zString('الرمز', { min: 1, max: 100 }), type: zString('النوع', { min: 1, max: 50 }).optional(), description: zString('الوصف', { max: 1000 }).optional(), details: zString('التفاصيل', { max: 5000 }).optional(), duration: zNumber('المدة', { min: 1, optional: true }), questionCount: zNumber('عدد الأسئلة', { min: 1, max: 500, int: true, optional: true }), startsAt: zString('بداية الموعد', { max: 50 }).optional().nullable(), endsAt: zString('نهاية الموعد', { max: 50 }).optional().nullable(), qrCode: zString('QR المسابقة', { max: 200 }).optional().nullable(), requiresQr: zBoolean('إلزام QR', { optional: true }), criteria: z.union([z.string(), z.array(z.any())]).optional() } };
 router.post('/competitions', validate(competitionCreateSchema), async (req, res) => {
   try {
-    const { name, slug, type, criteria } = req.body || {};
+    const { name, slug, type, description, details, duration, questionCount, startsAt, endsAt, qrCode, requiresQr, criteria } = req.body || {};
     const cleanName = boundedString(name, 'name', { min: 1, max: 200 });
     const cleanSlug = boundedString(slug, 'slug', { min: 1, max: 100 });
     const cleanType = type === undefined ? 'auto_digital' : String(type);
@@ -36,6 +39,14 @@ router.post('/competitions', validate(competitionCreateSchema), async (req, res)
         name: cleanName,
         slug: cleanSlug,
         type: cleanType,
+        description: description || '',
+        details: details || '',
+        duration: duration === undefined ? null : Number(duration),
+        questionCount: questionCount === undefined ? 50 : Number(questionCount),
+        startsAt: startsAt ? new Date(startsAt) : null,
+        endsAt: endsAt ? new Date(endsAt) : null,
+        qrCode: qrCode || null,
+        requiresQr: Boolean(requiresQr),
         criteria: typeof criteria === 'string' ? criteria : JSON.stringify(criteria || [])
       }
     });
@@ -51,11 +62,19 @@ const competitionUpdateSchema = {
   params: { id: zId('المسابقة') },
   body: {
     isOpen: zBoolean('isOpen', { optional: true }),
+    slug: zString('الرمز', { min: 1, max: 100 }).optional(),
     name: zString('الاسم', { min: 1, max: 200 }).optional(),
     description: zString('الوصف', { max: 1000 }).optional(),
+    details: zString('التفاصيل', { max: 5000 }).optional(),
     type: zString('النوع', { max: 50 }).optional(),
     criteria: z.union([z.string(), z.array(z.any())]).optional(),
     duration: zNumber('المدة', { min: 0, optional: true }),
+    questionCount: zNumber('عدد الأسئلة', { min: 1, max: 500, int: true, optional: true }),
+    startsAt: zString('بداية الموعد', { max: 50 }).optional().nullable(),
+    endsAt: zString('نهاية الموعد', { max: 50 }).optional().nullable(),
+    qrCode: zString('QR المسابقة', { max: 200 }).optional().nullable(),
+    requiresQr: zBoolean('إلزام QR', { optional: true }),
+    leaderboardVisible: zBoolean('إظهار النتائج', { optional: true }),
     entryCode: zString('كود الدخول', { max: 100 }).optional().nullable(),
     passcode: zString('كود المرور', { max: 100 }).optional().nullable(),
     custom: zBoolean('custom', { optional: true }),
@@ -64,14 +83,22 @@ const competitionUpdateSchema = {
 };
 router.patch('/competitions/:id', validate(competitionUpdateSchema), async (req, res) => {
   try {
-    const { isOpen, name, description, type, criteria, duration, entryCode, passcode, custom, revoke } = req.body;
+    const { isOpen, slug, name, description, details, type, criteria, duration, questionCount, startsAt, endsAt, qrCode, requiresQr, leaderboardVisible, entryCode, passcode, custom, revoke } = req.body;
     const data = {
       ...(isOpen !== undefined && { isOpen: Boolean(isOpen) }),
+      ...(slug !== undefined && { slug: String(slug).trim() }),
       ...(name !== undefined && { name: String(name).trim() }),
       ...(description !== undefined && { description: String(description) }),
+      ...(details !== undefined && { details: String(details) }),
       ...(type !== undefined && { type: String(type) }),
       ...(criteria !== undefined && { criteria: typeof criteria === 'string' ? criteria : JSON.stringify(criteria) }),
       ...(duration !== undefined && { duration: duration === null ? null : Number(duration) }),
+      ...(questionCount !== undefined && { questionCount: Number(questionCount) }),
+      ...(startsAt !== undefined && { startsAt: startsAt ? new Date(startsAt) : null }),
+      ...(endsAt !== undefined && { endsAt: endsAt ? new Date(endsAt) : null }),
+      ...(qrCode !== undefined && { qrCode: qrCode ? String(qrCode).trim() : null }),
+      ...(requiresQr !== undefined && { requiresQr: Boolean(requiresQr) }),
+      ...(leaderboardVisible !== undefined && { leaderboardVisible: Boolean(leaderboardVisible) }),
       ...(entryCode !== undefined && { entryCode: entryCode ? String(entryCode) : null }),
       ...(passcode !== undefined && { passcode: passcode ? String(passcode) : null }),
     };
@@ -84,6 +111,10 @@ router.patch('/competitions/:id', validate(competitionUpdateSchema), async (req,
       if (isOpen === false) req.io.emit('judge:session:closed', { competitionId: comp.id });
     }
 
+    if (isOpen === false) {
+      await finalizeCompetitionSessions(comp.id);
+      await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
+    }
     res.json(comp);
   } catch (err) {
     req.log.error({ err }, 'admin update competition failed');

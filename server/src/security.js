@@ -64,7 +64,7 @@ export function createCorsOptions() {
         },
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Authorization', 'Content-Type', 'X-Device-Id'],
+        allowedHeaders: ['Authorization', 'Content-Type', 'X-Device-Id', 'Idempotency-Key'],
         maxAge: 86400,
     };
 }

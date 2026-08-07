@@ -16,16 +16,20 @@ model Team {
   authVersion  Int      @default(0)
   createdAt    DateTime @default(now())
 
-  scores            Score[]
-  reports           Report[]
-  reportPermissions ReportPermission[]
-  judgeScores       JudgeScore[]
-  scoreAudits       ScoreAudit[]
-  members           TeamMember[]
-  devices           TeamDevice[]
-  competitionAccess CompetitionAccess[]
-  videoAttempts     VideoAttempt[]
-  standing          TeamStanding?
+  scores                Score[]
+  reports               Report[]
+  reportPermissions     ReportPermission[]
+  judgeScores           JudgeScore[]
+  scoreAudits           ScoreAudit[]
+  members               TeamMember[]
+  devices               TeamDevice[]
+  competitionAccess     CompetitionAccess[]
+  videoAttempts         VideoAttempt[]
+  standing              TeamStanding?
+  activityParticipants  ActivityParticipant[]
+  wallet                TeamWallet?
+  walletTransactions    WalletTransaction[]
+  purchases             Purchase[]
 }
 
 model TeamMember {
@@ -38,15 +42,16 @@ model TeamMember {
 }
 
 model TeamDevice {
-  id          String    @id @default(uuid())
-  teamId      String
-  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  deviceId    String // Unique browser/device fingerprint from localStorage
-  userAgent   String    @default("")
-  tokenVersion Int      @default(0)
-  revokedAt   DateTime?
-  lastLoginAt DateTime  @default(now())
-  createdAt   DateTime  @default(now())
+  id           String    @id @default(uuid())
+  teamId       String
+  team         Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  deviceId     String // Unique browser/device identifier from localStorage
+  displayName  String    @default("")
+  userAgent    String    @default("")
+  tokenVersion Int       @default(0)
+  revokedAt    DateTime?
+  lastLoginAt  DateTime  @default(now())
+  createdAt    DateTime  @default(now())
 
   @@unique([teamId, deviceId])
 }
@@ -74,17 +79,24 @@ model Judge {
 }
 
 model Competition {
-  id          String   @id @default(uuid())
-  name        String
-  slug        String   @unique // two_truths | genius | geography | video | custom
-  type        String // auto_digital | manual_judged
-  description String   @default("")
-  isOpen      Boolean  @default(false)
-  passcode    String? // judge passcode
-  entryCode   String? // team entry code
-  duration    Int? // seconds for timed auto competitions
-  criteria    String   @default("[]") // JSON [{ key, label, maxScore }]
-  createdAt   DateTime @default(now())
+  id                 String   @id @default(uuid())
+  name               String
+  slug               String   @unique // two_truths | genius | geography | video | custom
+  type               String // auto_digital | manual_judged
+  description        String   @default("")
+  details            String   @default("")
+  isOpen             Boolean  @default(false)
+  startsAt           DateTime?
+  endsAt             DateTime?
+  passcode           String? // judge passcode
+  entryCode          String? // legacy team entry code
+  qrCode             String?  @unique
+  requiresQr         Boolean  @default(false)
+  duration           Int? // seconds for timed auto competitions
+  questionCount      Int      @default(50)
+  leaderboardVisible  Boolean  @default(false)
+  criteria           String   @default("[]") // JSON [{ key, label, maxScore }]
+  createdAt          DateTime @default(now())
 
   scores            Score[]
   questions         Question[]
@@ -114,9 +126,13 @@ model Question {
   competitionId String
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   text          String
+  category      String      @default("")
   options       String // JSON array (strings or {text, isLie})
   correctOption Int
-  points        Float       @default(10)
+  points        Float       @default(1)
+  questionType  String      @default("text")
+  mediaUrl      String?
+  mediaAlt      String      @default("")
   sortOrder     Int         @default(0)
   createdAt     DateTime    @default(now())
 
@@ -162,6 +178,10 @@ model Score {
   judge             Judge?       @relation(fields: [judgeId], references: [id], onDelete: SetNull)
   values            String       @default("{}") // JSON
   total             Float
+  attemptedCount    Int          @default(0)
+  correctCount      Int          @default(0)
+  questionCount     Int          @default(0)
+  completedAll      Boolean      @default(false)
   submittedAt       DateTime     @default(now())
   isFinal           Boolean      @default(true)
   unlockedAt        DateTime?
@@ -301,14 +321,18 @@ model ReportPermission {
 }
 
 model QuizSession {
-  id            String    @id @default(uuid())
-  teamId        String
-  competitionId String
-  deviceId      String // Unique device fingerprint that started the quiz
-  startedAt     DateTime  @default(now())
-  expiresAt     DateTime
-  isCompleted   Boolean   @default(false)
-  completedAt   DateTime?
+  id             String       @id @default(uuid())
+  teamId         String
+  competitionId  String
+  deviceId       String // Unique device identifier that started the quiz
+  questionOrder  String       @default("[]")
+  startedAt      DateTime     @default(now())
+  expiresAt      DateTime
+  lastAnswerAt   DateTime?
+  attemptedCount Int          @default(0)
+  correctCount   Int          @default(0)
+  isCompleted    Boolean      @default(false)
+  completedAt    DateTime?
 
   draftAnswers DraftAnswer[]
 
@@ -357,18 +381,123 @@ model TeamStanding {
 }
 
 model PendingUpload {
-  id            String    @id @default(uuid())
-  fileName      String
-  filePath      String
-  mimeType      String
-  folderPath    String
-  status        String    @default("pending")
-  retryCount    Int       @default(0)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @default(now()) @updatedAt
-  leasedUntil   DateTime?
-  nextAttemptAt DateTime  @default(now())
+  id           String    @id @default(uuid())
+  fileName     String
+  filePath     String
+  mimeType     String
+  folderPath   String
+  status       String    @default("pending")
+  retryCount   Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+  leasedUntil  DateTime?
+  nextAttemptAt DateTime @default(now())
 
   @@index([status, leasedUntil])
   @@index([status, nextAttemptAt])
+}
+
+model Activity {
+  id                 String               @id @default(uuid())
+  slug               String               @unique
+  name               String
+  description        String               @default("")
+  isOpen             Boolean              @default(true)
+  config             String               @default("{}")
+  createdAt          DateTime             @default(now())
+  sessions           ActivitySession[]
+  walletTransactions WalletTransaction[]
+}
+
+model ActivitySession {
+  id                 String               @id @default(uuid())
+  activityId         String
+  activity           Activity             @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  roomCode           String?              @unique
+  status             String               @default("waiting")
+  minPlayers         Int                  @default(1)
+  maxPlayers         Int                  @default(10)
+  gameState          String               @default("{}")
+  startedAt          DateTime?
+  endedAt            DateTime?
+  rewardsApplied     Boolean              @default(false)
+  createdAt          DateTime             @default(now())
+  participants       ActivityParticipant[]
+  walletTransactions WalletTransaction[]
+
+  @@index([activityId, status])
+}
+
+model ActivityParticipant {
+  id          String          @id @default(uuid())
+  sessionId   String
+  session     ActivitySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  teamId      String
+  team        Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  deviceId    String
+  displayName String
+  score        Float           @default(0)
+  rank         Int?
+  metadata     String          @default("{}")
+  eliminated   Boolean         @default(false)
+  eliminatedAt DateTime?
+  lastSeenAt   DateTime        @default(now())
+  joinedAt     DateTime        @default(now())
+  finishedAt   DateTime?
+
+  @@unique([sessionId, deviceId])
+  @@index([sessionId, teamId])
+}
+
+model TeamWallet {
+  teamId       String              @id
+  team         Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  balance      Int                 @default(0)
+  totalEarned  Int                 @default(0)
+  totalSpent   Int                 @default(0)
+  updatedAt    DateTime            @updatedAt
+}
+
+model WalletTransaction {
+  id         String           @id @default(uuid())
+  teamId     String
+  team        Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  activityId String?
+  activity   Activity?         @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  sessionId  String?
+  session    ActivitySession?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  type       String
+  amount     Int
+  reason     String
+  metadata   String            @default("{}")
+  createdAt  DateTime          @default(now())
+
+  @@index([teamId, createdAt])
+}
+
+model ShopItem {
+  id          String      @id @default(uuid())
+  slug        String      @unique
+  name        String
+  description String      @default("")
+  category    String      @default("cosmetic")
+  price       Int
+  effect      String      @default("{}")
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  purchases   Purchase[]
+}
+
+model Purchase {
+  id             String   @id @default(uuid())
+  teamId         String
+  team           Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  itemId         String
+  item           ShopItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  quantity       Int      @default(1)
+  unitPrice      Int
+  effectSnapshot String   @default("{}")
+  createdAt      DateTime @default(now())
+
+  @@index([teamId, createdAt])
 }

@@ -568,6 +568,7 @@ const AdminTeams = () => {
                     </button>
 
                     <div className="flex-1 mr-3">
+                      <p className="font-black text-[11px] text-white">{d.displayName || `جهاز ${idx + 1}`}</p>
                       <p className="font-mono text-[10px] text-sky-300 break-all" dir="ltr">{d.deviceId}</p>
                       <p className="text-[10px] text-slate-500 mt-1 truncate" dir="ltr">{d.userAgent}</p>
                       <p className="text-[10px] text-slate-400 mt-1">

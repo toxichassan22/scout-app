@@ -1,10 +1,23 @@
 import { Router } from 'express';
 import prisma from '../../db.js';
 import { parsePagination, paginatedResponse } from '../../pagination.js';
+import { validate, zBoolean } from '../../middleware/validate.js';
 
 const safeTeamSelect = { id: true, username: true, label: true, maxDevices: true, authVersion: true, createdAt: true };
 
 const router = Router();
+
+router.get('/leaderboard/reveal', async (req, res) => {
+  const setting = await prisma.systemSetting.findUnique({ where: { key: 'LEADERBOARD_REVEALED' }, select: { value: true } });
+  res.json({ visible: setting?.value === 'true' });
+});
+
+router.post('/leaderboard/reveal', validate({ body: { visible: zBoolean('إظهار النتائج') } }), async (req, res) => {
+  const visible = Boolean(req.body.visible);
+  await prisma.systemSetting.upsert({ where: { key: 'LEADERBOARD_REVEALED' }, update: { value: String(visible) }, create: { key: 'LEADERBOARD_REVEALED', value: String(visible) } });
+  req.io?.emit('leaderboard:visibility', { visible });
+  res.json({ success: true, visible });
+});
 
 // Full Leaderboard (with internal team labels)
 router.get('/leaderboard', async (req, res) => {

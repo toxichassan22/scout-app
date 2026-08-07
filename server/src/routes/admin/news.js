@@ -34,7 +34,12 @@ router.post('/news', validate(newsCreateSchema), async (req, res) => {
     });
 
     if (req.io) {
-      req.io.emit('news:published', news);
+      const targetIds = Array.isArray(targetTeamIds) ? targetTeamIds : [];
+      if (targetIds.length === 0) req.io.emit('news:published', news);
+      else {
+        targetIds.forEach(teamId => req.io.to(`team:${teamId}`).emit('news:published', news));
+        req.io.to('admin').emit('news:published', news);
+      }
     }
 
     res.status(201).json(news);

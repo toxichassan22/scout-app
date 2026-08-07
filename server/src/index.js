@@ -17,9 +17,13 @@ import adminRoutes from './routes/admin.js';
 import quizRoutes from './routes/quiz.js';
 import reportsRoutes from './routes/reports.js';
 import competitionsRoutes from './routes/competitions.js';
+import activitiesRoutes from './routes/activities.js';
+import aiRoutes from './routes/ai.js';
 import prisma, { databaseReady } from './db.js';
 import { ensureTeamStandings } from './teamStanding.js';
 import { finalizeExpiredSessions } from './quizService.js';
+import { ensureActivityCatalog } from './activityService.js';
+import { startGithubBackupWorker, stopGithubBackupWorker } from './githubBackup.js';
 import { purgeIdempotencyKeys, startIdempotencyCleanup } from './middleware/idempotent.js';
 import { startUploadWorkers } from './backup-exporter.js';
 import { createCorsOptions, createMemoryRateLimiter, requestId, securityHeaders, subjectId } from './security.js';
@@ -146,6 +150,8 @@ protectedApiRouter.use('/admin', adminRoutes);
 protectedApiRouter.use('/quiz', quizRoutes);
 protectedApiRouter.use('/reports', reportsRoutes);
 protectedApiRouter.use('/competitions', competitionsRoutes);
+protectedApiRouter.use('/activities', activitiesRoutes);
+protectedApiRouter.use('/ai', aiRoutes);
 app.use('/api', protectedApiRouter);
 app.use('/api/v1', protectedApiRouter);
 
@@ -200,6 +206,11 @@ export async function startServer(port = PORT) {
     logger.warn({ err }, 'failed to seed team standings on startup');
   }
   try {
+    await ensureActivityCatalog();
+  } catch (err) {
+    logger.warn({ err }, 'failed to seed activity catalog on startup');
+  }
+  try {
     await purgeIdempotencyKeys();
     idempotencyTimer = startIdempotencyCleanup();
   } catch (err) {
@@ -218,6 +229,7 @@ export async function startServer(port = PORT) {
   } catch (err) {
     logger.warn({ err }, 'failed to start upload workers');
   }
+  startGithubBackupWorker();
   const FINALIZE_INTERVAL_MS = Number(process.env.FINALIZE_EXPIRED_SESSIONS_MS) || 30_000;
   finalizeInterval = setInterval(async () => {
     try {
@@ -257,6 +269,7 @@ async function shutdown(signal) {
   logger.info({ signal }, 'graceful shutdown started');
   if (finalizeInterval) clearInterval(finalizeInterval);
   if (idempotencyTimer) clearInterval(idempotencyTimer);
+  stopGithubBackupWorker();
 
   const forceExit = setTimeout(() => {
     logger.error('graceful shutdown timed out; forcing connections closed');

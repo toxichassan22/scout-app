@@ -17,12 +17,18 @@ export function clearLeaderboardCache() {
   // Cache removed; TeamStanding is now the single source of truth.
 }
 
+async function isLeaderboardVisible() {
+  const setting = await prisma.systemSetting.findUnique({ where: { key: 'LEADERBOARD_REVEALED' }, select: { value: true } });
+  return setting?.value === 'true';
+}
+
 async function fetchStandingsPage(skip, limit) {
   const includePrev = skip > 0;
   const offset = includePrev ? skip - 1 : 0;
   const sqlLimit = includePrev ? limit + 1 : limit;
+  const revealed = await isLeaderboardVisible();
   const rows = await prisma.$queryRaw`
-    SELECT t.id as teamId, COALESCE(s.totalScore, 0) as totalScore, s.latestSubmitted
+    SELECT t.id as teamId, t.label as teamLabel, COALESCE(s.totalScore, 0) as totalScore, s.latestSubmitted
     FROM Team t
     LEFT JOIN TeamStanding s ON t.id = s.teamId
     ORDER BY totalScore DESC,
@@ -37,7 +43,7 @@ async function fetchStandingsPage(skip, limit) {
     const rank = skip + index + 1;
     const previous = index === 0 ? prevRow : dataRows[index - 1];
     const { points, gapToNext } = formatStandingRow(item, previous);
-    return { rank, points, gapToNext };
+    return { rank, points, gapToNext, teamName: revealed ? item.teamLabel : null };
   });
   const total = await prisma.team.count();
   return { data, total };

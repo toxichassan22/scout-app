@@ -64,7 +64,7 @@ export function ThemeProvider({ children }) {
     const root = document.documentElement;
     Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
     root.setAttribute('data-theme', theme);
-    try { localStorage.setItem('dsc_theme', theme); } catch {}
+    try { localStorage.setItem('dsc_theme', theme); } catch { return; }
   }, [theme]);
 
   const cycle = useCallback(() => {

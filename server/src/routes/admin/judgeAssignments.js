@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../../db.js';
+import { recalculateTeamStanding } from '../../teamStanding.js';
 import { validate, zString, zId } from '../../middleware/validate.js';
 import { parsePagination, paginatedResponse } from '../../pagination.js';
 
@@ -79,7 +80,11 @@ router.post('/scores/:id/unlock', validate(scoreUnlockSchema), async (req, res) 
   try {
     const { reason } = req.body;
     const score = await prisma.score.findUnique({ where: { id: req.params.id } }); if (!score) return res.status(404).json({ success: false, error: 'النتيجة غير موجودة', requestId: req.requestId, timestamp: new Date().toISOString() });
-    await prisma.$transaction([prisma.score.update({ where: { id: score.id }, data: { isFinal: false, unlockedAt: new Date(), unlockedByAdminId: req.user.id, unlockReason: reason } }), prisma.scoreAudit.create({ data: { scoreId: score.id, competitionId: score.competitionId, teamId: score.teamId, adminId: req.user.id, action: 'unlock', reason, previousData: JSON.stringify(score) } })]);
+    await prisma.$transaction(async tx => {
+      await tx.score.update({ where: { id: score.id }, data: { isFinal: false, unlockedAt: new Date(), unlockedByAdminId: req.user.id, unlockReason: reason } });
+      await tx.scoreAudit.create({ data: { scoreId: score.id, competitionId: score.competitionId, teamId: score.teamId, adminId: req.user.id, action: 'unlock', reason, previousData: JSON.stringify(score) } });
+      await recalculateTeamStanding(score.teamId, tx);
+    });
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, 'admin unlock score failed');
@@ -88,7 +93,11 @@ router.post('/scores/:id/unlock', validate(scoreUnlockSchema), async (req, res) 
 });
 router.post('/scores/:id/lock', validate({ params: { id: zId('النتيجة') } }), async (req, res) => {
   try {
-    const score = await prisma.score.update({ where: { id: req.params.id }, data: { isFinal: true } });
+    const score = await prisma.$transaction(async tx => {
+      const updated = await tx.score.update({ where: { id: req.params.id }, data: { isFinal: true } });
+      await recalculateTeamStanding(updated.teamId, tx);
+      return updated;
+    });
     res.json(score);
   } catch (err) {
     req.log.error({ err }, 'admin lock score failed');

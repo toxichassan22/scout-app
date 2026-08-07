@@ -30,6 +30,11 @@ router.post('/clean-slate', validate(cleanSlateSchema), async (req, res) => {
       await tx.quizSession.deleteMany({});
       await tx.score.deleteMany({});
       await tx.report.deleteMany({});
+      await tx.activityParticipant.deleteMany({});
+      await tx.activitySession.deleteMany({});
+      await tx.walletTransaction.deleteMany({});
+      await tx.purchase.deleteMany({});
+      await tx.teamWallet.deleteMany({});
       await tx.teamStanding.deleteMany({});
       await recalculateAllTeamStandings(tx);
     });

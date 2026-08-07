@@ -64,10 +64,15 @@ export const getOrCreateDeviceId = () => {
 export const apiFetch = async (endpoint, options = {}) => {
   const token = getAuthToken();
   const deviceId = localStorage.getItem(DEVICE_ID_KEY);
+  const method = String(options.method || 'GET').toUpperCase();
+  const idempotencyKey = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
+    ? (options.headers?.['Idempotency-Key'] || globalThis.crypto?.randomUUID?.())
+    : null;
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     ...(deviceId ? { 'X-Device-Id': deviceId } : {}),
+    ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
     ...options.headers
   };
 
@@ -145,21 +150,52 @@ export const getCurrentUser = () =>
   apiFetch('/auth/me');
 
 // Public/Team Data
-export const getLeaderboard = () =>
-  apiFetch('/leaderboard');
+export const getLeaderboard = async () => unwrapList(await apiFetch('/leaderboard'));
 
-export const getNews = () =>
-  apiFetch('/news');
+export const getNews = async () => unwrapList(await apiFetch('/news'));
 
 export const getAgenda = () =>
   apiFetch('/agenda');
+
+export const unwrapList = (payload) => (Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : []);
+
+export const scanCompetition = (idOrSlug, qrCode) =>
+  apiFetch(`/competitions/${encodeURIComponent(idOrSlug)}/scan`, { method: 'POST', body: JSON.stringify({ qrCode }) });
+
+export const getCompetitionPlay = (idOrSlug) =>
+  apiFetch(`/competitions/${encodeURIComponent(idOrSlug)}/play`);
+
+export const getActivities = () => apiFetch('/activities');
+export const getActivityWallet = () => apiFetch('/activities/wallet');
+export const getActivityShop = () => apiFetch('/activities/shop');
+export const getActivityLeaderboard = (slug) => apiFetch(`/activities/${encodeURIComponent(slug)}/leaderboard`);
+export const createActivitySession = (slug, data = {}) => apiFetch(`/activities/${encodeURIComponent(slug)}/sessions`, { method: 'POST', body: JSON.stringify(data) });
+export const getActivitySession = (sessionId) => apiFetch(`/activities/sessions/${sessionId}`);
+export const createActivityInvite = (sessionId) => apiFetch(`/activities/sessions/${sessionId}/invite`, { method: 'POST' });
+export const startActivitySession = (sessionId) => apiFetch(`/activities/sessions/${sessionId}/start`, { method: 'POST' });
+export const finishActivitySession = (sessionId, score, metadata) => apiFetch(`/activities/sessions/${sessionId}/finish`, { method: 'POST', body: JSON.stringify({ score, metadata }) });
+export const setGuessSecret = (sessionId, secretCode) => apiFetch(`/activities/sessions/${sessionId}/secret`, { method: 'POST', body: JSON.stringify({ secretCode }) });
+export const heartbeatActivitySession = (sessionId) => apiFetch(`/activities/sessions/${sessionId}/heartbeat`, { method: 'POST' });
+export const submitGuess = (sessionId, guessCode) => apiFetch(`/activities/sessions/${sessionId}/guess`, { method: 'POST', body: JSON.stringify({ guessCode }) });
+export const submitHackerAnswer = (sessionId, challenge, selectedIndex) => apiFetch(`/activities/sessions/${sessionId}/hacker-answer`, { method: 'POST', body: JSON.stringify({ challenge, selectedIndex }) });
+export const getColorRound = (sessionId, round, value = {}) => apiFetch(`/activities/sessions/${sessionId}/color-round`, { method: 'POST', body: JSON.stringify({ round, ...value }) });
+export const purchaseShopItem = (itemId, quantity = 1) => apiFetch(`/activities/shop/${itemId}/purchase`, { method: 'POST', body: JSON.stringify({ quantity }) });
+
+export const getLeaderboardVisibility = () => apiFetch('/admin/leaderboard/reveal');
+
+export const setLeaderboardVisibility = (visible) =>
+  apiFetch('/admin/leaderboard/reveal', { method: 'POST', body: JSON.stringify({ visible }) });
+
+export const updateOwnDeviceName = (displayName) =>
+  apiFetch('/auth/device-name', { method: 'PATCH', body: JSON.stringify({ displayName }) });
+
+export const sendAiMessage = (messages) => apiFetch('/ai/chat', { method: 'POST', body: JSON.stringify({ messages }) });
 
 // Judge API calls
 export const unlockJudgeSession = (passcode) =>
   apiFetch('/judge/unlock', { method: 'POST', body: JSON.stringify({ passcode }) });
 
-export const getJudgeTeams = (competitionId) =>
-  apiFetch(`/judge/teams/${competitionId}`);
+export const getJudgeTeams = async (competitionId) => unwrapList(await apiFetch(`/judge/teams/${competitionId}`));
 
 export const submitJudgeScore = (data) =>
   apiFetch('/judge/scores', { method: 'POST', body: JSON.stringify(data) });
@@ -168,8 +204,7 @@ export const submitJudgeScore = (data) =>
 export const getAdminLeaderboard = () =>
   apiFetch('/admin/leaderboard');
 
-export const getAdminTeams = () =>
-  apiFetch('/admin/teams');
+export const getAdminTeams = async () => unwrapList(await apiFetch('/admin/teams'));
 
 export const createTeam = (teamData) =>
   apiFetch('/admin/teams', { method: 'POST', body: JSON.stringify(teamData) });
@@ -186,8 +221,7 @@ export const importTeams = (teams) =>
 export const deleteTeam = (id) =>
   apiFetch(`/admin/teams/${id}`, { method: 'DELETE' });
 
-export const getTeamMembers = (teamId) =>
-  apiFetch(`/admin/teams/${teamId}/members`);
+export const getTeamMembers = async (teamId) => unwrapList(await apiFetch(`/admin/teams/${teamId}/members`));
 
 export const addTeamMember = (teamId, memberData) =>
   apiFetch(`/admin/teams/${teamId}/members`, { method: 'POST', body: JSON.stringify(memberData) });
@@ -196,14 +230,12 @@ export const deleteTeamMember = (memberId) =>
   apiFetch(`/admin/members/${memberId}`, { method: 'DELETE' });
 
 // Team Devices API
-export const getTeamDevices = (teamId) =>
-  apiFetch(`/admin/teams/${teamId}/devices`);
+export const getTeamDevices = async (teamId) => unwrapList(await apiFetch(`/admin/teams/${teamId}/devices`));
 
 export const revokeTeamDevice = (deviceId) =>
   apiFetch(`/admin/devices/${deviceId}`, { method: 'DELETE' });
 
-export const getAdminJudges = () =>
-  apiFetch('/admin/judges');
+export const getAdminJudges = async () => unwrapList(await apiFetch('/admin/judges'));
 
 export const createJudge = (data) =>
   apiFetch('/admin/judges', { method: 'POST', body: JSON.stringify(data) });
@@ -214,8 +246,7 @@ export const updateJudge = (id, data) =>
 export const deleteJudge = (id) =>
   apiFetch(`/admin/judges/${id}`, { method: 'DELETE' });
 
-export const getJudgeAssignments = (judgeId) =>
-  apiFetch(`/admin/judges/${judgeId}/assignments`);
+export const getJudgeAssignments = async (judgeId) => unwrapList(await apiFetch(`/admin/judges/${judgeId}/assignments`));
 
 export const assignJudgeCompetition = (judgeId, competitionId) =>
   apiFetch(`/admin/judges/${judgeId}/assignments`, { method: 'POST', body: JSON.stringify({ competitionId }) });
@@ -223,10 +254,9 @@ export const assignJudgeCompetition = (judgeId, competitionId) =>
 export const unassignJudgeCompetition = (judgeId, competitionId) =>
   apiFetch(`/admin/judges/${judgeId}/assignments/${competitionId}`, { method: 'DELETE' });
 
-export const getCompetitions = () => apiFetch('/competitions');
+export const getCompetitions = async () => unwrapList(await apiFetch('/competitions'));
 
-export const getAdminCompetitions = () =>
-  apiFetch('/admin/competitions');
+export const getAdminCompetitions = async () => unwrapList(await apiFetch('/admin/competitions'));
 
 export const createCompetition = (data) =>
   apiFetch('/admin/competitions', { method: 'POST', body: JSON.stringify(data) });
@@ -243,8 +273,7 @@ export const createQuestion = (data) =>
 export const deleteQuestion = (id) =>
   apiFetch(`/admin/questions/${id}`, { method: 'DELETE' });
 
-export const getScoreBreakdown = () =>
-  apiFetch('/admin/scores/breakdown');
+export const getScoreBreakdown = async () => unwrapList(await apiFetch('/admin/scores/breakdown'));
 
 export const unlockScore = (id, reason) =>
   apiFetch(`/admin/scores/${id}/unlock`, { method: 'POST', body: JSON.stringify({ reason }) });
@@ -276,14 +305,12 @@ export const updateAgendaItem = (id, data) =>
 export const agendaAction = (id, action) =>
   apiFetch(`/admin/agenda/${id}/action`, { method: 'POST', body: JSON.stringify({ action }) });
 
-export const getAdminReports = () =>
-  apiFetch('/admin/reports');
+export const getAdminReports = async () => unwrapList(await apiFetch('/admin/reports'));
 
 export const deleteAdminReport = (id) =>
   apiFetch(`/admin/reports/${id}`, { method: 'DELETE' });
 
-export const getReportPermissions = () =>
-  apiFetch('/admin/report-permissions');
+export const getReportPermissions = async () => unwrapList(await apiFetch('/admin/report-permissions'));
 
 export const updateReportPermission = (teamId, competitionId, data) =>
   apiFetch(`/admin/report-permissions/${teamId}/${competitionId}`, { method: 'PATCH', body: JSON.stringify(data) });
@@ -291,8 +318,7 @@ export const updateReportPermission = (teamId, competitionId, data) =>
 export const getMyReportPermissions = () =>
   apiFetch('/reports/permissions');
 
-export const getMyReports = () =>
-  apiFetch('/reports/mine');
+export const getMyReports = async () => unwrapList(await apiFetch('/reports/mine'));
 
 export const uploadTeamReport = (data) =>
   apiFetch('/reports', {
@@ -343,3 +369,5 @@ export const triggerCleanSlate = (confirmPassword) =>
     method: 'POST',
     body: JSON.stringify({ confirmPassword })
   });
+
+export const triggerGithubBackup = () => apiFetch('/admin/backup/github', { method: 'POST' });

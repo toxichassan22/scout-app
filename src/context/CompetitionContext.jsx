@@ -412,7 +412,9 @@ export const CompetitionProvider = ({ children }) => {
           if (data.submissionId && data.videoUrl) {
             updateSubmissionVideo(data.submissionId, data.videoUrl);
           }
-        } catch { }
+        } catch {
+          return;
+        }
       }
     };
     window.addEventListener('storage', handleStorage);

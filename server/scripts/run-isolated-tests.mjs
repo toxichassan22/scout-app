@@ -83,6 +83,10 @@ try {
     ]);
 
     await run(process.execPath, [
+        path.join(scriptDirectory, 'unit-workbook.mjs')
+    ]);
+
+    await run(process.execPath, [
         path.join(scriptDirectory, 'integration-permissions.mjs')
     ]);
 
@@ -112,6 +116,14 @@ try {
 
     await run(process.execPath, [
         path.join(scriptDirectory, 'integration-admin-routes.mjs')
+    ]);
+
+    await run(process.execPath, [
+        path.join(scriptDirectory, 'integration-core-competition.mjs')
+    ]);
+
+    await run(process.execPath, [
+        path.join(scriptDirectory, 'integration-activities.mjs')
     ]);
 
     await run(process.execPath, [

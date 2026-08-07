@@ -1,0 +1,11 @@
+Arab country map assets
+
+AE, BH, DJ, DZ, EG, IQ, JO, KM, KW, LB, LY, MA, MR, OM, QA, SA, SD, SO, SY, TN, YE:
+Source: https://github.com/ahuseyn/interactive-svg-maps
+License: MIT
+The repository states its geodata source is public-domain Natural Earth data.
+
+PS.svg:
+Source: Wikimedia Commons, Blank map of Palestine.svg
+Source page: https://commons.wikimedia.org/wiki/File:Blank_map_of_Palestine.svg
+License: follow the license shown on the source page.

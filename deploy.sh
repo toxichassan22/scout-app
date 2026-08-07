@@ -40,10 +40,7 @@ printf '%s\n' 'Generating and validating Prisma client...'
 npm --prefix server run prisma:validate
 npm --prefix server run prisma:generate
 
-printf '%s\n' 'Ensuring SQLite schema exists and pushing database changes...'
-# Run from server/ so Prisma finds prisma/schema.prisma by default.
-(cd server && npx prisma db push --accept-data-loss --skip-generate)
-
+printf '%s\n' 'Applying Prisma migrations only when explicitly enabled...'
 if [ "${APPLY_PRISMA_MIGRATIONS:-false}" = true ]; then
   # One-time baseline for databases that predate Prisma Migrate.
   # Set SCOUT_MIGRATION_BASELINE=true once per environment, then leave it unset.
@@ -51,8 +48,10 @@ if [ "${APPLY_PRISMA_MIGRATIONS:-false}" = true ]; then
     printf '%s\n' 'Marking baseline migration as applied...'
     (cd server && npx prisma migrate resolve --applied 00000000000000_init) || true
   fi
-  printf '%s\n' 'Applying safe Prisma migrations...'
+  printf '%s\n' 'Applying reviewed Prisma migrations...'
   (cd server && npx prisma migrate deploy)
+else
+  printf '%s\n' 'Skipping migration application; readiness and drift checks must already pass.'
 fi
 
 printf '%s\n' 'Checking SQLite readiness and schema drift before restart...'

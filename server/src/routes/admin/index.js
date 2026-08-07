@@ -14,6 +14,7 @@ import backupRouter from './backup.js';
 import seedAgendaRouter from './seedAgenda.js';
 import reportPermissionsRouter from './reportPermissions.js';
 import judgeAssignmentsRouter from './judgeAssignments.js';
+import activitiesRouter from './activities.js';
 
 const router = Router();
 router.use(teamsRouter);
@@ -31,5 +32,6 @@ router.use(backupRouter);
 router.use(seedAgendaRouter);
 router.use(reportPermissionsRouter);
 router.use(judgeAssignmentsRouter);
+router.use(activitiesRouter);
 
 export default router;

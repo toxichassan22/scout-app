@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { JWT_SECRET, createMemoryRateLimiter } from '../security.js';
 import { validate, zString } from '../middleware/validate.js';
 
@@ -60,8 +60,8 @@ router.post('/team/login', validate(loginSchema), async (req, res) => {
     });
 
     if (created) req.io?.emit('device:registered', { teamId: team.id, username: team.username });
-    const token = signToken({ id: team.id, username: team.username, role: 'team', label: team.label, deviceId, deviceVersion: device.tokenVersion, authVersion: team.authVersion });
-    res.json({ token, user: { id: team.id, username: team.username, role: 'team', label: team.label } });
+    const token = signToken({ id: team.id, username: team.username, role: 'team', label: team.label, deviceId, deviceName: device.displayName || '', deviceVersion: device.tokenVersion, authVersion: team.authVersion });
+    res.json({ token, user: { id: team.id, username: team.username, role: 'team', label: team.label, deviceName: device.displayName || '' } });
   } catch (err) {
     if (err.message === 'limit') return res.status(403).json({ error: 'وصل الفريق للحد الأقصى للأجهزة المسموح بها', maxDevicesReached: true });
     if (err.message === 'revoked') return res.status(401).json({ error: 'تم إلغاء اعتماد هذا الجهاز', forceLogout: true, deviceRevoked: true });
@@ -91,6 +91,15 @@ async function roleLogin(req, res, role) {
 
 router.post('/judge/login', validate(roleLoginSchema), (req, res) => roleLogin(req, res, 'judge'));
 router.post('/admin/login', validate(roleLoginSchema), (req, res) => roleLogin(req, res, 'admin'));
+router.patch('/device-name', authenticateToken, requireRole(['team']), validate({ body: { displayName: zString('اسم الجهاز', { min: 1, max: 80 }) } }), async (req, res) => {
+  const device = await prisma.teamDevice.update({
+    where: { teamId_deviceId: { teamId: req.user.id, deviceId: req.user.deviceId } },
+    data: { displayName: req.body.displayName.trim() },
+    select: { id: true, deviceId: true, displayName: true },
+  });
+  res.json({ success: true, device });
+});
+
 router.get('/me', authenticateToken, (req, res) => res.json({ user: req.user }));
 
 export default router;

@@ -77,8 +77,10 @@ export const zString = (name, { min = 1, max = 256, optional = false } = {}) => 
 };
 
 export const zId = (name = 'id') => z.string({ message: `${name} يجب أن يكون نصاً` })
-  .uuid({ message: `${name} يجب أن يكون UUID` })
-  .or(z.string().length(24, { message: `${name} غير صالح` }));
+  .trim()
+  .min(1, { message: `${name} غير صالح` })
+  .max(100, { message: `${name} طويل جداً` })
+  .regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/, { message: `${name} غير صالح` });
 
 export const zNumber = (name, { min, max, int = false, optional = false } = {}) => {
   let inner = z.number({ message: `${name} يجب أن يكون رقماً` });

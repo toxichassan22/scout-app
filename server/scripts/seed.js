@@ -1,6 +1,90 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import bcrypt from 'bcryptjs';
 import prisma from '../src/db.js';
 import { OFFICIAL_AGENDA, OFFICIAL_ZONES } from '../src/agendaCanonical.js';
+import { loadArabCountries, loadTwoTruthsQuestions } from '../src/workbook.js';
+
+const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const TWO_TRUTHS_WORKBOOK = path.join(PROJECT_ROOT, 'حقيقتين و كدبه.xlsx');
+const ARAB_COUNTRIES_WORKBOOK = path.join(PROJECT_ROOT, 'الوطن العربي.xlsx');
+const ARAB_FLAGS = ['🇪🇬', '🇸🇦', '🇦🇪', '🇰🇼', '🇶🇦', '🇧🇭', '🇴🇲', '🇯🇴', '🇮🇶', '🇸🇾', '🇱🇧', '🇵🇸', '🇾🇪', '🇸🇩', '🇱🇾', '🇹🇳', '🇩🇿', '🇲🇦', '🇲🇷', '🇸🇴', '🇩🇯', '🇰🇲'];
+const ARAB_CODES = ['EG', 'SA', 'AE', 'KW', 'QA', 'BH', 'OM', 'JO', 'IQ', 'SY', 'LB', 'PS', 'YE', 'SD', 'LY', 'TN', 'DZ', 'MA', 'MR', 'SO', 'DJ', 'KM'];
+
+function shuffle(values) {
+  const result = [...values];
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+function makeOptions(correct, values) {
+  const pool = [...new Set(values.filter(value => value && value !== correct))];
+  const options = shuffle([correct, ...shuffle(pool).slice(0, 3)]);
+  return { options, correctOption: options.indexOf(correct) };
+}
+
+function buildGeographyQuestions(countries) {
+  const questions = [];
+  const fields = [
+    ['capital', country => `ما عاصمة ${country.name}؟`, country => country.capital],
+    ['currency', country => `ما العملة المرتبطة بـ ${country.name}؟`, country => country.currency],
+    ['governance', country => `ما نظام الحكم في ${country.name}؟`, country => country.governance],
+  ];
+  for (const [kind, prompt, answer] of fields) {
+    const values = countries.map(answer);
+    countries.forEach((country, index) => {
+      const correct = answer(country);
+      const choice = makeOptions(correct, values);
+      questions.push({ id: `geo_q_${kind}_${index + 1}`, text: prompt(country), options: choice.options, correctOption: choice.correctOption, points: 1, sortOrder: questions.length + 1, category: kind });
+    });
+  }
+  const flagValues = countries.map(country => country.name);
+  countries.forEach((country, index) => {
+    const choice = makeOptions(country.name, flagValues);
+    questions.push({ id: `geo_q_flag_${index + 1}`, text: 'هذا العلم يخص أي دولة؟', options: choice.options, correctOption: choice.correctOption, points: 1, sortOrder: questions.length + 1, category: 'flag', questionType: 'flag', mediaUrl: country.flag ? `emoji:${country.flag}` : null, mediaAlt: country.name });
+  });
+  countries.forEach((country, index) => {
+    const choice = makeOptions(country.name, flagValues);
+    questions.push({ id: `geo_q_map_${index + 1}`, text: 'هذه خريطة أي دولة؟', options: choice.options, correctOption: choice.correctOption, points: 1, sortOrder: questions.length + 1, category: 'map', questionType: 'map', mediaUrl: country.mapUrl || null, mediaAlt: country.name });
+  });
+  const reverseFields = [
+    ['capital_country', country => `أي دولة عاصمتها ${country.capital}؟`, country => country.name, country => country.capital],
+    ['currency_country', country => `أي دولة تستخدم ${country.currency}؟`, country => country.name, country => country.currency],
+    ['governance_country', country => `أي دولة نظام حكمها ${country.governance}؟`, country => country.name, country => country.governance],
+  ];
+  for (const [kind, prompt, answer, clue] of reverseFields) {
+    const values = countries.map(answer);
+    countries.forEach((country, index) => {
+      const correct = answer(country);
+      const choice = makeOptions(correct, values);
+      questions.push({ id: `geo_q_${kind}_${index + 1}`, text: prompt(country), options: choice.options, correctOption: choice.correctOption, points: 1, sortOrder: questions.length + 1, category: kind, mediaAlt: String(clue(country)) });
+    });
+  }
+  return questions;
+}
+
+async function syncQuestionBank(competitionId, questions) {
+  const ids = questions.map(question => question.id);
+  if (ids.length > 0) await prisma.question.deleteMany({ where: { competitionId, id: { notIn: ids } } });
+  for (const question of questions) {
+    const data = {
+      competitionId,
+      text: question.text,
+      category: question.category || '',
+      options: JSON.stringify(question.options),
+      correctOption: question.correctOption,
+      points: Number(question.points || 1),
+      questionType: question.questionType || 'text',
+      mediaUrl: question.mediaUrl || null,
+      mediaAlt: question.mediaAlt || '',
+      sortOrder: question.sortOrder || 0,
+    };
+    await prisma.question.upsert({ where: { id: question.id }, update: data, create: { id: question.id, ...data } });
+  }
+}
 
 async function seed() {
   const explicitlyAllowed = process.env.ALLOW_PRODUCTION_SEED === 'I_UNDERSTAND_THIS_MODIFIES_DATA';
@@ -302,33 +386,45 @@ async function seed() {
       name: 'مسابقة عبقرينو',
       slug: 'genius',
       type: 'auto_digital',
-      description: 'خمسون سؤالاً متوازناً في ربع ساعة - الذكاء الاصطناعي والثقافة الكشفية والعامة',
-      isOpen: true,
-      passcode: '1001',
-      duration: 900, // 15 mins
-      criteria: JSON.stringify([{ key: 'score', label: 'درجة الأسئلة الإلكترونية', maxScore: 100 }])
+      description: 'مسابقة معرفية سريعة من بنك أسئلة متنوع في الذكاء والثقافة العامة.',
+      details: 'أجب عن الأسئلة مرة واحدة. كل إجابة صحيحة بنقطة، والنتيجة مخفية حتى إعلان الأدمن.',
+      isOpen: false,
+      passcode: null,
+      qrCode: 'scout-qr-genius',
+      requiresQr: true,
+      questionCount: 50,
+      duration: 900,
+      criteria: JSON.stringify([{ key: 'score', label: 'الدرجة الصحيحة', maxScore: 50 }])
     },
     {
       id: 'comp-digital-2',
       name: 'مسابقة حقيقتان وكذبة',
       slug: 'two_truths',
       type: 'auto_digital',
-      description: 'اكتشف عبارة الزور من بين الحقائق الكشفية والتاريخية',
-      isOpen: true,
-      passcode: '1002',
+      description: 'اختر العبارة الكاذبة من بين ثلاث عبارات متنوعة.',
+      details: 'كل سؤال له إجابة واحدة. كل إجابة صحيحة بنقطة، والنتيجة مخفية حتى إعلان الأدمن.',
+      isOpen: false,
+      passcode: null,
+      qrCode: 'scout-qr-two-truths',
+      requiresQr: true,
+      questionCount: 50,
       duration: 600,
-      criteria: JSON.stringify([{ key: 'score', label: 'درجة الأسئلة الإلكترونية', maxScore: 100 }])
+      criteria: JSON.stringify([{ key: 'score', label: 'الدرجة الصحيحة', maxScore: 50 }])
     },
     {
       id: 'comp-digital-3',
       name: 'مسابقة الجغرافيا',
       slug: 'geography',
       type: 'auto_digital',
-      description: 'التعرف على الأعلام والعواصم والعملات والتقسيم الإداري ونظام الحكم للـ 22 دولة عربية',
-      isOpen: true,
-      passcode: '1003',
+      description: 'رحلة معرفية بين عواصم وعملات وأنظمة حكم الدول العربية.',
+      details: 'تظهر أسئلة اختيارية عشوائية من بنك الدول العربية. كل إجابة صحيحة بنقطة.',
+      isOpen: false,
+      passcode: null,
+      qrCode: 'scout-qr-geography',
+      requiresQr: true,
+      questionCount: 50,
       duration: 600,
-      criteria: JSON.stringify([{ key: 'score', label: 'درجة الأعلام والعواصم', maxScore: 100 }])
+      criteria: JSON.stringify([{ key: 'score', label: 'الدرجة الصحيحة', maxScore: 50 }])
     },
     {
       id: 'comp-video-1',
@@ -349,12 +445,16 @@ async function seed() {
   ];
 
   for (const comp of competitions) {
+    const { id, ...data } = comp;
     await prisma.competition.upsert({
-      where: { id: comp.id },
-      update: {},
-      create: comp
+      where: { id },
+      update: data,
+      create: { id, ...data }
     });
   }
+
+  const twoTruthsQuestions = loadTwoTruthsQuestions(TWO_TRUTHS_WORKBOOK);
+  if (twoTruthsQuestions.length > 0) await syncQuestionBank('comp-digital-2', twoTruthsQuestions);
 
   // 5️⃣ 50 Balanced Genius Questions
   const balanced50Questions = [
@@ -413,27 +513,15 @@ async function seed() {
     { text: 'من هو مخترع قانون الجاذبية ؟', options: ['آينشتين', 'أرشميدس', 'إسحاق نيوتن'], correctOption: 2 }
   ];
 
-  for (let idx = 0; idx < balanced50Questions.length; idx++) {
-    const q = balanced50Questions[idx];
-    const questionId = `g_q_${idx + 1}`;
-    const existing = await prisma.question.findUnique({ where: { id: questionId } });
-    if (!existing) {
-      await prisma.question.create({
-        data: {
-          id: questionId,
-          competitionId: 'comp-digital-1',
-          text: q.text,
-          options: JSON.stringify(q.options),
-          correctOption: q.correctOption,
-          points: 2,
-          sortOrder: idx + 1
-        }
-      });
-    }
-  }
+  await syncQuestionBank('comp-digital-1', balanced50Questions.map((question, index) => ({
+    id: `g_q_${index + 1}`,
+    ...question,
+    points: 1,
+    sortOrder: index + 1,
+  })));
 
   // 6️⃣ Seed Official 22 Arab Geography Countries
-  const arabCountries = [
+  const fallbackArabCountries = [
     { id: 'geo-1', name: 'مصر', capital: 'القاهرة', division: '27 محافظة', governance: 'جمهوري رئاسي', currency: 'جنيه مصري', flag: '🇪🇬', sortOrder: 1 },
     { id: 'geo-2', name: 'السعودية', capital: 'الرياض', division: '13 منطقة إدارية', governance: 'ملكي مطلق', currency: 'ريال سعودي', flag: '🇸🇦', sortOrder: 2 },
     { id: 'geo-3', name: 'الإمارات', capital: 'أبوظبي', division: '7 إمارات اتحادية', governance: 'إتحادي رئاسي', currency: 'درهم إماراتي', flag: '🇦🇪', sortOrder: 3 },
@@ -458,6 +546,11 @@ async function seed() {
     { id: 'geo-22', name: 'جزر القمر', capital: 'موروني', division: '3 جزر رئيسية', governance: 'جمهوري اتحادي رئاسي', currency: 'فرنك قمري', flag: '🇰🇲', sortOrder: 22 },
   ];
 
+  const workbookCountries = loadArabCountries(ARAB_COUNTRIES_WORKBOOK);
+  const arabCountries = workbookCountries.length === fallbackArabCountries.length
+    ? workbookCountries.map((country, index) => ({ ...country, flag: ARAB_FLAGS[index], mapUrl: `/maps/arab/${ARAB_CODES[index]}.svg` }))
+    : fallbackArabCountries.map((country, index) => ({ ...country, mapUrl: `/maps/arab/${ARAB_CODES[index]}.svg` }));
+
   for (const item of arabCountries) {
     await prisma.geographyCountry.upsert({
       where: { id: item.id },
@@ -465,6 +558,8 @@ async function seed() {
       create: item
     });
   }
+
+  await syncQuestionBank('comp-digital-3', buildGeographyQuestions(arabCountries));
 
   // 7️⃣ Official schedule zones and the complete canonical program.
   for (const z of OFFICIAL_ZONES) {

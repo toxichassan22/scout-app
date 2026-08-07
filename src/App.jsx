@@ -17,10 +17,11 @@ const Program = lazy(() => import('./pages/Program'));
 const UploadReport = lazy(() => import('./pages/UploadReport'));
 const News = lazy(() => import('./pages/News'));
 const Profile = lazy(() => import('./pages/Profile'));
-const TwoTruths = lazy(() => import('./pages/competitions/TwoTruths'));
-const Genius = lazy(() => import('./pages/competitions/Genius'));
-const Geography = lazy(() => import('./pages/competitions/Geography'));
-const VideoDesign = lazy(() => import('./pages/competitions/VideoDesign'));
+const CompetitionEntry = lazy(() => import('./pages/CompetitionEntry'));
+const CompetitionPlay = lazy(() => import('./pages/CompetitionPlay'));
+const GuessTheNumber = lazy(() => import('./pages/activities/GuessTheNumber'));
+const HackerSandbox = lazy(() => import('./pages/activities/HackerSandbox'));
+const AiChat = lazy(() => import('./pages/AiChat'));
 
 // Judge Pages (lazy)
 const JudgeLogin = lazy(() => import('./pages/judge/JudgeLogin'));
@@ -77,11 +78,12 @@ const App = memo(function App() {
           <Route path="/news" element={<ProtectedRoute allowedRoles={['team']}><News /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute allowedRoles={['team']}><Profile /></ProtectedRoute>} />
 
-          {/* Competition Detail Routes */}
-          <Route path="/competition/1" element={<ProtectedRoute allowedRoles={['team']}><TwoTruths /></ProtectedRoute>} />
-          <Route path="/competition/2" element={<ProtectedRoute allowedRoles={['team']}><Genius /></ProtectedRoute>} />
-          <Route path="/competition/3" element={<ProtectedRoute allowedRoles={['team']}><Geography /></ProtectedRoute>} />
-          <Route path="/competition/4" element={<ProtectedRoute allowedRoles={['team']}><VideoDesign /></ProtectedRoute>} />
+          {/* Competition Entry and Play */}
+          <Route path="/competition-entry/:slug" element={<ProtectedRoute allowedRoles={['team']}><CompetitionEntry /></ProtectedRoute>} />
+          <Route path="/competition/:slug" element={<ProtectedRoute allowedRoles={['team']}><CompetitionPlay /></ProtectedRoute>} />
+          <Route path="/activities/guess-number" element={<ProtectedRoute allowedRoles={['team']}><GuessTheNumber /></ProtectedRoute>} />
+          <Route path="/activities/hacker-sandbox" element={<ProtectedRoute allowedRoles={['team']}><HackerSandbox /></ProtectedRoute>} />
+          <Route path="/ai-chat" element={<ProtectedRoute allowedRoles={['team']}><AiChat /></ProtectedRoute>} />
 
           {/* Judge Routes */}
           <Route path="/judge" element={<Navigate to="/judge/passcode" replace />} />

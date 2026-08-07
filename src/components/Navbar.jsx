@@ -1,7 +1,7 @@
 import { memo, useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Compass, Sparkles, Newspaper, User, X } from 'lucide-react';
+import { Home, Compass, Sparkles, Newspaper, User, X, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { path: '/activities', icon: Sparkles, label: 'الأنشطة', color: '#f59e0b', angle: -90 },
   { path: '/news', icon: Newspaper, label: 'الأخبار', color: '#a855f7', angle: -55 },
   { path: '/profile', icon: User, label: 'حسابي', color: '#ec4899', angle: -20 },
+  { path: '/ai-chat', icon: MessageCircle, label: 'شات AI', color: '#22d3ee', angle: -5 },
 ];
 
 export const Navbar = memo(function Navbar() {

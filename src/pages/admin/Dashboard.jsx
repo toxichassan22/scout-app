@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FileQuestion, Globe, LogOut, MessageSquare, Newspaper, Trophy, Users, Video, QrCode, Plus, Trash, UserCheck, Shield, ShieldAlert, FileText, Award, Calendar, RefreshCw, Snowflake, Database } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getAdminLeaderboard, getAdminTeams, getAdminJudges, getAdminReports, triggerEmergencyFreeze, triggerCleanSlate, apiFetch } from '../../services/api';
+import { getAdminLeaderboard, getAdminTeams, getAdminJudges, getAdminReports, triggerEmergencyFreeze, triggerCleanSlate, apiFetch, triggerGithubBackup, getLeaderboardVisibility, setLeaderboardVisibility } from '../../services/api';
 
 const Dashboard = () => {
   const { logout, user } = useAuth();
@@ -11,11 +11,14 @@ const Dashboard = () => {
   const [reportsCount, setReportsCount] = useState(0);
 
   const [isFrozen, setIsFrozen] = useState(false);
+  const [leaderboardVisible, setLeaderboardVisible] = useState(false);
   const [backupLoading, setBackupLoading] = useState(false);
+  const [githubBackupLoading, setGithubBackupLoading] = useState(false);
   const [cleanSlateLoading, setCleanSlateLoading] = useState(false);
 
   useEffect(() => {
     fetchQuickStats();
+    getLeaderboardVisibility().then(result => setLeaderboardVisible(Boolean(result.visible))).catch(console.error);
   }, []);
 
   const fetchQuickStats = async () => {
@@ -41,6 +44,27 @@ const Dashboard = () => {
       alert(nextState ? '🚨 تم تجميد كافة مسابقات وعدادات المهرجان بنجاح!' : '▶️ تم استئناف المهرجان والعدادات بنجاح!');
     } catch (e) {
       alert('فشل في تغيير حالة الطوارئ');
+    }
+  };
+
+  const handleLeaderboardVisibility = async () => {
+    try {
+      const result = await setLeaderboardVisibility(!leaderboardVisible);
+      setLeaderboardVisible(Boolean(result.visible));
+    } catch (error) {
+      alert(error.message || 'فشل تغيير ظهور النتائج');
+    }
+  };
+
+  const handleGithubBackup = async () => {
+    try {
+      setGithubBackupLoading(true);
+      const result = await triggerGithubBackup();
+      alert(result.skipped ? 'مزامنة GitHub غير مفعلة في إعدادات السيرفر.' : `تمت مزامنة ${result.files} ملفات إلى النسخة الخاصة.`);
+    } catch (error) {
+      alert(error.message || 'فشل تشغيل مزامنة GitHub');
+    } finally {
+      setGithubBackupLoading(false);
     }
   };
 
@@ -131,6 +155,25 @@ const Dashboard = () => {
             >
               <Snowflake size={16} />
               {isFrozen ? 'استئناف المهرجان ▶️' : 'تجميد الطوارئ 🚨'}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLeaderboardVisibility}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black transition ${leaderboardVisible ? 'bg-emerald-400 text-slate-950' : 'border border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20'}`}
+            >
+              <Trophy size={16} />
+              {leaderboardVisible ? 'إخفاء أسماء الفرق' : 'إظهار أسماء الفرق'}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleGithubBackup}
+              disabled={githubBackupLoading}
+              className="flex items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2.5 text-xs font-black text-violet-300 transition hover:bg-violet-500/20 disabled:opacity-50"
+            >
+              <Database size={16} />
+              {githubBackupLoading ? 'جارٍ مزامنة النسخة الخاصة...' : 'مزامنة GitHub Private'}
             </button>
 
             <button

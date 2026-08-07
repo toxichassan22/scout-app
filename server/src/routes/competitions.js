@@ -3,6 +3,7 @@ import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { enforceNotFrozen } from '../freeze.js';
 import { startDigitalSession, finalizeDigitalSession, MAX_ATTEMPTS } from '../quizService.js';
+import { getCompetitionState, publicCompetitionSchedule, canStartCompetition } from '../competitionState.js';
 import { getAnonymousLeaderboard, clearLeaderboardCache } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { normalizeArabicText } from '../textNormalization.js';
@@ -57,12 +58,16 @@ const publicCompetition = (comp, myScore = null, videoAttemptCount) => ({
   slug: comp.slug,
   type: comp.type,
   description: comp.description || '',
+  details: comp.details || '',
   isOpen: comp.isOpen,
   duration: comp.duration,
+  questionCount: comp.questionCount,
+  requiresQr: Boolean(comp.requiresQr),
   hasEntryCode: Boolean(comp.entryCode),
   completed: Boolean(myScore),
-  myTotal: myScore ? myScore.total : null,
+  scoreHidden: Boolean(myScore),
   attemptCount: computeAttemptCount(comp, videoAttemptCount),
+  ...publicCompetitionSchedule(comp),
 });
 
 // List competitions for teams
@@ -102,6 +107,25 @@ router.get('/', authenticateToken, requireRole(['team', 'admin']), async (req, r
   }
 });
 
+const scanSchema = { params: { idOrSlug: zSlug }, body: { qrCode: zString('QR المسابقة', { min: 1, max: 200 }) } };
+router.post('/:idOrSlug/scan', authenticateToken, requireRole(['team']), validate(scanSchema), async (req, res) => {
+  try {
+    const competition = await prisma.competition.findFirst({ where: { OR: [{ id: req.params.idOrSlug }, { slug: req.params.idOrSlug }] } });
+    if (!competition) return res.status(404).json({ error: 'المسابقة غير موجودة' });
+    if (competition.requiresQr && String(req.body.qrCode).trim() !== String(competition.qrCode || '').trim()) return res.status(403).json({ error: 'QR غير تابع لهذه المسابقة' });
+    await prisma.competitionAccess.upsert({
+      where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } },
+      create: { teamId: req.user.id, competitionId: competition.id },
+      update: { grantedAt: new Date() },
+    });
+    const score = await prisma.score.findUnique({ where: { competitionId_teamId: { competitionId: competition.id, teamId: req.user.id } } });
+    return res.json({ success: true, competition: publicCompetition(competition, score), scanned: true, canStart: canStartCompetition(competition), state: getCompetitionState(competition) });
+  } catch (err) {
+    req.log.error({ err }, 'failed to scan competition QR');
+    return res.status(500).json({ success: false, error: 'فشل في التحقق من QR', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
+});
+
 // Unlock / enter competition (optional entry code)
 router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforceNotFrozen, validate(entryCodeSchema), async (req, res) => {
   try {
@@ -115,8 +139,12 @@ router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforc
     if (!competition) {
       return res.status(404).json({ error: 'المسابقة غير موجودة' });
     }
-    if (!competition.isOpen) {
-      return res.status(400).json({ error: 'المسابقة مغلقة حالياً' });
+    const state = getCompetitionState(competition);
+    if (state !== 'active') {
+      return res.status(400).json({ error: state === 'scheduled' ? 'المسابقة لم تبدأ بعد' : 'المسابقة مغلقة حالياً', state });
+    }
+    if (competition.requiresQr && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) {
+      return res.status(403).json({ error: 'يجب مسح QR الخاص بالمسابقة أولاً' });
     }
 
     if (competition.entryCode && competition.entryCode !== String(entryCode || '').trim()) {
@@ -144,7 +172,7 @@ router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforc
       return res.status(400).json({
         error: 'تم تسجيل إجابتك مسبقاً في هذه المسابقة',
         completed: true,
-        total: existing.total,
+        scoreHidden: true,
       });
     }
 
@@ -195,8 +223,11 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
     if (!competition) {
       return res.status(404).json({ error: 'المسابقة غير موجودة' });
     }
-    if (!competition.isOpen) {
-      return res.status(400).json({ error: 'المسابقة مغلقة حالياً' });
+    const state = getCompetitionState(competition);
+    if (state === 'closed') return res.status(400).json({ error: 'المسابقة مغلقة حالياً', state });
+    if (state === 'scheduled') return res.status(400).json({ error: 'المسابقة لم تبدأ بعد', state });
+    if (competition.requiresQr && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) {
+      return res.status(403).json({ error: 'يجب مسح QR الخاص بالمسابقة أولاً' });
     }
     if (competition.entryCode && !await prisma.competitionAccess.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } })) {
       return res.status(403).json({ error: 'يجب إدخال كود المسابقة أولاً' });
@@ -205,7 +236,7 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
     let session = null;
     let expired = false;
     if (competition.type === 'auto_digital') {
-      session = await prisma.quizSession.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } });
+      session = await prisma.quizSession.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } }, include: { draftAnswers: { select: { questionId: true } } } });
       if (!session) return res.status(409).json({ error: 'يجب بدء جلسة المسابقة أولاً', sessionRequired: true });
       if (session.deviceId !== req.user.deviceId) return res.status(403).json({ error: 'المسابقة مقفلة على جهاز آخر' });
       if (session.isCompleted) return res.status(409).json({ error: 'انتهت جلسة المسابقة', completed: true });
@@ -225,24 +256,7 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
       return res.status(400).json({
         error: 'تم تسجيل إجابتك مسبقاً',
         completed: true,
-        total: existing.total,
-      });
-    }
-
-    if (competition.slug === 'geography') {
-      const countries = await prisma.geographyCountry.findMany({
-        orderBy: { sortOrder: 'asc' },
-      });
-      return res.json({
-        competition: publicCompetition(competition, existing),
-        countries: countries.map((c) => ({
-          id: c.id,
-          capital: c.capital,
-          currency: c.currency,
-          flag: c.flag,
-          mapUrl: c.mapUrl,
-          // name withheld for server-side grading
-        })),
+        scoreHidden: true,
       });
     }
 
@@ -270,17 +284,22 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
     }
 
     // two_truths / genius / generic auto
-    const questions = competition.questions.map((q) => {
+    const order = session ? (() => {
+      const parsed = parseJson(session.questionOrder, []);
+      return Array.isArray(parsed) ? parsed : [];
+    })() : competition.questions.map(question => question.id);
+    const byId = new Map(competition.questions.map(question => [question.id, question]));
+    const questions = order.map(id => byId.get(id)).filter(Boolean).map((q) => {
       const options = parseJson(q.options, []);
-      const safeOptions = options.map((opt) => {
-        if (typeof opt === 'string') return opt;
-        return opt.text || '';
-      });
       return {
         id: q.id,
         text: q.text,
-        options: safeOptions,
+        category: q.category || '',
+        options: options.map((opt) => typeof opt === 'string' ? opt : opt.text || ''),
         points: q.points,
+        questionType: q.questionType,
+        mediaUrl: q.mediaUrl,
+        mediaAlt: q.mediaAlt,
       };
     });
 
@@ -290,6 +309,9 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
       ...(session && {
         sessionId: session.id,
         remainingSeconds: expired ? 0 : Math.max(0, Math.floor((new Date(session.expiresAt) - Date.now()) / 1000)),
+        attemptedCount: session.attemptedCount,
+        correctCount: session.correctCount,
+        answeredQuestionIds: session.draftAnswers.map(answer => answer.questionId),
         expired,
       }),
     });

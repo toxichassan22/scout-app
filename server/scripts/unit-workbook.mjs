@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadArabCountries, loadTwoTruthsQuestions } from '../src/workbook.js';
+
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const workbooks = fs.readdirSync(projectRoot).filter(name => name.endsWith('.xlsx')).map(name => ({ name, path: path.join(projectRoot, name) }));
+const truthWorkbook = workbooks.find(item => fs.statSync(item.path).size > 10000);
+const geographyWorkbook = workbooks.find(item => fs.statSync(item.path).size < 10000);
+assert.ok(truthWorkbook, 'two truths workbook should exist');
+assert.ok(geographyWorkbook, 'geography workbook should exist');
+const questions = loadTwoTruthsQuestions(truthWorkbook.path);
+const countries = loadArabCountries(geographyWorkbook.path);
+assert.equal(questions.length, 50);
+assert.equal(questions.filter(question => Number.isInteger(question.correctOption)).length, 50);
+assert.equal(countries.length, 22);
+assert.equal(countries[0].name, 'مصر');
+assert.equal(countries[0].division, '');
+console.log('workbook unit tests passed: 50 truth questions and 22 Arab countries');

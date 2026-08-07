@@ -78,8 +78,9 @@ const CompactLeaderboard = memo(function CompactLeaderboard({ board = [], maxPoi
 
   const displayList = rawList.map((item, idx) => ({
     rank: item.rank || idx + 1,
-    points: item.points || Math.max(0, 2850 - idx * 230),
-    title: rankTitles[idx + 1] || `المركز #${idx + 1}`,
+    points: item.points ?? Math.max(0, 2850 - idx * 230),
+    title: item.teamName || rankTitles[idx + 1] || `المركز #${idx + 1}`,
+    revealed: Boolean(item.teamName),
   }));
 
   const highestPoints = maxPoints || displayList[0]?.points || 3000;
@@ -144,7 +145,7 @@ const CompactLeaderboard = memo(function CompactLeaderboard({ board = [], maxPoi
                     <div className="text-right">
                       <p className="text-sm font-black text-white flex items-center gap-1.5">
                         <span>{item.title}</span>
-                        <span className="text-[10px] text-[#f59e0b]">🔒</span>
+                        {!item.revealed && <span className="text-[10px] text-[#f59e0b]">🔒</span>}
                       </p>
                       <p className="text-[9px] font-mono text-[#64748b]">ترتيب الساحة الرسمية</p>
                     </div>
@@ -197,13 +198,18 @@ const Home = memo(function Home() {
   useEffect(() => {
     fetchInitialData();
     if (socket) {
+      const handleNewsPublished = (story) => setNews((prev) => [story, ...prev.slice(0, 3)]);
+      const handleNewsDeleted = ({ id }) => setNews((prev) => prev.filter((n) => n.id !== id));
+      const handleLeaderboardVisibility = () => fetchInitialData();
       socket.on('leaderboard:update', setBoard);
-      socket.on('news:published', (story) => setNews((prev) => [story, ...prev.slice(0, 3)]));
-      socket.on('news:deleted', ({ id }) => setNews((prev) => prev.filter((n) => n.id !== id)));
+      socket.on('news:published', handleNewsPublished);
+      socket.on('news:deleted', handleNewsDeleted);
+      socket.on('leaderboard:visibility', handleLeaderboardVisibility);
       return () => {
-        socket.off('leaderboard:update');
-        socket.off('news:published');
-        socket.off('news:deleted');
+        socket.off('leaderboard:update', setBoard);
+        socket.off('news:published', handleNewsPublished);
+        socket.off('news:deleted', handleNewsDeleted);
+        socket.off('leaderboard:visibility', handleLeaderboardVisibility);
       };
     }
   }, [socket]);

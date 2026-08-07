@@ -1,19 +1,37 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, LogOut, Shield, Lock, Award, Fingerprint, Flame, Trophy, Star, CheckCircle, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
 import { useNavigate } from 'react-router-dom';
 import { FESTIVAL_DETAILS } from '../data/mockData';
+import { updateOwnDeviceName } from '../services/api';
 
 const Profile = () => {
   const { user, logout } = useAuth();
   const { submissions } = useCompetitions();
   const navigate = useNavigate();
+  const [deviceName, setDeviceName] = useState(user?.deviceName || '');
+  const [deviceNameMessage, setDeviceNameMessage] = useState('');
+  const [savingDeviceName, setSavingDeviceName] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const saveDeviceName = async (event) => {
+    event.preventDefault();
+    setSavingDeviceName(true);
+    setDeviceNameMessage('');
+    try {
+      await updateOwnDeviceName(deviceName.trim());
+      setDeviceNameMessage('تم حفظ اسم الجهاز الظاهر فقط.');
+    } catch (error) {
+      setDeviceNameMessage(error.message || 'تعذر حفظ الاسم');
+    } finally {
+      setSavingDeviceName(false);
+    }
   };
 
   const teamName = user?.label || user?.name || user?.username || 'فرقة الصقور';
@@ -154,6 +172,16 @@ const Profile = () => {
               </div>
             </div>
           </div>
+
+          <form onSubmit={saveDeviceName} className="relative z-10 mb-6 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(7,6,12,0.45)] p-4 text-right">
+            <label className="mb-2 block text-xs font-black text-[#a9a3c2]">اسم هذا الجهاز داخل أنشطة الفريق</label>
+            <div className="flex gap-2">
+              <input value={deviceName} onChange={event => setDeviceName(event.target.value)} maxLength={80} className="input-field flex-1 text-sm" placeholder="اسم الجهاز" />
+              <button type="submit" disabled={savingDeviceName || !deviceName.trim()} className="btn-violet !px-4 !py-2 text-xs">{savingDeviceName ? '...' : 'حفظ'}</button>
+            </div>
+            <p className="mt-2 text-[10px] text-[#6e6889]">تغيير الاسم لا يغير هوية الجهاز أو الفريق أو البصمة المسجلة.</p>
+            {deviceNameMessage && <p className="mt-2 text-xs font-bold text-emerald-300">{deviceNameMessage}</p>}
+          </form>
 
           {/* Footer ID Details */}
           <div className="relative z-10 flex items-center justify-between pt-4 border-t border-[rgba(255,255,255,0.08)] text-[11px] font-mono text-[#6e6889]">
