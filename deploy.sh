@@ -63,6 +63,11 @@ if [ "${ALLOW_PRODUCTION_SEED:-}" = "I_UNDERSTAND_THIS_MODIFIES_DATA" ]; then
   npm --prefix server run seed
 fi
 
+if [ "${BOOTSTRAP_ADMIN:-false}" = true ]; then
+  printf '%s\n' 'Running one-time admin bootstrap...'
+  npm --prefix server run admin:bootstrap
+fi
+
 printf '%s\n' 'Ensuring server environment (JWT_SECRET, NODE_ENV, PORT)...'
 node server/scripts/ensure-env.mjs
 
