@@ -18,7 +18,7 @@ export const SocketProvider = ({ children }) => {
     const socketInstance = io(SOCKET_URL, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
-      auth: { token: localStorage.getItem('dsc_token') || undefined },
+      auth: {},
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -40,6 +40,12 @@ export const SocketProvider = ({ children }) => {
       console.warn(`[Socket] connection error: ${error.message}`);
       setConnectionError(error.message);
       setIsConnected(false);
+      if (socketInstance.auth?.token && /invalid|expired|authentication token/i.test(error.message || '')) {
+        console.warn('[Socket] stale auth token rejected; reconnecting as guest');
+        socketInstance.auth = {};
+        socketInstance.disconnect();
+        window.setTimeout(() => socketInstance.connect(), 0);
+      }
     };
     const onReconnectAttempt = (attempt) => console.info(`[Socket] reconnect attempt=${attempt}`);
     const onReconnect = (attempt) => console.info(`[Socket] reconnected after attempt=${attempt}`);
