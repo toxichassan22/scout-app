@@ -108,6 +108,27 @@ upsertEnv(lines, 'AI_CHAT_MODEL', aiChatModel);
 upsertEnv(lines, 'AI_CHAT_TOKEN', aiChatToken);
 upsertEnv(lines, 'AI_CHAT_TOKEN_POOL', aiChatTokenPool);
 
+// Non-secret AI pool controls can be changed as repository variables without
+// touching the server manually. Empty pipeline values preserve deployed settings.
+const AI_CONFIG_KEYS = [
+    'AI_RATE_WINDOW_MS',
+    'AI_RATE_MAX',
+    'AI_KEY_RPM',
+    'AI_GLOBAL_RPM',
+    'AI_KEY_MIN_INTERVAL_MS',
+    'AI_GLOBAL_MIN_INTERVAL_MS',
+    'AI_POOL_CONCURRENCY',
+    'AI_MAX_QUEUE',
+    'AI_PROVIDER_TIMEOUT_MS',
+    'AI_MAX_OUTPUT_TOKENS',
+    'AI_RESPONSE_CACHE_TTL_MS',
+    'AI_CONTEXT_TTL_MS',
+];
+for (const key of AI_CONFIG_KEYS) {
+    const value = process.env[key] || readEnvValue(lines, key);
+    if (value) upsertEnv(lines, key, value);
+}
+
 console.log(aiChatToken || aiChatTokenPool
     ? `[ensure-env] AI chat configured (model ${aiChatModel}, keys ${aiChatTokenPool ? aiChatTokenPool.split(/[\s,]+/).filter(Boolean).length : 1}).`
     : '[ensure-env] AI chat token missing; the assistant will report that it is not enabled.');
