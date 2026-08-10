@@ -147,7 +147,8 @@ const Program = () => {
   const renderPeriodLabel = period => {
     const label = periodLabels[period];
     if (!label) return period;
-    return <><span>{label.name}</span>{label.start && label.end && <span dir="ltr"> · {label.start} - {label.end}</span>}</>;
+    const timeRange = label.start && label.end ? `\u200E${label.start} - ${label.end}\u200E` : '';
+    return <><span>{label.name}</span>{timeRange && <span dir="ltr" style={{ unicodeBidi: 'isolate' }}> · {timeRange}</span>}</>;
   };
   const statusMeta = {
     upcoming: { label: 'قريبًا · مقفول', cls: 'border-slate-600/50 bg-slate-800/60 text-slate-400', icon: Lock },
