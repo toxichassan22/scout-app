@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireRole } from '../middleware/auth.js';
 import { validate, zString } from '../middleware/validate.js';
 import { z } from 'zod';
+import { getFestivalContext } from '../aiContext.js';
 
 const router = Router();
 router.use(requireRole(['team']));
@@ -18,8 +19,24 @@ router.post('/chat', validate(chatSchema), async (req, res) => {
   const model = String(process.env.AI_CHAT_MODEL || 'scout-assistant').trim();
   if (!url || !token) return res.status(503).json({ error: 'مساعد الذكاء الاصطناعي غير مفعل بعد', code: 'AI_NOT_CONFIGURED' });
 
+  // Real agenda and competition data is injected so the model answers from the
+  // festival's own state instead of guessing. A failure here must not break chat.
+  let festivalContext = '';
+  try {
+    festivalContext = await getFestivalContext();
+  } catch (err) {
+    req.log.warn({ err }, 'failed to build AI festival context');
+  }
+
+  const systemPrompt = [
+    'أنت مساعد مهرجان كشفي. أجب بالعربية وبإيجاز عن البرنامج والمسابقات والجدول.',
+    'اعتمد فقط على البيانات المرفقة أدناه. إذا كانت المعلومة غير موجودة فيها، قل بوضوح إنك لا تعرف واقترح سؤال الإدارة — لا تخترع مواعيد أو تفاصيل.',
+    'لا تكشف درجات أو بيانات أي فريق، ولا تطلب أو تذكر كلمات مرور أو أكواد دخول أو أكواد المحكمين.',
+    festivalContext ? `\n=== بيانات المهرجان ===\n${festivalContext}` : '',
+  ].filter(Boolean).join('\n');
+
   const messages = [
-    { role: 'system', content: 'أنت مساعد مهرجان كشفي. أجب عن البرنامج والمسابقات والجدول بطريقة واضحة. لا تكشف درجات أو بيانات فريق آخر، ولا تطلب كلمات مرور أو رموز دخول.' },
+    { role: 'system', content: systemPrompt },
     ...req.body.messages,
   ];
   const response = await fetch(url, {
