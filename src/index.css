@@ -225,6 +225,18 @@
     transform: translateY(-2px);
   }
 
+  /* الزر الزمردي — يستخدمه الأدمن للإجراء الأساسي */
+  .btn-primary {
+    @apply btn;
+    color: #04140b;
+    background: linear-gradient(135deg, #34d399 0%, var(--emerald) 55%, var(--emerald-deep) 100%);
+    box-shadow: 0 6px 24px -6px var(--emerald-glow), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+  .btn-primary:hover {
+    box-shadow: 0 8px 32px -4px var(--emerald-glow), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    transform: translateY(-2px);
+  }
+
   /* زر شبح — خفيف على الزجاج */
   .btn-ghost {
     @apply btn;
@@ -283,6 +295,26 @@
   .input-field:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  /* ═══ أسماء بديلة تستخدمها شاشات الأدمن والتحكيم ═══
+     كانت مستخدمة في الماركب دون تعريف، فظهرت الحقول والأزرار بشكل
+     المتصفح الافتراضي. تُربط هنا بنفس عناصر نظام التصميم. */
+  .ai-input {
+    @apply input-field;
+  }
+
+  .command-button {
+    @apply btn-ember;
+  }
+
+  /* الحاويات تمرر ألوانها الخاصة كـ utilities، وهي تتقدم على طبقة
+     components، فتبقى هذه القاعدة أساساً يمكن تجاوزه. */
+  .card {
+    @apply relative rounded-2xl border backdrop-blur-xl;
+    background: linear-gradient(160deg, rgba(7, 28, 20, 0.8) 0%, rgba(4, 20, 14, 0.7) 55%, rgba(2, 11, 14, 0.85) 100%);
+    border-color: rgba(16, 185, 129, 0.18);
+    box-shadow: 0 16px 40px -18px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   /* ═══ الشارات (Badges) ═══ */

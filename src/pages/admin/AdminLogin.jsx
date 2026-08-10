@@ -83,8 +83,9 @@ const AdminLogin = () => {
                     type="text"
                     value={form.username}
                     onChange={(e) => setForm({ ...form, username: e.target.value })}
-                    className="ai-input text-right transition-all duration-300 focus:border-primary/50"
+                    className="ai-input text-right"
                     placeholder="admin"
+                    autoComplete="username"
                     required
                   />
                 </div>
@@ -95,8 +96,9 @@ const AdminLogin = () => {
                     type="password"
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    className="ai-input text-right transition-all duration-300 focus:border-primary/50"
+                    className="ai-input text-right"
                     placeholder="••••••••"
+                    autoComplete="current-password"
                     required
                   />
                 </div>
@@ -124,7 +126,7 @@ const AdminLogin = () => {
               </form>
 
               <div className="mt-6 pt-5 border-t border-white/[0.06] flex items-center justify-center">
-                <Link to="/" className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-primary transition-colors">
+                <Link to="/" className="flex items-center gap-1.5 text-sm text-slate-400 transition-colors hover:text-amber-400">
                   <ArrowRight size={14} />
                   العودة للرئيسية
                 </Link>
@@ -135,8 +137,8 @@ const AdminLogin = () => {
             <section className="relative hidden md:block overflow-hidden min-h-[400px] order-1 md:order-2">
               <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 via-slate-900 to-slate-950" />
               <div className="relative flex h-full flex-col justify-end p-8 text-right z-10">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/20 border border-primary/30 px-3 py-1 text-xs font-bold text-white mb-3 self-start">
-                  <BrainCircuit size={14} className="text-primary-light" />
+                <span className="mb-3 inline-flex items-center gap-1.5 self-start rounded-full border border-amber-500/30 bg-amber-500/20 px-3 py-1 text-xs font-bold text-white">
+                  <BrainCircuit size={14} className="text-amber-300" />
                   منصة القيادة
                 </span>
                 <h2 className="text-3xl font-bold text-white mb-2">تحكم كامل وسجل شفاف</h2>

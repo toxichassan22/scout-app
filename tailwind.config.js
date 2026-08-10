@@ -25,6 +25,15 @@ export default {
           DEFAULT: 'var(--fern)',
         },
         danger: 'var(--danger)',
+        // Referenced across the admin screens but never defined, so those
+        // utilities emitted nothing. Declared as channels rather than
+        // var(--hex) so opacity modifiers such as bg-primary/10 resolve.
+        primary: {
+          DEFAULT: 'rgb(16 185 129 / <alpha-value>)',
+          light: 'rgb(52 211 153 / <alpha-value>)',
+          dark: 'rgb(4 120 87 / <alpha-value>)',
+        },
+        surface: 'rgb(7 28 20 / <alpha-value>)',
       },
       fontFamily: {
         sans: ['Cairo', 'system-ui', 'sans-serif'],
