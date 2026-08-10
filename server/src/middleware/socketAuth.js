@@ -1,6 +1,7 @@
 import prisma from '../db.js';
-import { verifyAuthenticatedUser } from './auth.js';
+import { verifyAuthenticatedUser, isSessionRevoked } from './auth.js';
 import { LEADERBOARD_ROOM } from '../realtime.js';
+import logger from '../logger.js';
 
 const configuredRecheckMs = Number(process.env.SOCKET_AUTH_RECHECK_MS);
 const SOCKET_AUTH_RECHECK_MS = Number.isFinite(configuredRecheckMs) && configuredRecheckMs > 0
@@ -21,7 +22,12 @@ export const authenticateSocket = async (socket, next) => {
         socket.user = { ...user, token };
         next();
     } catch (error) {
-        next(new Error('Invalid or expired authentication token'));
+        if (isSessionRevoked(error)) return next(new Error('Invalid or expired authentication token'));
+        // The client discards its token when it is told the token is invalid, so a
+        // failed check must not say that. Report it as temporary and let socket.io
+        // retry with the token still attached.
+        logger.warn({ error }, 'socket authentication check unavailable; asking the client to retry');
+        next(new Error('Session check unavailable, retrying'));
     }
 };
 
@@ -34,7 +40,15 @@ export function startSocketRevocationMonitor(socket) {
         checking = true;
         try {
             await verifyAuthenticatedUser(socket.user.token);
-        } catch {
+        } catch (error) {
+            // Only a genuinely revoked session may end it. A failed check — the
+            // database being momentarily unavailable during a deploy, say — used to
+            // reach this branch and disconnect every live client at once, kicking
+            // teams and judges out mid-event. Retry on the next tick instead.
+            if (!isSessionRevoked(error)) {
+                logger.warn({ error, role: socket.user.role }, 'socket session re-check failed; keeping the session');
+                return;
+            }
             socket.emit('force-logout', { reason: 'Session expired or revoked' });
             socket.disconnect(true);
         } finally {

@@ -91,6 +91,10 @@ try {
     ]);
 
     await run(process.execPath, [
+        path.join(scriptDirectory, 'unit-sessionRevocation.mjs')
+    ]);
+
+    await run(process.execPath, [
         path.join(scriptDirectory, 'integration-permissions.mjs')
     ]);
 

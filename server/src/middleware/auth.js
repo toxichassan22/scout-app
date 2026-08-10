@@ -3,6 +3,18 @@ import prisma from '../db.js';
 import { JWT_SECRET } from '../security.js';
 import logger from '../logger.js';
 const modelByRole = { team: 'team', judge: 'judge', admin: 'admin' };
+const REVOCATION_REASONS = new Set(['invalid_claims', 'revoked', 'device_required', 'device_revoked']);
+
+/**
+ * True only when the session is genuinely no longer valid. Anything else — a
+ * database that is briefly unavailable during a restart, for example — means the
+ * check could not be completed and the session must be left alone.
+ */
+export function isSessionRevoked(error) {
+  return error?.name === 'JsonWebTokenError'
+    || error?.name === 'TokenExpiredError'
+    || REVOCATION_REASONS.has(error?.message);
+}
 
 export async function verifyAuthenticatedUser(token) {
   const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
@@ -28,7 +40,7 @@ export const authenticateToken = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' || ['invalid_claims', 'revoked', 'device_required', 'device_revoked'].includes(error.message)) {
+    if (isSessionRevoked(error)) {
       return res.status(401).json({ error: 'الجلسة غير صالحة أو تم إلغاؤها', forceLogout: true, deviceRevoked: error.message === 'device_revoked' });
     }
     logger.error({ error }, '[Auth] Database verification failed');
