@@ -35,6 +35,10 @@ function writeEnvLines(lines) {
     fs.writeFileSync(envPath, lines.join('\n') + '\n');
 }
 
+function readEnvValue(lines, key) {
+    return lines.find(l => l.startsWith(`${key}=`))?.slice(key.length + 1)?.trim() || '';
+}
+
 function upsertEnv(lines, key, value, comment = null) {
     const prefix = comment ? `# ${comment}` : null;
     const line = `${key}=${value}`;
@@ -86,5 +90,24 @@ upsertEnv(lines, 'FRONTEND_URL', `https://${PUBLIC_DOMAIN}`);
 upsertEnv(lines, 'TRUST_PROXY', process.env.TRUST_PROXY || '1');
 
 console.log(`[ensure-env] CORS_ORIGINS set to ${corsOrigins}`);
+
+// AI chat credentials. The deploy pipeline may supply these from repository
+// secrets; when it does not, whatever is already deployed is preserved so a
+// normal deploy never wipes a working token. The token is never logged.
+const aiChatUrl = process.env.AI_CHAT_URL
+    || readEnvValue(lines, 'AI_CHAT_URL')
+    || 'https://opencode.ai/zen/v1/chat/completions';
+const aiChatModel = process.env.AI_CHAT_MODEL
+    || readEnvValue(lines, 'AI_CHAT_MODEL')
+    || 'mimo-v2.5-free';
+const aiChatToken = process.env.AI_CHAT_TOKEN || readEnvValue(lines, 'AI_CHAT_TOKEN');
+
+upsertEnv(lines, 'AI_CHAT_URL', aiChatUrl, 'OpenAI-compatible chat endpoint; chat returns 503 while the token is empty.');
+upsertEnv(lines, 'AI_CHAT_MODEL', aiChatModel);
+upsertEnv(lines, 'AI_CHAT_TOKEN', aiChatToken);
+
+console.log(aiChatToken
+    ? `[ensure-env] AI chat configured (model ${aiChatModel}).`
+    : '[ensure-env] AI chat token missing; the assistant will report that it is not enabled.');
 
 writeEnvLines(lines);
