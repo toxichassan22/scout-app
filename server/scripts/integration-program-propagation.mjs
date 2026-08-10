@@ -65,8 +65,9 @@ try {
 
   let storedCompetition = await prisma.competition.findUnique({ where: { id: competition.id } });
   assert.equal(storedCompetition.name, 'اسم البرنامج الأول', 'agenda name should synchronize to competition');
-  assert.equal(storedCompetition.startsAt.getHours(), 10, 'agenda start should synchronize to competition');
-  assert.equal(storedCompetition.endsAt.getHours(), 12, 'agenda end should synchronize to competition');
+  // The festival schedule is +03:00; CI runs in UTC, so compare UTC hours.
+  assert.equal(storedCompetition.startsAt.getUTCHours(), 7, 'agenda start should synchronize to competition');
+  assert.equal(storedCompetition.endsAt.getUTCHours(), 9, 'agenda end should synchronize to competition');
 
   const publicAgenda = await request(base, '/agenda', { token });
   const publicItem = publicAgenda.body.agenda.find(item => item.id === agenda.id);
