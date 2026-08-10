@@ -435,6 +435,35 @@ const Program = () => {
             </div>
           )}
 
+          {/* Keep the zone selector outside the map/list grid. On desktop this gives it
+              the full content width, so the sticky map can never cover it. */}
+          <div
+            className="program-zone-scroll mb-2 min-w-0 w-full overflow-x-auto overscroll-x-contain pb-2 touch-pan-x"
+            dir="rtl"
+            role="tablist"
+            aria-label="اختيار منطقة البرنامج"
+          >
+            <div className="flex w-max min-w-full gap-2">
+              <button type="button" onClick={() => handleZoneFilter('all')} aria-selected={selectedZone === 'all'}
+                className={`shrink-0 rounded-2xl border px-4 py-2.5 text-xs font-black transition-all ${selectedZone === 'all'
+                  ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
+                  : 'border-white/10 bg-slate-900/60 text-slate-400 hover:text-white'
+                  }`}>
+                كل البرنامج ({competitionAgenda.length})
+              </button>
+              {data.zones.map((zone) => (
+                <button key={zone.id} type="button" onClick={() => handleZoneFilter(zone.id)} aria-selected={selectedZone === zone.id}
+                  className={`flex shrink-0 items-center gap-2 rounded-2xl border px-4 py-2.5 text-xs font-black transition-all ${selectedZone === zone.id
+                    ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
+                    : 'border-white/10 bg-slate-900/60 text-slate-400 hover:text-white'
+                    }`}>
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: zone.colorHex || '#38bdf8' }} />
+                  {zone.name} ({zone.numberLabel})
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid gap-8 lg:grid-cols-12 items-start" style={{ direction: 'ltr' }}>
             <div className="lg:col-span-5 lg:sticky lg:top-20 space-y-4" dir="rtl">
               <div className="overflow-hidden rounded-3xl border border-cyan-500/30 bg-[#02131a] shadow-2xl">
@@ -443,32 +472,6 @@ const Program = () => {
             </div>
 
             <div className={`min-w-0 lg:col-span-7 space-y-6 transition-opacity duration-300 ${calibrating ? 'opacity-25 pointer-events-none select-none' : ''}`} dir="rtl">
-              <div
-                className="min-w-0 w-full overflow-x-auto overscroll-x-contain scrollbar-none pb-2 touch-pan-x"
-                dir="rtl"
-                style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
-              >
-                <div className="flex w-max min-w-full gap-2">
-                  <button type="button" onClick={() => handleZoneFilter('all')}
-                    className={`shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black transition-all border ${selectedZone === 'all'
-                      ? 'border border-cyan-400 bg-cyan-500/20 text-cyan-200'
-                      : 'border border-white/10 bg-slate-900/60 text-slate-400 hover:text-white'
-                      }`}>
-                    كل البرنامج ({competitionAgenda.length})
-                  </button>
-                  {data.zones.map((zone) => (
-                    <button key={zone.id} type="button" onClick={() => handleZoneFilter(zone.id)}
-                      className={`flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-black transition-all border ${selectedZone === zone.id
-                        ? 'border border-cyan-400 bg-cyan-500/20 text-cyan-200'
-                        : 'border border-white/10 bg-slate-900/60 text-slate-400 hover:text-white'
-                        }`}>
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: zone.colorHex || '#38bdf8' }} />
-                      {zone.name} ({zone.numberLabel})
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {loading ? (
                 <LoadingSpinner label="جاري تحميل برنامج المهرجان..." />
               ) : filteredCompetitions.length === 0 ? (

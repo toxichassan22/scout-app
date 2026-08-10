@@ -297,6 +297,23 @@
     cursor: not-allowed;
   }
 
+  /* Program zone tabs stay visible and independently scrollable on desktop. */
+  .program-zone-scroll {
+    scrollbar-color: rgba(56, 189, 248, 0.75) rgba(2, 19, 26, 0.75);
+    scrollbar-width: thin;
+  }
+  .program-zone-scroll::-webkit-scrollbar {
+    height: 7px;
+  }
+  .program-zone-scroll::-webkit-scrollbar-track {
+    background: rgba(2, 19, 26, 0.75);
+    border-radius: 999px;
+  }
+  .program-zone-scroll::-webkit-scrollbar-thumb {
+    background: rgba(56, 189, 248, 0.75);
+    border-radius: 999px;
+  }
+
   /* ═══ أسماء بديلة تستخدمها شاشات الأدمن والتحكيم ═══
      كانت مستخدمة في الماركب دون تعريف، فظهرت الحقول والأزرار بشكل
      المتصفح الافتراضي. تُربط هنا بنفس عناصر نظام التصميم. */
