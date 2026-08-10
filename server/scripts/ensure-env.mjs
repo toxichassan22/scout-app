@@ -143,10 +143,12 @@ if (!githubBackupReady) {
         .map(([, alias]) => alias);
     console.warn('[ensure-env] WARNING: no private repo backup configured; finalised scores exist only on this server.');
     console.warn(`[ensure-env] not supplied: ${absent.join(', ')} — add them as repository secrets or variables.`);
-} else if (process.env.NODE_ENV === 'production' && !readEnvValue(lines, 'GITHUB_BACKUP_ENCRYPTION_KEY')) {
-    // syncGithubBackup refuses to run in production without this, so a repo that
-    // looks configured would still never receive a backup.
-    console.warn('[ensure-env] WARNING: BACKUP_ENCRYPTION_KEY is missing; production backups will refuse to run.');
+} else if (!readEnvValue(lines, 'GITHUB_BACKUP_ENCRYPTION_KEY')) {
+    // This script always writes NODE_ENV=production, so the server always ends up in
+    // the mode where syncGithubBackup refuses to run without an encryption key. The
+    // check must not read process.env.NODE_ENV: this runs over SSH where it is unset,
+    // which is how the condition silently never fired.
+    console.warn('[ensure-env] WARNING: BACKUP_ENCRYPTION_KEY is missing; the repo looks configured but every backup will refuse to run.');
 }
 
 writeEnvLines(lines);
