@@ -3,7 +3,7 @@ import prisma, { databaseReady } from '../src/db.js';
 import { OFFICIAL_AGENDA, OFFICIAL_AGENDA_IDS, OFFICIAL_ZONES } from '../src/agendaCanonical.js';
 
 const SYNC_KEY = 'official_agenda_version';
-const SYNC_VERSION = '20260810-program-v3-catalog';
+const SYNC_VERSION = '20260810-program-v4-catalog-criteria';
 const explicitlyAllowed = process.env.SYNC_OFFICIAL_AGENDA === 'true';
 const festivalDate = process.env.FESTIVAL_DATE || '2026-08-21';
 
@@ -33,6 +33,91 @@ const autoDigitalIds = new Set(['comp-digital-1', 'comp-digital-2', 'comp-digita
 const standaloneCompetitions = [
   { id: 'comp-digital-1', name: 'مسابقة عبقرينو', slug: 'genius', type: 'auto_digital', description: 'مسابقة معرفية من بنك الأسئلة.', details: 'مسابقة رقمية تلقائية.' },
 ];
+const criteriaById = {
+  'comp-digital-1': [{ key: 'score', label: 'الدرجة الصحيحة', maxScore: 50 }],
+  'comp-digital-2': [{ key: 'score', label: 'الدرجة الصحيحة', maxScore: 50 }],
+  'comp-digital-3': [{ key: 'score', label: 'الدرجة الصحيحة', maxScore: 50 }],
+  'comp-video-1': [
+    { key: 'creativity', label: 'الابتكار والفكرة', maxScore: 30 },
+    { key: 'editing', label: 'جودة المونتاج والإخراج', maxScore: 40 },
+    { key: 'sound', label: 'الهندسة الصوتية والمؤثرات', maxScore: 30 },
+  ],
+  'comp-report-5': [
+    { key: 'memorization', label: 'حسن الحفظ والتثبت', maxScore: 50 },
+    { key: 'tajweed', label: 'التجويد والأداء الصوتي', maxScore: 30 },
+    { key: 'confidence', label: 'الثقة والأداء أمام اللجنة', maxScore: 20 },
+  ],
+  'comp-report-6': [
+    { key: 'memorization', label: 'حسن الحفظ', maxScore: 50 },
+    { key: 'understanding', label: 'فهم المعنى والشرح', maxScore: 30 },
+    { key: 'presentation', label: 'الأداء والثقة', maxScore: 20 },
+  ],
+  'comp-report-8': [
+    { key: 'design', label: 'التصميم والجاذبية البصرية', maxScore: 40 },
+    { key: 'message', label: 'وضوح الرسالة والفكرة', maxScore: 30 },
+    { key: 'creativity', label: 'الإبداع والتنفيذ', maxScore: 30 },
+  ],
+  'comp-report-9': [
+    { key: 'mastery', label: 'إتقان العقد بشكل صحيح', maxScore: 50 },
+    { key: 'speed', label: 'السرعة والمهارة', maxScore: 25 },
+    { key: 'usage', label: 'معرفة الاستخدامات العملية', maxScore: 25 },
+  ],
+  'comp-report-10': [
+    { key: 'output', label: 'جودة المخرج الفني', maxScore: 40 },
+    { key: 'teamwork', label: 'التعاون الجماعي', maxScore: 30 },
+    { key: 'documentation', label: 'توثيق خطوات الورشة', maxScore: 30 },
+  ],
+  'comp-report-11': [
+    { key: 'model', label: 'جودة النموذج والتنفيذ', maxScore: 40 },
+    { key: 'idea', label: 'فكرة النموذج والفائدة', maxScore: 30 },
+    { key: 'presentation', label: 'جودة العرض والشرح', maxScore: 30 },
+  ],
+  'comp-report-12': [
+    { key: 'ideas', label: 'جودة الأفكار والإبداع', maxScore: 40 },
+    { key: 'research', label: 'عمق البحث والمصادر', maxScore: 30 },
+    { key: 'presentation', label: 'جودة العرض والتنفيذ', maxScore: 30 },
+  ],
+  'comp-report-13': [
+    { key: 'content', label: 'محتوى الورقة والقيمة التربوية', maxScore: 40 },
+    { key: 'design', label: 'تصميم الورقة وتنظيمها', maxScore: 30 },
+    { key: 'applicability', label: 'قابلية التطبيق في الفترة الكشفية', maxScore: 30 },
+  ],
+  'comp-report-15': [
+    { key: 'participation', label: 'مستوى المشاركة والتنظيم', maxScore: 40 },
+    { key: 'creativity', label: 'الإبداع في العرض', maxScore: 30 },
+    { key: 'impact', label: 'التأثير والتفاعل', maxScore: 30 },
+  ],
+  'comp-report-17': [
+    { key: 'content', label: 'جودة المحتوى والشرح', maxScore: 40 },
+    { key: 'presentation', label: 'جودة العرض التقديمي', maxScore: 30 },
+    { key: 'engagement', label: 'التفاعل وإيصال الفكرة', maxScore: 30 },
+  ],
+  'comp-report-18': [
+    { key: 'content', label: 'تنوع وجودة المحتوى', maxScore: 40 },
+    { key: 'design', label: 'التصميم والتنسيق', maxScore: 30 },
+    { key: 'creativity', label: 'الإبداع في العرض', maxScore: 30 },
+  ],
+  'comp-report-19': [
+    { key: 'innovation', label: 'الفكرة والابتكار', maxScore: 40 },
+    { key: 'execution', label: 'التنفيذ والعملية', maxScore: 30 },
+    { key: 'presentation', label: 'جودة العرض والشرح', maxScore: 30 },
+  ],
+  'comp-report-21': [
+    { key: 'humor', label: 'الفكاهة والإبداع', maxScore: 40 },
+    { key: 'message', label: 'وضوح الرسالة الكشفية', maxScore: 30 },
+    { key: 'performance', label: 'الأداء والتمثيل', maxScore: 30 },
+  ],
+  'comp-report-23': [
+    { key: 'recitation', label: 'جودة التلاوة والتجويد', maxScore: 50 },
+    { key: 'voice', label: 'الأداء الصوتي والخشوع', maxScore: 30 },
+    { key: 'presence', label: 'الحضور والثقة', maxScore: 20 },
+  ],
+  'comp-report-24': [
+    { key: 'participation', label: 'مستوى المشاركة', maxScore: 40 },
+    { key: 'performance', label: 'جودة الأداء الفني', maxScore: 30 },
+    { key: 'teamwork', label: 'التعاون والروح الجماعية', maxScore: 30 },
+  ],
+};
 
 const toFestivalDateTime = time => time ? new Date(`${festivalDate}T${String(time).slice(0, 5)}:00+03:00`) : null;
 const scheduleCompetitionId = item => item.competitionId || `comp-schedule-${item.id.replace(/^agenda-official-/, '')}`;
@@ -59,8 +144,11 @@ try {
       await tx.competition.upsert({
         where: { id: base.id },
         update: { name: base.name },
-        create: { ...base, isOpen: false, duration: 900, questionCount: 50, criteria: JSON.stringify([{ key: 'score', label: 'الدرجة الصحيحة', maxScore: 50 }]) },
+        create: { ...base, isOpen: false, duration: 900, questionCount: 50, criteria: JSON.stringify(criteriaById[base.id] || []) },
       });
+      if (criteriaById[base.id]) {
+        await tx.competition.updateMany({ where: { id: base.id, criteria: '[]' }, data: { criteria: JSON.stringify(criteriaById[base.id]) } });
+      }
     }
 
     for (const item of OFFICIAL_AGENDA) {
@@ -87,9 +175,12 @@ try {
           endsAt: toFestivalDateTime(item.endTime),
           duration: null,
           questionCount: 0,
-          criteria: '[]',
+          criteria: JSON.stringify(criteriaById[competitionId] || []),
         },
       });
+      if (criteriaById[competitionId]) {
+        await tx.competition.updateMany({ where: { id: competitionId, criteria: '[]' }, data: { criteria: JSON.stringify(criteriaById[competitionId]) } });
+      }
 
       await tx.agendaItem.upsert({
         where: { id: item.id },
