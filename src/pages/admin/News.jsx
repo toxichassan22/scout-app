@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Newspaper, Pencil, Send, Trash2, X } from 'lucide-react';
 import { deleteNews, getAdminTeams, getNews, publishNews, updateNews } from '../../services/api';
+import AdminBackLink from '../../components/AdminBackLink';
 
 const CATEGORIES = [{ id: 'general', label: 'عام 📢' }, { id: 'lost_found', label: 'مفقودات 🔍' }, { id: 'urgent', label: 'عاجل 🚨' }, { id: 'scoring', label: 'التقييم 🏆' }];
 const empty = { title: '', body: '', photoUrl: '', category: 'general', targetTeamIds: [] };
@@ -15,7 +16,7 @@ const AdminNews = () => {
   const edit = n => { setEditing(n.id); setForm({ title: n.title, body: n.body, photoUrl: n.photoUrl || '', category: n.category || 'general', targetTeamIds: Array.isArray(n.targetTeamIds) ? n.targetTeamIds : [] }) };
   const submit = async e => { e.preventDefault(); setSubmitting(true); try { editing ? await updateNews(editing, form) : await publishNews(form); reset(); await load() } catch (err) { alert(err.message) } finally { setSubmitting(false) } };
   const remove = async id => { if (!confirm('حذف الخبر؟')) return; try { await deleteNews(id); await load() } catch (e) { alert(e.message) } };
-  return <div className="p-6 text-right dir-rtl text-white"><header className="mb-8"><h1 className="text-2xl font-black flex gap-2">الأخبار الموجهة <Newspaper className="text-sky-400" /></h1><p className="text-xs text-slate-400">إنشاء وتعديل وحذف الأخبار العامة أو المخصصة لفرق بعينها</p></header>
+  return <div className="p-6 text-right dir-rtl text-white"><AdminBackLink /><header className="mb-8"><h1 className="text-2xl font-black flex gap-2">الأخبار الموجهة <Newspaper className="text-sky-400" /></h1><p className="text-xs text-slate-400">إنشاء وتعديل وحذف الأخبار العامة أو المخصصة لفرق بعينها</p></header>
     <div className="grid lg:grid-cols-3 gap-6"><form onSubmit={submit} className="card p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3">
       <div className="flex justify-between"><button type="button" onClick={reset}><X size={18} /></button><h2 className="font-black">{editing ? 'تعديل الخبر' : 'خبر جديد'}</h2></div>
       <select className="ai-input bg-slate-950" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>{CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}</select>

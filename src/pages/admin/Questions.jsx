@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ChevronLeft, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useCompetitions } from '../../context/CompetitionContext';
+import AdminBackLink from '../../components/AdminBackLink';
 
 const emptyTwoTruths = {
   question: '',
@@ -52,12 +52,9 @@ const AdminQuestions = () => {
   return (
     <main className="app-shell p-4 sm:p-6">
       <div className="mx-auto max-w-5xl">
+        <AdminBackLink />
         <header className="mb-8 flex items-center justify-between">
-          <Link to="/admin/dashboard" className="flex items-center gap-2 text-gray-500">
-            العودة
-            <ChevronLeft size={18} />
-          </Link>
-          <h1 className="text-2xl font-black">إدارة الأسئلة</h1>
+          <h1 className="text-2xl font-black text-white">إدارة الأسئلة</h1>
         </header>
 
         <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl bg-white p-2 shadow-sm">

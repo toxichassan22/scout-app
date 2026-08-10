@@ -5,6 +5,7 @@ import {
   getReportPermissions, updateReportPermission
 } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
+import AdminBackLink from '../../components/AdminBackLink';
 
 const dateInput = (value) => value ? new Date(value).toISOString().slice(0, 16) : '';
 
@@ -52,6 +53,7 @@ const AdminReports = () => {
   };
 
   return <div className="p-6 text-right dir-rtl text-white">
+    <AdminBackLink />
     <div className="flex items-center justify-between mb-8">
       <button onClick={fetchData} className="p-2 rounded-xl bg-slate-800 text-sky-400"><RefreshCw size={18} /></button>
       <div><h1 className="text-2xl font-black flex gap-2">إدارة تقارير الفرق <FileText className="text-emerald-400" /></h1><p className="text-xs text-slate-400 mt-1">الصلاحيات والمواعيد وإعادة فتح التسليم لكل فريق ومسابقة</p></div>

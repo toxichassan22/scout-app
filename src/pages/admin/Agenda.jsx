@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Plus, Trash2, Edit3, Clock, MapPin, Sparkles, CheckCircle2, X, Play, Square } from 'lucide-react';
 import { getAgenda, addAgendaItem, deleteAgendaItem, updateAgendaItem, agendaAction } from '../../services/api';
+import AdminBackLink from '../../components/AdminBackLink';
 
 const TYPE_OPTIONS = [
   { value: 'ceremony', label: 'احتفالية / مراسم 🎖️' },
@@ -127,6 +128,8 @@ const AdminAgenda = () => {
   return (
     <main className="app-shell dir-rtl min-h-screen p-4 sm:p-6 text-right">
       <div className="mx-auto max-w-6xl space-y-8">
+
+        <AdminBackLink />
 
         {/* Header */}
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Edit3, Lock, Save, ShieldCheck, Trophy, Unlock } from 'lucide-react';
 import { getScoreBreakdown, lockScore, unlockScore, updateScoreOverride } from '../../services/api';
+import AdminBackLink from '../../components/AdminBackLink';
 
 const json = value => { try { return typeof value === 'string' ? JSON.parse(value || '{}') : value || {}; } catch { return {}; } };
 const AdminScoring = () => {
@@ -10,7 +11,7 @@ const AdminScoring = () => {
   const unlock = async s => { const why = prompt('اكتب سبب فتح القفل (يسجل في سجل التدقيق):', 'تصحيح إداري'); if (!why) return; try { await unlockScore(s.id, why); await load() } catch (e) { alert(e.message) } };
   const begin = s => { setEditing(s.id); setTotal(s.total); setValues(JSON.stringify(json(s.values), null, 2)); setReason('') };
   const save = async s => { if (!reason.trim()) return alert('سبب التصحيح مطلوب'); let parsed; try { parsed = JSON.parse(values) } catch { return alert('قيم المعايير JSON غير صحيحة') } try { await updateScoreOverride(s.id, { total: Number(total), values: parsed, reason }); setEditing(null); await load() } catch (e) { alert(e.message) } };
-  return <div className="p-6 text-right dir-rtl text-white"><header className="mb-8"><h1 className="text-2xl font-black flex gap-2">الدرجات والقفل وسجل التدقيق <Trophy className="text-amber-400" /></h1><p className="text-xs text-slate-400">لا يمكن التصحيح إلا بعد فتح صريح بسبب، ثم تعاد النتيجة إلى الحالة النهائية تلقائياً</p></header>
+  return <div className="p-6 text-right dir-rtl text-white"><AdminBackLink /><header className="mb-8"><h1 className="text-2xl font-black flex gap-2">الدرجات والقفل وسجل التدقيق <Trophy className="text-amber-400" /></h1><p className="text-xs text-slate-400">لا يمكن التصحيح إلا بعد فتح صريح بسبب، ثم تعاد النتيجة إلى الحالة النهائية تلقائياً</p></header>
     {loading ? <p className="py-16 text-center text-slate-500">جاري التحميل...</p> : <div className="space-y-4">{scores.map(s => <article key={s.id} className="card p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
       <div className="flex flex-wrap justify-between gap-3 border-b border-slate-800 pb-3"><div className="flex gap-2"><span className={`px-2 py-1 rounded text-xs ${s.isFinal ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'}`}>{s.isFinal ? <><Lock size={12} className="inline" /> نهائي مقفل</> : <><Unlock size={12} className="inline" /> مفتوح للتصحيح</>}</span><b className="text-emerald-400">{s.total} نقطة</b></div><h2 className="font-black">{s.team?.label} • {s.competition?.name}</h2></div>
       <div className="grid md:grid-cols-2 gap-4 mt-4"><div><h3 className="text-xs text-slate-400 mb-2">المحكم وقيم المعايير</h3>{s.judgeScores?.map(j => <div key={j.id} className="p-3 bg-slate-950 rounded-xl text-xs mb-2"><b className="text-sky-400">{j.judge?.name || 'محكم'} — {j.total}</b><div className="flex flex-wrap gap-2 mt-2">{Object.entries(json(j.values)).map(([k, v]) => <span key={k} className="bg-slate-800 px-2 py-1 rounded">{k}: {v}</span>)}</div></div>)}</div>

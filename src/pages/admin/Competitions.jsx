@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ChevronLeft, Plus, Save, ToggleLeft, ToggleRight, Trophy } from 'lucide-react';
+import { Plus, Save, ToggleLeft, ToggleRight, Trophy } from 'lucide-react';
 import { createCompetition, getAdminCompetitions, updateCompetition } from '../../services/api';
+import AdminBackLink from '../../components/AdminBackLink';
 import { QRCodeCanvas } from 'qrcode.react';
 
 const parseCriteria = value => {
@@ -69,7 +69,7 @@ const AdminCompetitions = () => {
   return (
     <main className="app-shell p-4 text-white sm:p-6 dir-rtl">
       <div className="mx-auto max-w-6xl">
-        <header className="mb-7 flex justify-between"><Link to="/admin/dashboard" className="flex gap-1 text-slate-400">العودة <ChevronLeft size={18} /></Link><h1 className="flex gap-2 text-2xl font-black">إدارة المسابقات <Trophy className="text-amber-400" /></h1></header>
+        <AdminBackLink /><header className="mb-7 flex justify-between"><h1 className="flex gap-2 text-2xl font-black">إدارة المسابقات <Trophy className="text-amber-400" /></h1></header>
         <form onSubmit={add} className="mb-6 grid gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 md:grid-cols-4">
           <input className="ai-input" placeholder="اسم المسابقة" value={creating.name} onChange={event => setCreating({ ...creating, name: event.target.value })} required />
           <input className="ai-input font-mono" placeholder="slug مثل genius" value={creating.slug} onChange={event => setCreating({ ...creating, slug: event.target.value })} required />

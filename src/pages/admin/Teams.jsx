@@ -6,6 +6,7 @@ import {
   getTeamDevices, revokeTeamDevice
 } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
+import AdminBackLink from '../../components/AdminBackLink';
 
 const AdminTeams = () => {
   const [teams, setTeams] = useState([]);
@@ -233,6 +234,7 @@ const AdminTeams = () => {
 
   return (
     <div className="p-6 text-right dir-rtl font-sans">
+      <AdminBackLink />
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-black text-white flex items-center gap-2">
