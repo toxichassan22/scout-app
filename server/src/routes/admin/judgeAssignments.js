@@ -43,7 +43,23 @@ const judgeAssignmentSchema = { params: { judgeId: zId('المحكم') }, body: 
 router.post('/judges/:judgeId/assignments', validate(judgeAssignmentSchema), async (req, res) => {
   try {
     const { competitionId } = req.body;
-    const row = await prisma.judgeCompetition.upsert({ where: { judgeId_competitionId: { judgeId: req.params.judgeId, competitionId } }, create: { judgeId: req.params.judgeId, competitionId }, update: {} });
+    const { judgeId } = req.params;
+    // A competition belongs to exactly one judge. Without this check a second judge
+    // can unlock the passcode and fill in a whole sheet, only to be rejected on
+    // submit by the unique score constraint on (competitionId, teamId).
+    const currentOwner = await prisma.judgeCompetition.findFirst({
+      where: { competitionId, judgeId: { not: judgeId } },
+      select: { judge: { select: { name: true } } },
+    });
+    if (currentOwner) {
+      return res.status(409).json({
+        success: false,
+        error: `هذه المسابقة مكلّف بها المحكم "${currentOwner.judge?.name || 'آخر'}" بالفعل؛ أزل تكليفه أولاً`,
+        requestId: req.requestId,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    const row = await prisma.judgeCompetition.upsert({ where: { judgeId_competitionId: { judgeId, competitionId } }, create: { judgeId, competitionId }, update: {} });
     res.status(201).json(row);
   } catch (err) {
     req.log.error({ err }, 'admin assign judge failed');
