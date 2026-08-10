@@ -23,7 +23,10 @@ router.get('/teams', async (req, res) => {
       [teams, total] = await Promise.all([
         prisma.team.findMany({
           orderBy: { createdAt: 'desc' },
-          select: { ...safeTeamSelect, _count: { select: { members: true, devices: true } } },
+          select: {
+            ...safeTeamSelect,
+            _count: { select: { members: true, devices: { where: { revokedAt: null } } } },
+          },
           skip,
           take: limit,
         }),
@@ -109,7 +112,9 @@ router.get('/teams/:teamId/devices', validate({ params: { teamId: zId('الفر�
   try {
     const { teamId } = req.params;
     const { page, limit, skip } = parsePagination(req.query);
-    const where = { teamId };
+    // Revoked rows are retained so a removed device can re-register later, but they
+    // are not active registrations and must not consume a team's device quota.
+    const where = { teamId, revokedAt: null };
     const [devices, total] = await Promise.all([
       prisma.teamDevice.findMany({ where, orderBy: { lastLoginAt: 'desc' }, skip, take: limit }),
       prisma.teamDevice.count({ where }),
@@ -121,7 +126,7 @@ router.get('/teams/:teamId/devices', validate({ params: { teamId: zId('الفر�
   }
 });
 
-// Revoke (delete) a device — frees a slot for a new device
+// Revoke a device — frees its slot and allows the same browser to re-register later
 router.delete('/devices/:deviceId', validate({ params: { deviceId: zId('الجهاز') } }), async (req, res) => {
   try {
     const { deviceId } = req.params;

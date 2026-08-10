@@ -90,7 +90,11 @@ export const AuthProvider = ({ children }) => {
     const handleDeviceRevoked = (data) => {
       const myDeviceId = localStorage.getItem('dsc_device_id');
       if (user.role === 'team' && myDeviceId) {
-        if (data.fingerprint === myDeviceId || data.teamId === user.id) {
+        // The event is broadcast to the team's room so the server can reach the
+        // target socket, but teamId is shared by every device. Only the fingerprint
+        // identifies the device that was actually revoked; checking teamId here used
+        // to log the whole team out when the admin removed one phone.
+        if (data.fingerprint === myDeviceId) {
           forceLogout('device revoked by admin');
         }
       }

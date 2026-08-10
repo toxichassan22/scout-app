@@ -51,9 +51,28 @@ router.post('/team/login', validate(loginSchema), async (req, res) => {
     if (!team || !(await bcrypt.compare(password, team.passwordHash))) return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
 
     let created = false;
+    let reactivated = false;
     const device = await prisma.$transaction(async tx => {
       const current = await tx.teamDevice.findUnique({ where: { teamId_deviceId: { teamId: team.id, deviceId } } });
-      if (current?.revokedAt) throw Object.assign(new Error('revoked'), { status: 401 });
+      if (current?.revokedAt) {
+        // Revocation frees a slot but does not permanently blacklist the browser. If
+        // the same device returns and a slot is available, reactivate it as a fresh
+        // registration and ask for the person's identity again.
+        const activeCount = await tx.teamDevice.count({ where: { teamId: team.id, revokedAt: null } });
+        if (activeCount >= team.maxDevices) throw Object.assign(new Error('limit'), { status: 403 });
+        reactivated = true;
+        return tx.teamDevice.update({
+          where: { id: current.id },
+          data: {
+            revokedAt: null,
+            tokenVersion: { increment: 1 },
+            displayName: '',
+            role: '',
+            lastLoginAt: new Date(),
+            userAgent,
+          },
+        });
+      }
       if (current) return tx.teamDevice.update({ where: { id: current.id }, data: { lastLoginAt: new Date(), userAgent } });
       // A device seen for the first time has no person attached to it yet; the client
       // blocks on the identity form until deviceName and deviceRole come back filled.
@@ -63,7 +82,7 @@ router.post('/team/login', validate(loginSchema), async (req, res) => {
       return tx.teamDevice.create({ data: { teamId: team.id, deviceId, userAgent } });
     });
 
-    if (created) req.io?.emit('device:registered', { teamId: team.id, username: team.username });
+    if (created || reactivated) req.io?.emit('device:registered', { teamId: team.id, username: team.username, deviceId, reactivated });
     const token = signToken({ id: team.id, username: team.username, role: 'team', label: team.label, deviceId, deviceName: device.displayName || '', deviceRole: device.role || '', deviceVersion: device.tokenVersion, authVersion: team.authVersion });
     res.json({ token, user: { id: team.id, username: team.username, role: 'team', label: team.label, deviceName: device.displayName || '', deviceRole: device.role || '' } });
   } catch (err) {
