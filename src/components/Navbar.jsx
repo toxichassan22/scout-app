@@ -10,7 +10,9 @@ const NAV_ITEMS = [
   { path: '/activities', icon: Sparkles, label: 'الأنشطة', color: '#f59e0b', angle: -90 },
   { path: '/news', icon: Newspaper, label: 'الأخبار', color: '#a855f7', angle: -55 },
   { path: '/profile', icon: User, label: 'حسابي', color: '#ec4899', angle: -20 },
-  { path: '/ai-chat', icon: MessageCircle, label: 'شات AI', color: '#22d3ee', angle: -5 },
+  // Keep the final two items at the same 35° spacing as the rest of the arc;
+  // 15° put حسابي and شات AI only 15° apart and their 44px buttons overlapped.
+  { path: '/ai-chat', icon: MessageCircle, label: 'شات AI', color: '#22d3ee', angle: 15 },
 ];
 
 export const Navbar = memo(function Navbar() {
