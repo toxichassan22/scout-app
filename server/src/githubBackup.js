@@ -67,14 +67,39 @@ async function githubRequest(url, options = {}, tolerate = [404]) {
   return { response, body };
 }
 
-async function putFile(relativePath, buffer, message) {
+function plaintextDigest(buffer) {
+  return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
+/**
+ * Previous run's plaintext digests, read from the manifest already stored in the
+ * repository. Keeping them remote means a rebuilt server still knows what is there.
+ * Returns the manifest's blob sha too, so writing it back costs no extra request.
+ */
+async function readRemoteManifest() {
+  const url = apiUrl(`${rootPath}/manifest.json`);
+  const { response, body } = await githubRequest(`${url}?ref=${encodeURIComponent(branch)}`, {}, [404, 409]);
+  if (!response.ok || !body?.content) return { digests: {}, sha: undefined };
+  try {
+    const parsed = JSON.parse(Buffer.from(body.content, 'base64').toString('utf8'));
+    return { digests: parsed?.digests && typeof parsed.digests === 'object' ? parsed.digests : {}, sha: body.sha };
+  } catch {
+    return { digests: {}, sha: body.sha };
+  }
+}
+
+async function putFile(relativePath, buffer, message, knownSha) {
   const url = apiUrl(`${rootPath}/${relativePath}`);
-  // A repository with no commits yet answers 409 "Git Repository is empty" here, and
-  // a path that simply does not exist answers 404. Both mean "create it", so neither
-  // may abort the backup. The write below stays strict.
-  const existing = await githubRequest(`${url}?ref=${encodeURIComponent(branch)}`, {}, [404, 409]);
+  let sha = knownSha;
+  if (sha === undefined) {
+    // A repository with no commits yet answers 409 "Git Repository is empty" here, and
+    // a path that simply does not exist answers 404. Both mean "create it", so neither
+    // may abort the backup. The write below stays strict.
+    const existing = await githubRequest(`${url}?ref=${encodeURIComponent(branch)}`, {}, [404, 409]);
+    sha = existing.response.ok && existing.body.sha ? existing.body.sha : undefined;
+  }
   const payload = { message, content: buffer.toString('base64'), branch };
-  if (existing.response.ok && existing.body.sha) payload.sha = existing.body.sha;
+  if (sha) payload.sha = sha;
   // No tolerated statuses on the write: a 404 here means the repository or the token
   // is wrong, and treating that as success would report a backup that never happened.
   const result = await githubRequest(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, []);
@@ -88,13 +113,29 @@ export async function syncGithubBackup({ reason = 'scheduled' } = {}) {
   running = true;
   try {
     const databasePath = resolveDatabasePath();
-    const database = await fs.readFile(databasePath);
     const uploadDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'uploads');
-    const files = [{ relative: 'database/dev.db.enc', buffer: encryptedBuffer(database) }];
+
+    // Digests are taken over the plaintext, never the ciphertext: encryptedBuffer uses
+    // a fresh random IV each run, so identical content encrypts to different bytes and
+    // would always look changed.
+    const entries = [{ relative: 'database/dev.db.enc', plain: await fs.readFile(databasePath) }];
     for (const file of await walk(uploadDirectory)) {
       if (/\.(?:mp4|mov|webm)$/i.test(file.relative)) continue;
-      files.push({ relative: `uploads/${file.relative}.enc`, buffer: encryptedBuffer(await fs.readFile(file.absolute)) });
+      entries.push({ relative: `uploads/${file.relative}.enc`, plain: await fs.readFile(file.absolute) });
     }
+
+    // Re-uploading every file on every run cost about two API requests per file. At one
+    // run every few minutes, plus one per finalised score, that approached GitHub's
+    // hourly limit — so backups would start failing during the busiest part of an event.
+    const previous = await readRemoteManifest();
+    const digests = {};
+    const changed = [];
+    for (const entry of entries) {
+      const digest = plaintextDigest(entry.plain);
+      digests[entry.relative] = digest;
+      if (previous.digests[entry.relative] !== digest) changed.push(entry);
+    }
+
     const generatedAt = new Date().toISOString();
     const manifest = {
       format: 'scout-private-backup-v1',
@@ -102,11 +143,25 @@ export async function syncGithubBackup({ reason = 'scheduled' } = {}) {
       reason,
       encrypted: Boolean(encryptionSecret),
       database: 'database/dev.db.enc',
-      files: files.map(file => ({ path: file.relative, bytes: file.buffer.length })),
+      files: entries.map(entry => ({ path: entry.relative, bytes: entry.plain.length })),
+      digests,
     };
-    for (const file of files) await putFile(file.relative, file.buffer, `backup: ${reason} ${generatedAt}`);
-    await putFile('manifest.json', Buffer.from(JSON.stringify(manifest, null, 2), 'utf8'), `backup manifest: ${reason} ${generatedAt}`);
-    return { success: true, generatedAt, files: files.length, encrypted: Boolean(encryptionSecret), repository: repo };
+
+    for (const entry of changed) {
+      await putFile(entry.relative, encryptedBuffer(entry.plain), `backup: ${reason} ${generatedAt}`);
+    }
+    // Always written, even when nothing changed: it is the record that a backup ran.
+    await putFile('manifest.json', Buffer.from(JSON.stringify(manifest, null, 2), 'utf8'), `backup manifest: ${reason} ${generatedAt}`, previous.sha);
+
+    return {
+      success: true,
+      generatedAt,
+      files: entries.length,
+      uploaded: changed.length,
+      unchanged: entries.length - changed.length,
+      encrypted: Boolean(encryptionSecret),
+      repository: repo,
+    };
   } finally {
     running = false;
   }
