@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 
-process.env.AI_PROVIDER_RPM = '6000';
-process.env.AI_PROVIDER_MIN_INTERVAL_MS = '10';
+process.env.AI_CHAT_TOKEN_POOL = 'key-a,key-b,key-c';
+process.env.AI_KEY_RPM = '6000';
+process.env.AI_GLOBAL_RPM = '6000';
+process.env.AI_KEY_MIN_INTERVAL_MS = '5';
+process.env.AI_GLOBAL_MIN_INTERVAL_MS = '5';
+process.env.AI_POOL_CONCURRENCY = '3';
 process.env.AI_MAX_QUEUE = '4';
 process.env.AI_PROVIDER_TIMEOUT_MS = '5000';
 process.env.AI_RESPONSE_CACHE_TTL_MS = '1000';
@@ -11,12 +15,14 @@ const realFetch = globalThis.fetch;
 let calls = 0;
 let active = 0;
 let maxActive = 0;
+const usedKeys = new Set();
 
-globalThis.fetch = async () => {
+globalThis.fetch = async (_url, options = {}) => {
   calls += 1;
+  usedKeys.add(options.headers?.Authorization || '');
   active += 1;
   maxActive = Math.max(maxActive, active);
-  await new Promise(resolve => setTimeout(resolve, 5));
+  await new Promise(resolve => setTimeout(resolve, 30));
   active -= 1;
   return new Response(JSON.stringify({ choices: [{ message: { content: 'إجابة الاختبار' } }] }), { status: 200 });
 };
@@ -40,7 +46,8 @@ try {
     festivalContext: 'schedule-v1', messages: [{ role: 'user', content: question }],
   })));
   assert.equal(results.length, 3);
-  assert.equal(maxActive, 1, 'provider requests must be serialized through the queue');
+  assert.ok(maxActive > 1, 'pool keys should allow safe concurrent provider requests');
+  assert.equal(usedKeys.size, 3, 'three concurrent requests should be distributed across three keys');
   assert.equal(calls, 4, 'only uncached questions reach the provider');
 
   globalThis.fetch = async () => new Response(JSON.stringify({ message: 'rate' }), { status: 429, headers: { 'Retry-After': '7' } });
@@ -50,7 +57,7 @@ try {
     'provider rate-limit responses must preserve status and retry-after',
   );
 
-  console.log('AI gateway unit tests passed: cache, serialized queue, and provider 429 handling');
+  console.log('AI gateway unit tests passed: cache, key pool distribution, concurrency, and provider 429 handling');
 } finally {
   globalThis.fetch = realFetch;
 }

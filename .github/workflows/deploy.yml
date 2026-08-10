@@ -62,6 +62,7 @@ jobs:
           INITIAL_ADMIN_PASSWORD: ${{ secrets.INITIAL_ADMIN_PASSWORD }}
           # Empty values are ignored by ensure-env.mjs, which keeps the deployed token.
           AI_CHAT_TOKEN: ${{ secrets.AI_CHAT_TOKEN }}
+          AI_CHAT_TOKEN_POOL: ${{ secrets.AI_CHAT_TOKEN_POOL || vars.AI_CHAT_TOKEN_POOL }}
           AI_CHAT_URL: ${{ vars.AI_CHAT_URL }}
           AI_CHAT_MODEL: ${{ vars.AI_CHAT_MODEL }}
           # Off-box backups. Unset values keep whatever the server already has.
@@ -83,7 +84,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
-          envs: BOOTSTRAP_ADMIN,INITIAL_ADMIN_USERNAME,INITIAL_ADMIN_PASSWORD,AI_CHAT_TOKEN,AI_CHAT_URL,AI_CHAT_MODEL,BACKUP_REPO_TOKEN,BACKUP_ENCRYPTION_KEY,BACKUP_REPO,BACKUP_REPO_BRANCH,BACKUP_REPO_PATH,GDRIVE_WEBHOOK_URL,GDRIVE_WEBHOOK_BEARER_TOKEN,GDRIVE_WEBHOOK_SIGNING_SECRET
+          envs: BOOTSTRAP_ADMIN,INITIAL_ADMIN_USERNAME,INITIAL_ADMIN_PASSWORD,AI_CHAT_TOKEN,AI_CHAT_TOKEN_POOL,AI_CHAT_URL,AI_CHAT_MODEL,BACKUP_REPO_TOKEN,BACKUP_ENCRYPTION_KEY,BACKUP_REPO,BACKUP_REPO_BRANCH,BACKUP_REPO_PATH,GDRIVE_WEBHOOK_URL,GDRIVE_WEBHOOK_BEARER_TOKEN,GDRIVE_WEBHOOK_SIGNING_SECRET
           script: |
             export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin
             chmod +x /var/www/scout-app/deploy.sh

@@ -101,13 +101,15 @@ const aiChatModel = process.env.AI_CHAT_MODEL
     || readEnvValue(lines, 'AI_CHAT_MODEL')
     || 'mimo-v2.5-free';
 const aiChatToken = process.env.AI_CHAT_TOKEN || readEnvValue(lines, 'AI_CHAT_TOKEN');
+const aiChatTokenPool = process.env.AI_CHAT_TOKEN_POOL || readEnvValue(lines, 'AI_CHAT_TOKEN_POOL');
 
 upsertEnv(lines, 'AI_CHAT_URL', aiChatUrl, 'OpenAI-compatible chat endpoint; chat returns 503 while the token is empty.');
 upsertEnv(lines, 'AI_CHAT_MODEL', aiChatModel);
 upsertEnv(lines, 'AI_CHAT_TOKEN', aiChatToken);
+upsertEnv(lines, 'AI_CHAT_TOKEN_POOL', aiChatTokenPool);
 
-console.log(aiChatToken
-    ? `[ensure-env] AI chat configured (model ${aiChatModel}).`
+console.log(aiChatToken || aiChatTokenPool
+    ? `[ensure-env] AI chat configured (model ${aiChatModel}, keys ${aiChatTokenPool ? aiChatTokenPool.split(/[\s,]+/).filter(Boolean).length : 1}).`
     : '[ensure-env] AI chat token missing; the assistant will report that it is not enabled.');
 
 // Off-box backup credentials. Same rule as the chat token: a deploy that does not

@@ -27,8 +27,9 @@ const chatSchema = {
 router.post('/chat', aiUserRateLimiter, validate(chatSchema), async (req, res) => {
   const url = String(process.env.AI_CHAT_URL || '').trim();
   const token = String(process.env.AI_CHAT_TOKEN || '').trim();
+  const tokenPool = String(process.env.AI_CHAT_TOKEN_POOL || '').trim();
   const model = String(process.env.AI_CHAT_MODEL || 'scout-assistant').trim();
-  if (!url || !token) return res.status(503).json({ error: 'مساعد الذكاء الاصطناعي غير مفعل بعد', code: 'AI_NOT_CONFIGURED' });
+  if (!url || (!token && !tokenPool)) return res.status(503).json({ error: 'مساعد الذكاء الاصطناعي غير مفعل بعد', code: 'AI_NOT_CONFIGURED' });
 
   // Keep enough history for follow-up questions without sending the whole chat on
   // every request. This reduces provider latency and token usage substantially.
