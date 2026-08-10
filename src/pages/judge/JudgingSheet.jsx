@@ -4,7 +4,7 @@ import {
   CheckCircle2, AlertCircle, Save, ArrowRight, ShieldCheck, Award,
   FileText, ExternalLink, Eye, X, FileCheck, Layers
 } from 'lucide-react';
-import { getJudgeTeams, submitJudgeScore } from '../../services/api';
+import { getJudgeTeams, submitJudgeScore, fetchReportFile } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
 
 const JudgingSheet = () => {
@@ -21,6 +21,12 @@ const JudgingSheet = () => {
   const [message, setMessage] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [reportFileUrl, setReportFileUrl] = useState('');
+  const [reportFileError, setReportFileError] = useState('');
+
+  // Teams keep their finalised rows in the API response; the sheet only lists
+  // the ones still awaiting a score so a judged team disappears from the table.
+  const pendingTeams = teams.filter(t => !t.isFinal);
 
   useEffect(() => {
     if (!competition) {
@@ -62,6 +68,33 @@ const JudgingSheet = () => {
       setLoading(false);
     }
   };
+
+  // Uploaded files are not served statically; fetch them through the authorised
+  // download route and expose the result as a temporary object URL.
+  useEffect(() => {
+    const reportId = showReportModal ? selectedTeam?.report?.id : null;
+    if (!reportId) return;
+
+    let objectUrl = '';
+    let cancelled = false;
+    setReportFileError('');
+
+    fetchReportFile(reportId)
+      .then(blob => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setReportFileUrl(objectUrl);
+      })
+      .catch(err => {
+        if (!cancelled) setReportFileError(err.message || 'تعذر تحميل ملف التقرير');
+      });
+
+    return () => {
+      cancelled = true;
+      setReportFileUrl('');
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [showReportModal, selectedTeam?.report?.id]);
 
   const selectTeam = (team) => {
     if (team.isFinal) return;
@@ -137,35 +170,33 @@ const JudgingSheet = () => {
         {/* Teams Sidebar */}
         <div className="card p-4 rounded-2xl border border-slate-800 bg-slate-900/40 text-right">
           <h2 className="text-sm font-bold text-slate-400 mb-3 border-b border-slate-800 pb-2">
-            قائمة الفرق ({teams.length})
+            الفرق في انتظار التقييم ({pendingTeams.length})
           </h2>
 
           {loading ? (
             <div className="py-8 text-center text-xs text-slate-500">جاري تحميل الفرق...</div>
           ) : (
             <div className="space-y-2 max-h-[70vh] overflow-y-auto">
-              {teams.map((t) => (
+              {pendingTeams.length === 0 ? (
+                <div className="py-8 text-center text-xs text-emerald-400">
+                  تم تقييم كل الفرق في هذه المسابقة
+                </div>
+              ) : pendingTeams.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => selectTeam(t)}
-                  disabled={t.isFinal}
-                  className={`w-full text-right p-3 rounded-xl border text-xs font-bold transition flex items-center justify-between ${t.isFinal ? 'border-slate-800 bg-slate-950/60 text-slate-600 cursor-not-allowed opacity-60' : selectedTeam?.id === t.id
+                  className={`w-full text-right p-3 rounded-xl border text-xs font-bold transition flex items-center justify-between ${selectedTeam?.id === t.id
                       ? 'border-amber-500/50 bg-amber-500/10 text-amber-300'
                       : 'border-slate-800 bg-slate-900/50 text-slate-300 hover:border-slate-700'
                     }`}
                 >
                   <div className="flex items-center gap-2 truncate">
-                    {t.isFinal ? (
-                      <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
-                    ) : (
-                      <AlertCircle size={15} className="text-amber-500 shrink-0" />
-                    )}
+                    <AlertCircle size={15} className="text-amber-500 shrink-0" />
                     <span className="truncate">{t.label}</span>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {t.isFinal && <span className="text-[9px] text-emerald-400">معتمد نهائياً</span>}
-                    {!t.isFinal && t.report && (
+                    {t.report && (
                       <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] px-1.5 py-0.5 rounded font-mono">
                         📄 تقرير
                       </span>
@@ -311,18 +342,27 @@ const JudgingSheet = () => {
                 <div>
                   <span className="text-xs text-slate-400 font-bold block mb-2">الملف المرفق من الفريق:</span>
 
-                  {/* PDF or Image Viewer Embed */}
-                  {selectedTeam.report.fileUrl.endsWith('.pdf') ? (
+                  {/* PDF or Image Viewer Embed (served through the authorised download route) */}
+                  {reportFileError ? (
+                    <p className="text-xs font-bold text-red-400 bg-red-500/10 p-3 rounded-xl border border-red-500/20 text-center">
+                      {reportFileError}
+                    </p>
+                  ) : !reportFileUrl ? (
+                    <p className="text-xs text-slate-500 bg-slate-950 p-3 rounded-xl border border-slate-800 text-center">
+                      جاري تحميل الملف المرفق...
+                    </p>
+                  ) : selectedTeam.report.fileUrl.endsWith('.pdf') ? (
                     <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950 h-80">
                       <iframe
-                        src={selectedTeam.report.fileUrl}
+                        src={reportFileUrl}
                         title="PDF Viewer"
                         className="w-full h-full border-0"
                       />
                     </div>
                   ) : (
                     <a
-                      href={selectedTeam.report.fileUrl}
+                      href={reportFileUrl}
+                      download={selectedTeam.report.fileName || 'report'}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-black transition w-full justify-center"

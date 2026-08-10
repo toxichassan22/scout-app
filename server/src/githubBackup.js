@@ -10,7 +10,11 @@ const branch = String(process.env.GITHUB_BACKUP_BRANCH || 'main').trim();
 const rootPath = String(process.env.GITHUB_BACKUP_PATH || 'scout-data').replace(/^\/+|\/+$/g, '');
 const encryptionSecret = String(process.env.GITHUB_BACKUP_ENCRYPTION_KEY || '').trim();
 const intervalMs = Math.max(60_000, Number(process.env.GITHUB_BACKUP_INTERVAL_MS) || 300_000);
+// A full sync re-uploads the database plus every stored upload, so event-driven
+// backups are coalesced into one run instead of firing per event.
+const debounceMs = Math.max(5_000, Number(process.env.GITHUB_BACKUP_DEBOUNCE_MS) || 30_000);
 let timer;
+let debounceTimer;
 let running = false;
 
 function configured() {
@@ -99,6 +103,19 @@ export async function syncGithubBackup({ reason = 'scheduled' } = {}) {
   }
 }
 
+// Request a backup after a meaningful change (e.g. a finalised score). Repeated
+// calls inside the debounce window collapse into a single sync; failures are
+// swallowed so the caller's request is never affected.
+export function requestGithubBackup({ reason = 'event' } = {}) {
+  if (!configured() || debounceTimer) return false;
+  debounceTimer = setTimeout(() => {
+    debounceTimer = undefined;
+    syncGithubBackup({ reason }).catch(() => {});
+  }, debounceMs);
+  debounceTimer.unref?.();
+  return true;
+}
+
 export function startGithubBackupWorker() {
   if (!configured() || timer) return timer;
   timer = setInterval(() => syncGithubBackup({ reason: 'scheduled' }).catch(() => {}), intervalMs);
@@ -109,6 +126,8 @@ export function startGithubBackupWorker() {
 export function stopGithubBackupWorker() {
   if (timer) clearInterval(timer);
   timer = undefined;
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = undefined;
 }
 
 export function isGithubBackupConfigured() {

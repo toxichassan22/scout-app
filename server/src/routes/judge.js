@@ -6,6 +6,7 @@ import { enforceNotFrozen } from '../freeze.js';
 import { getAnonymousLeaderboard, clearLeaderboardCache } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { recalculateTeamStanding } from '../teamStanding.js';
+import { requestGithubBackup } from '../githubBackup.js';
 import { idempotent } from '../middleware/idempotent.js';
 import { validate, zString, zId, zNumber } from '../middleware/validate.js';
 import { z } from 'zod';
@@ -120,7 +121,7 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
           where: { competitionId },
           orderBy: { uploadedAt: 'desc' },
           take: 1,
-          select: { id: true, competitionId: true, title: true, content: true, fileUrl: true, uploadedAt: true }
+          select: { id: true, competitionId: true, title: true, content: true, fileUrl: true, fileName: true, uploadedAt: true }
         }
       }
       }),
@@ -143,6 +144,7 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
           title: compReport.title,
           content: compReport.content,
           fileUrl: compReport.fileUrl,
+          fileName: compReport.fileName,
           createdAt: compReport.uploadedAt
         } : null
       };
@@ -202,6 +204,8 @@ router.post('/scores', enforceNotFrozen, validate(scoreSchema), idempotent('judg
     clearLeaderboardCache();
     await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
     req.io?.to('admin').emit('admin:score:new', { scoreRecord, teamId, competitionId });
+    // Persist the finalised score off-box without blocking the judge's response.
+    requestGithubBackup({ reason: 'judge-score-finalised' });
 
     res.json({ success: true, score: scoreRecord });
   } catch (err) {

@@ -200,6 +200,16 @@ export const getJudgeTeams = async (competitionId) => unwrapList(await apiFetch(
 export const submitJudgeScore = (data) =>
   apiFetch('/judge/scores', { method: 'POST', body: JSON.stringify(data) });
 
+// Report files are never served statically; they must go through the authorised download route.
+export const fetchReportFile = async (reportId) => {
+  const token = getAuthToken();
+  const res = await fetch(`${API_URL}/reports/${reportId}/download`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error('تعذر تحميل ملف التقرير');
+  return res.blob();
+};
+
 // Admin API calls
 export const getAdminLeaderboard = () =>
   apiFetch('/admin/leaderboard');
