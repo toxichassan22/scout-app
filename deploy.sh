@@ -63,8 +63,9 @@ if [ "${ALLOW_PRODUCTION_SEED:-}" = "I_UNDERSTAND_THIS_MODIFIES_DATA" ]; then
   npm --prefix server run seed
 fi
 
-if [ "${BOOTSTRAP_ADMIN:-false}" = true ]; then
-  printf '%s\n' 'Running one-time admin bootstrap...'
+# true ensures an account exists and is safe to leave on; reset replaces the password.
+if [ "${BOOTSTRAP_ADMIN:-false}" = true ] || [ "${BOOTSTRAP_ADMIN:-false}" = reset ]; then
+  printf '%s\n' "Running admin bootstrap (mode: ${BOOTSTRAP_ADMIN})..."
   (cd server && npm run admin:bootstrap)
 fi
 
