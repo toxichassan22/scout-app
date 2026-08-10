@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  # Allows redeploying the current main without an empty commit, which is needed
+  # after changing a repository secret or variable since those are only read at run time.
+  workflow_dispatch:
 
 jobs:
   test:
