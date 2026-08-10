@@ -138,8 +138,17 @@ const Program = () => {
   }, {});
   Object.keys(periodLabels).forEach(period => {
     const range = periodLabels[period];
-    periodLabels[period] = `${periodNames[period] || period}${range.start && range.end ? ` · ${range.start} - ${range.end}` : ''}`;
+    periodLabels[period] = {
+      name: periodNames[period] || period,
+      start: range.start,
+      end: range.end,
+    };
   });
+  const renderPeriodLabel = period => {
+    const label = periodLabels[period];
+    if (!label) return period;
+    return <><span>{label.name}</span>{label.start && label.end && <span dir="ltr"> · {label.start} - {label.end}</span>}</>;
+  };
   const statusMeta = {
     upcoming: { label: 'قريبًا · مقفول', cls: 'border-slate-600/50 bg-slate-800/60 text-slate-400', icon: Lock },
     active: { label: 'مفتوح الآن', cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300', icon: CheckCheck },
@@ -337,7 +346,7 @@ const Program = () => {
               const showPeriod = index === 0 || filteredCompetitions[index - 1]?.period !== item.period;
               return (
                 <React.Fragment key={item.id}>
-                  {showPeriod && <h2 className="pt-3 text-xs font-black text-cyan-300">{periodLabels[item.period] || item.period}</h2>}
+                  {showPeriod && <h2 className="pt-3 text-xs font-black text-cyan-300">{renderPeriodLabel(item.period)}</h2>}
                   <motion.article
                     onClick={() => setSelectedItem(item)}
                     initial={{ opacity: 0, y: 10 }}
@@ -476,7 +485,7 @@ const Program = () => {
                       <React.Fragment key={item.id}>
                         {showPeriod && (
                           <h2 className="relative -mr-4 rounded-xl border border-cyan-500/20 bg-cyan-950/30 px-4 py-2 text-sm font-black text-cyan-200">
-                            {periodLabels[item.period] || item.period}
+                            {renderPeriodLabel(item.period)}
                           </h2>
                         )}
                         <motion.article

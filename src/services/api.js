@@ -167,8 +167,10 @@ export const getLeaderboard = async () => unwrapList(await apiFetch('/leaderboar
 
 export const getNews = async () => unwrapList(await apiFetch('/news'));
 
+// The program screen is a complete daily schedule; request the full page rather than
+// the generic API default of 20 items.
 export const getAgenda = () =>
-  apiFetch('/agenda');
+  apiFetch('/agenda?limit=100');
 
 export const unwrapList = (payload) => (Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : []);
 
