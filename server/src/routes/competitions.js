@@ -74,7 +74,7 @@ const publicCompetition = (comp, myScore = null, videoAttemptCount) => ({
 router.get('/', authenticateToken, requireRole(['team', 'admin']), async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
-    const where = {};
+    const where = req.user.role === 'team' ? { type: { not: 'schedule_only' } } : {};
     const [comps, total] = await Promise.all([
       prisma.competition.findMany({
         where,
@@ -112,6 +112,7 @@ router.post('/:idOrSlug/scan', authenticateToken, requireRole(['team']), validat
   try {
     const competition = await prisma.competition.findFirst({ where: { OR: [{ id: req.params.idOrSlug }, { slug: req.params.idOrSlug }] } });
     if (!competition) return res.status(404).json({ error: 'المسابقة غير موجودة' });
+    if (competition.type === 'schedule_only') return res.status(400).json({ error: 'هذه فعالية زمنية وليست مسابقة دخول' });
     if (competition.requiresQr && String(req.body.qrCode).trim() !== String(competition.qrCode || '').trim()) return res.status(403).json({ error: 'QR غير تابع لهذه المسابقة' });
     await prisma.competitionAccess.upsert({
       where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } },
@@ -139,6 +140,7 @@ router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforc
     if (!competition) {
       return res.status(404).json({ error: 'المسابقة غير موجودة' });
     }
+    if (competition.type === 'schedule_only') return res.status(400).json({ error: 'هذه فعالية زمنية وليست مسابقة دخول' });
     const state = getCompetitionState(competition);
     if (state !== 'active') {
       return res.status(400).json({ error: state === 'scheduled' ? 'المسابقة لم تبدأ بعد' : 'المسابقة مغلقة حالياً', state });
@@ -223,6 +225,7 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
     if (!competition) {
       return res.status(404).json({ error: 'المسابقة غير موجودة' });
     }
+    if (competition.type === 'schedule_only') return res.status(400).json({ error: 'هذه فعالية زمنية وليست مسابقة دخول' });
     const state = getCompetitionState(competition);
     if (state === 'closed') return res.status(400).json({ error: 'المسابقة مغلقة حالياً', state });
     if (state === 'scheduled') return res.status(400).json({ error: 'المسابقة لم تبدأ بعد', state });

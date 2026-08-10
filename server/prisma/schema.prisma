@@ -83,7 +83,7 @@ model Competition {
   id                 String   @id @default(uuid())
   name               String
   slug               String   @unique // two_truths | genius | geography | video | custom
-  type               String // auto_digital | manual_judged
+  type               String // auto_digital | manual_judged | schedule_only
   description        String   @default("")
   details            String   @default("")
   isOpen             Boolean  @default(false)

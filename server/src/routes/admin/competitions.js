@@ -39,7 +39,7 @@ router.post('/competitions', validate(competitionCreateSchema), async (req, res)
     const cleanName = boundedString(name, 'name', { min: 1, max: 200 });
     const cleanSlug = boundedString(slug, 'slug', { min: 1, max: 100 });
     const cleanType = type === undefined ? 'auto_digital' : String(type);
-    if (!['auto_digital', 'manual_judged'].includes(cleanType)) return res.status(400).json({ error: 'نوع المسابقة غير صالح' });
+    if (!['auto_digital', 'manual_judged', 'schedule_only'].includes(cleanType)) return res.status(400).json({ error: 'نوع المسابقة غير صالح' });
     const comp = await prisma.competition.create({
       data: {
         name: cleanName,
@@ -91,6 +91,7 @@ const competitionUpdateSchema = {
 router.patch('/competitions/:id', validate(competitionUpdateSchema), async (req, res) => {
   try {
     const { isOpen, slug, name, description, details, type, criteria, duration, questionCount, startsAt, endsAt, qrCode, requiresQr, leaderboardVisible, entryCode, passcode, custom, revoke } = req.body;
+    if (type !== undefined && !['auto_digital', 'manual_judged', 'schedule_only'].includes(String(type))) return res.status(400).json({ error: 'نوع المسابقة غير صالح' });
     const data = {
       ...(isOpen !== undefined && { isOpen: Boolean(isOpen) }),
       ...(slug !== undefined && { slug: String(slug).trim() }),
