@@ -117,11 +117,29 @@ const Program = () => {
   };
 
   const agendaItems = data.agenda || [];
-  const periodLabels = {
-    before: 'قبل الفترة الأولى', 'period-1': 'الفترة الأولى · 10:30 - 12:00',
-    'period-2': 'الفترة الثانية · 12:00 - 13:00', 'period-3': 'الفترة الثالثة · 14:00 - 16:00',
-    'period-4': 'الفترة الرابعة · 16:00 - 17:30', closing: 'الختام · 17:30 - 18:30'
+  // Period labels are derived from the live agenda. If an admin changes a time,
+  // the heading changes with it instead of keeping a stale hardcoded range.
+  const periodNames = {
+    before: 'قبل الفترة الأولى',
+    'period-1': 'الفترة الأولى',
+    'period-2': 'الفترة الثانية',
+    'period-3': 'الفترة الثالثة',
+    'period-4': 'الفترة الرابعة',
+    closing: 'الختام',
   };
+  const periodLabels = agendaItems.reduce((labels, item) => {
+    const current = labels[item.period];
+    if (!current) labels[item.period] = { start: item.startTime, end: item.endTime };
+    else {
+      labels[item.period].start = [labels[item.period].start, item.startTime].filter(Boolean).sort()[0] || labels[item.period].start;
+      labels[item.period].end = [labels[item.period].end, item.endTime].filter(Boolean).sort().at(-1) || labels[item.period].end;
+    }
+    return labels;
+  }, {});
+  Object.keys(periodLabels).forEach(period => {
+    const range = periodLabels[period];
+    periodLabels[period] = `${periodNames[period] || period}${range.start && range.end ? ` · ${range.start} - ${range.end}` : ''}`;
+  });
   const statusMeta = {
     upcoming: { label: 'قريبًا · مقفول', cls: 'border-slate-600/50 bg-slate-800/60 text-slate-400', icon: Lock },
     active: { label: 'مفتوح الآن', cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300', icon: CheckCheck },
@@ -338,9 +356,9 @@ const Program = () => {
                         <h3 className="text-sm font-bold text-white truncate">{item.title}</h3>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {item.zone && (
-                          <span className="flex max-w-[9rem] items-center gap-0.5 truncate text-[10px] font-bold text-cyan-300">
-                            <MapPin size={10} className="shrink-0" />{item.zone.name}
+                        {(item.locationLabel || item.zone) && (
+                          <span className="flex max-w-[12rem] items-center gap-0.5 truncate text-[10px] font-bold text-cyan-300">
+                            <MapPin size={10} className="shrink-0" />{item.locationLabel || item.zone.name}
                           </span>
                         )}
                         <span className="flex items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-mono font-black text-amber-300">
@@ -487,10 +505,10 @@ const Program = () => {
                             </div>
                           </div>
                           {item.description && <p className="text-xs leading-6 text-slate-300 mb-3">{item.description}</p>}
-                          {item.zone && (
+                          {(item.locationLabel || item.zone) && (
                             <div className="flex items-center justify-between border-t border-slate-800/80 pt-3 text-xs font-bold text-slate-400">
                               <span className="flex items-center gap-1.5 text-cyan-300">
-                                <MapPin size={14} /> {item.zone.name}
+                                <MapPin size={14} /> {item.locationLabel || item.zone.name}
                               </span>
                               <span className="text-[10px] font-mono text-slate-500">انقر لإظهار الموقع</span>
                             </div>

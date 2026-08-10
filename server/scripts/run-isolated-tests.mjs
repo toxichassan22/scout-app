@@ -115,6 +115,10 @@ try {
     ]);
 
     await run(process.execPath, [
+        path.join(scriptDirectory, 'integration-program-propagation.mjs')
+    ]);
+
+    await run(process.execPath, [
         path.join(scriptDirectory, 'integration-security.mjs')
     ]);
 

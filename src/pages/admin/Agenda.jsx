@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Plus, Trash2, Edit3, Clock, MapPin, Sparkles, CheckCircle2, X, Play, Square } from 'lucide-react';
-import { getAgenda, addAgendaItem, deleteAgendaItem, updateAgendaItem, agendaAction } from '../../services/api';
+import { getAgenda, addAgendaItem, deleteAgendaItem, updateAgendaItem, agendaAction, getAdminCompetitions } from '../../services/api';
 import AdminBackLink from '../../components/AdminBackLink';
 
 const TYPE_OPTIONS = [
@@ -12,6 +12,9 @@ const TYPE_OPTIONS = [
 const AdminAgenda = () => {
   const [zones, setZones] = useState([]);
   const [agenda, setAgenda] = useState([]);
+  const [competitions, setCompetitions] = useState([]);
+  const [competitionId, setCompetitionId] = useState('');
+  const [locationNote, setLocationNote] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -30,9 +33,10 @@ const AdminAgenda = () => {
 
   const fetchAgenda = async () => {
     try {
-      const res = await getAgenda();
+      const [res, competitionRows] = await Promise.all([getAgenda(), getAdminCompetitions()]);
       setZones(res.zones || []);
       setAgenda(res.agenda || []);
+      setCompetitions(competitionRows || []);
       if (res.zones && res.zones.length > 0 && !zoneId) {
         setZoneId(res.zones[0].id);
       }
@@ -48,6 +52,8 @@ const AdminAgenda = () => {
     setTitle(item.title || '');
     setType(item.type || 'competition');
     setZoneId(item.zoneId || (zones[0]?.id || ''));
+    setCompetitionId(item.competitionId || '');
+    setLocationNote(item.locationNote || '');
     setStartTime(item.startTime || '');
     setEndTime(item.endTime || '');
     setDescription(item.description || '');
@@ -58,6 +64,8 @@ const AdminAgenda = () => {
     setEditingId(null);
     setTitle('');
     setType('competition');
+    setCompetitionId('');
+    setLocationNote('');
     setStartTime('');
     setEndTime('');
     setDescription('');
@@ -75,6 +83,8 @@ const AdminAgenda = () => {
           title,
           type,
           zoneId,
+          competitionId: competitionId || null,
+          locationNote,
           startTime,
           endTime,
           description
@@ -86,6 +96,8 @@ const AdminAgenda = () => {
           title,
           type,
           zoneId,
+          competitionId: competitionId || null,
+          locationNote,
           startTime,
           endTime,
           description
@@ -93,6 +105,8 @@ const AdminAgenda = () => {
         setSuccessMsg('تمت إضافة الفعالية بنجاح إلى جدول المهرجان!');
         setTitle('');
         setDescription('');
+        setCompetitionId('');
+        setLocationNote('');
         setStartTime('');
         setEndTime('');
       }
@@ -223,6 +237,30 @@ const AdminAgenda = () => {
               </div>
 
               <div>
+                <label className="block text-xs font-bold text-slate-400 mb-1">المسابقة المرتبطة</label>
+                <select
+                  value={competitionId}
+                  onChange={(e) => setCompetitionId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                >
+                  <option value="">فعالية عامة / بدون مسابقة</option>
+                  {competitions.map((competition) => (
+                    <option key={competition.id} value={competition.id}>{competition.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-400 mb-1">ملاحظة المكان</label>
+                <input
+                  value={locationNote}
+                  onChange={(e) => setLocationNote(e.target.value)}
+                  placeholder="مثال: الدور الثالث أو المكان يحدد لاحقاً"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                />
+              </div>
+
+              <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">من وقت *</label>
                 <input
                   type="text"
@@ -302,10 +340,13 @@ const AdminAgenda = () => {
                     {item.description && (
                       <p className="text-xs leading-6 text-slate-400">{item.description}</p>
                     )}
-                    {item.zone && (
-                      <p className="text-[11px] font-bold text-cyan-400 flex items-center gap-1">
+                    {item.competition && (
+                      <p className="text-[11px] font-bold text-amber-300">المسابقة المرتبطة: {item.competition.name}</p>
+                    )}
+                    {(item.locationLabel || item.zone) && (
+                      <p className="flex items-center gap-1 text-[11px] font-bold text-cyan-400">
                         <MapPin size={13} />
-                        منطقة {item.zone.name} ({item.zone.numberLabel})
+                        {item.locationLabel || `منطقة ${item.zone.name} (${item.zone.numberLabel})`}
                       </p>
                     )}
                   </div>

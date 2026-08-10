@@ -60,6 +60,13 @@ fi
 printf '%s\n' 'Applying additive schema columns...'
 npm --prefix server run db:columns
 
+# One-time official schedule import. The script records a version in SystemSetting
+# and will not overwrite later admin edits on subsequent deployments.
+if [ "${SYNC_OFFICIAL_AGENDA:-false}" = true ]; then
+  printf '%s\n' 'Applying the official festival schedule once...'
+  npm --prefix server run agenda:sync-official
+fi
+
 printf '%s\n' 'Checking SQLite readiness and schema drift before restart...'
 npm --prefix server run db:ready
 npm --prefix server run db:drift

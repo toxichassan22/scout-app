@@ -16,6 +16,7 @@
     "backup:github:restore": "node scripts/restore-github-backup.mjs",
     "db:drift": "node scripts/prisma-drift-check.mjs",
     "db:columns": "node scripts/db-apply-safe-columns.mjs",
+    "agenda:sync-official": "node scripts/sync-official-agenda.mjs",
     "test:integration": "node scripts/run-isolated-tests.mjs",
     "test:health": "node scripts/health-check.mjs",
     "test:operational": "npm run db:ready && npm run db:drift",

@@ -1,5 +1,5 @@
 import prisma from './db.js';
-import { OFFICIAL_AGENDA_IDS, OFFICIAL_ZONES } from './agendaCanonical.js';
+import { OFFICIAL_ZONES } from './agendaCanonical.js';
 
 // The assistant is told about the festival so it answers from real data instead of
 // inventing a schedule. Only publicly visible fields are included: competition
@@ -16,30 +16,38 @@ function truncate(text, max) {
 async function buildContext() {
   const [agendaItems, competitions] = await Promise.all([
     prisma.agendaItem.findMany({
-      where: { id: { in: OFFICIAL_AGENDA_IDS }, isVisible: true },
+      where: { isVisible: true },
       orderBy: [{ order: 'asc' }, { startTime: 'asc' }, { id: 'asc' }],
-      select: { title: true, type: true, period: true, startTime: true, endTime: true, description: true, zoneId: true },
+      select: { title: true, type: true, period: true, startTime: true, endTime: true, description: true, zoneId: true, locationNote: true, competitionId: true },
     }),
     prisma.competition.findMany({
       orderBy: { createdAt: 'asc' },
       // Never select passcode, entryCode or qrCode: they must not reach the model.
-      select: { name: true, type: true, description: true, isOpen: true, duration: true },
+      select: { id: true, name: true, type: true, description: true, details: true, isOpen: true, duration: true, criteria: true },
     }),
   ]);
 
   const zoneNameById = new Map(OFFICIAL_ZONES.map(zone => [zone.id, zone.name]));
+  const competitionById = new Map(competitions.map(competition => [competition.id, competition]));
 
   const agendaLines = agendaItems.map(item => {
-    const zone = zoneNameById.get(item.zoneId) || '';
+    const linkedCompetition = competitionById.get(item.competitionId);
+    const zone = item.locationNote || zoneNameById.get(item.zoneId) || '';
     const when = [item.startTime, item.endTime].filter(Boolean).join(' - ');
-    return `- ${item.title}${when ? ` (${when})` : ''}${zone ? ` — ${zone}` : ''}${item.description ? `: ${truncate(item.description, 160)}` : ''}`;
+    const title = linkedCompetition?.name || item.title;
+    return `- ${title}${when ? ` (${when})` : ''}${zone ? ` — ${zone}` : ''}${item.description ? `: ${truncate(item.description, 160)}` : ''}`;
   });
 
   const competitionLines = competitions.map(competition => {
     const kind = competition.type === 'manual_judged' ? 'تقييم بمحكم' : 'رقمية تلقائية';
     const state = competition.isOpen ? 'مفتوحة' : 'مغلقة';
     const minutes = competition.duration ? `، المدة ${Math.round(competition.duration / 60)} دقيقة` : '';
-    return `- ${competition.name} (${kind}، ${state}${minutes})${competition.description ? `: ${truncate(competition.description, 160)}` : ''}`;
+    let criteria = [];
+    try { criteria = JSON.parse(competition.criteria || '[]'); } catch { criteria = []; }
+    const criteriaText = criteria.length
+      ? `، بنود التقييم: ${criteria.map(item => `${item.label} بحد أقصى ${item.maxScore}`).join('؛ ')}`
+      : '';
+    return `- ${competition.name} (${kind}، ${state}${minutes})${competition.description ? `: ${truncate(competition.description, 160)}` : ''}${competition.details ? ` — ${truncate(competition.details, 220)}` : ''}${criteriaText}`;
   });
 
   return [

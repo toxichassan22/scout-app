@@ -278,6 +278,10 @@ model AgendaItem {
   order       Int       @default(0)
   zoneId      String
   zone        Zone      @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  // Stable source link for competition events. Kept scalar for the baseline SQLite
+  // database; the app validates the target Competition and synchronizes both records.
+  competitionId String?
+  locationNote String    @default("")
   startTime   String
   endTime     String
   description String
@@ -286,6 +290,8 @@ model AgendaItem {
   startedAt   DateTime?
   isClosed    Boolean   @default(false)
   closedAt    DateTime?
+
+  @@index([competitionId])
 }
 
 model Report {

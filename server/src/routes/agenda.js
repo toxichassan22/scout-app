@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import prisma from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { OFFICIAL_AGENDA_IDS, OFFICIAL_ZONES, getAgendaStatus } from '../agendaCanonical.js';
+import { OFFICIAL_ZONES, getAgendaStatus } from '../agendaCanonical.js';
 import { parsePagination } from '../pagination.js';
 
 const router = Router();
@@ -14,7 +14,9 @@ const LEGACY_ZONE_ALIASES = {
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
-    const where = { id: { in: OFFICIAL_AGENDA_IDS }, isVisible: true };
+    // The database is the source of truth. Do not filter by the old canonical ID
+    // list, otherwise events added or renamed by the admin disappear from teams.
+    const where = { isVisible: true };
     const [allItems, total] = await Promise.all([
       prisma.agendaItem.findMany({
         where,
@@ -25,6 +27,12 @@ router.get('/', authenticateToken, async (req, res) => {
       }),
       prisma.agendaItem.count({ where }),
     ]);
+    const competitionIds = [...new Set(allItems.map(item => item.competitionId).filter(Boolean))];
+    const linkedCompetitions = await prisma.competition.findMany({
+      where: { id: { in: competitionIds } },
+      select: { id: true, name: true, slug: true, type: true, description: true, details: true, isOpen: true, duration: true, criteria: true },
+    });
+    const competitionById = new Map(linkedCompetitions.map(competition => [competition.id, competition]));
     const storedZones = await prisma.zone.findMany({ orderBy: { order: 'asc' } });
     const storedById = new Map(storedZones.map((zone) => [zone.id, zone]));
     const zones = OFFICIAL_ZONES.map((official) => ({ ...storedById.get(official.id), ...official }));
@@ -33,8 +41,11 @@ router.get('/', authenticateToken, async (req, res) => {
       const zoneId = LEGACY_ZONE_ALIASES[item.zoneId] || item.zoneId;
       return {
         ...item,
+        title: competitionById.get(item.competitionId)?.name || item.title,
         zoneId,
         zone: zoneById.get(zoneId) || item.zone,
+        locationLabel: item.locationNote || zoneById.get(zoneId)?.name || item.zone?.name || '',
+        competition: competitionById.get(item.competitionId) || null,
         status: getAgendaStatus(item),
         canOpen: getAgendaStatus(item) === 'active'
       };

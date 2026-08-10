@@ -27,6 +27,25 @@ const ADDITIVE_COLUMNS = [
         sql: `ALTER TABLE "TeamDevice" ADD COLUMN "role" TEXT NOT NULL DEFAULT ''`,
         reason: 'each device records the scouting role of the person using it',
     },
+    {
+        table: 'AgendaItem',
+        column: 'competitionId',
+        sql: `ALTER TABLE "AgendaItem" ADD COLUMN "competitionId" TEXT`,
+        reason: 'links a program entry to its canonical competition record',
+    },
+    {
+        table: 'AgendaItem',
+        column: 'locationNote',
+        sql: `ALTER TABLE "AgendaItem" ADD COLUMN "locationNote" TEXT NOT NULL DEFAULT ''`,
+        reason: 'stores a temporary or free-text location note when a zone is not confirmed',
+    },
+];
+
+const ADDITIVE_INDEXES = [
+    {
+        name: 'AgendaItem_competitionId_idx',
+        sql: 'CREATE INDEX IF NOT EXISTS "AgendaItem_competitionId_idx" ON "AgendaItem"("competitionId")',
+    },
 ];
 
 const databasePath = resolveDatabasePath();
@@ -53,6 +72,11 @@ try {
         await prisma.$executeRawUnsafe(entry.sql);
         applied.push(`${entry.table}.${entry.column}`);
         console.log(`[db-apply-safe-columns] added ${entry.table}.${entry.column} — ${entry.reason}`);
+    }
+
+    for (const index of ADDITIVE_INDEXES) {
+        await prisma.$executeRawUnsafe(index.sql);
+        alreadyPresent.push(index.name);
     }
 
     console.log(JSON.stringify({

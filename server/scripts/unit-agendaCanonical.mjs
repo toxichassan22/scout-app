@@ -9,6 +9,11 @@ assert.equal(OFFICIAL_AGENDA_IDS.length, OFFICIAL_AGENDA.length, 'agenda ids sho
 assert.deepEqual(new Set(OFFICIAL_AGENDA_IDS).size, OFFICIAL_AGENDA_IDS.length, 'agenda ids should be unique');
 
 assert.ok(Object.keys(PERIOD_LABELS).length > 0, 'period labels should be defined');
+const closing = OFFICIAL_AGENDA.find(item => item.title === 'حفل الختام والسمر');
+assert.equal(closing?.startTime, '17:30', 'closing should start at 17:30');
+assert.equal(closing?.endTime, '20:30', 'closing should end at 20:30');
+assert.equal(OFFICIAL_AGENDA.find(item => item.title === 'تجمع واستقبال الوفود')?.zoneId, 'zone-5', 'arrival should be at camp');
+assert.equal(OFFICIAL_AGENDA.find(item => item.title === 'تحية العلم وافتتاح المهرجان')?.zoneId, 'zone-5', 'opening should be at camp');
 
 const sampleItem = OFFICIAL_AGENDA[0];
 const festivalDate = '2026-08-21';

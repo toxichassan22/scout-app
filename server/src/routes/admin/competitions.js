@@ -8,8 +8,14 @@ import { getAnonymousLeaderboard } from '../leaderboard.js';
 import { validate, zString, zId, zNumber, zBoolean } from '../../middleware/validate.js';
 import { z } from 'zod';
 import { parsePagination, paginatedResponse } from '../../pagination.js';
+import { clearFestivalContextCache } from '../../aiContext.js';
 
 const router = Router();
+
+const timeFromDateInput = value => {
+  const match = String(value || '').match(/T(\d{2}:\d{2})/);
+  return match?.[1] || null;
+};
 
 // Competitions & Passcodes
 router.get('/competitions', async (req, res) => {
@@ -50,6 +56,7 @@ router.post('/competitions', validate(competitionCreateSchema), async (req, res)
         criteria: typeof criteria === 'string' ? criteria : JSON.stringify(criteria || [])
       }
     });
+    clearFestivalContextCache();
     if (req.io) req.io.emit('competition:update', { action: 'created', competitionId: comp.id });
     res.status(201).json(comp);
   } catch (err) {
@@ -104,7 +111,20 @@ router.patch('/competitions/:id', validate(competitionUpdateSchema), async (req,
     };
     if (custom !== undefined) data.type = custom ? 'manual_judged' : data.type;
     if (revoke === true) { data.passcode = null; data.entryCode = null; data.isOpen = false; }
-    const comp = await prisma.competition.update({ where: { id: req.params.id }, data });
+    const comp = await prisma.$transaction(async tx => {
+      const updated = await tx.competition.update({ where: { id: req.params.id }, data });
+      const agendaData = {
+        ...(data.name !== undefined && { title: updated.name }),
+        ...(data.startsAt !== undefined && { startTime: timeFromDateInput(startsAt) || undefined }),
+        ...(data.endsAt !== undefined && { endTime: timeFromDateInput(endsAt) || undefined }),
+      };
+      const cleanAgendaData = Object.fromEntries(Object.entries(agendaData).filter(([, value]) => value !== undefined));
+      if (Object.keys(cleanAgendaData).length) {
+        await tx.agendaItem.updateMany({ where: { competitionId: updated.id }, data: cleanAgendaData });
+      }
+      return updated;
+    });
+    clearFestivalContextCache();
 
     if (req.io) {
       req.io.emit('competition:update', { action: 'updated', competitionId: comp.id, isOpen: comp.isOpen });
