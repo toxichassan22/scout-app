@@ -77,14 +77,18 @@ export const apiFetch = async (endpoint, options = {}) => {
   };
 
   const isAuthEndpoint = endpoint.includes('/auth/');
-  const maxAttempts = isAuthEndpoint ? 1 : 3;
+  const isAiEndpoint = endpoint.startsWith('/ai/');
+  const noRetry = Boolean(options.noRetry) || isAiEndpoint;
+  const fetchOptions = { ...options };
+  delete fetchOptions.noRetry;
+  const maxAttempts = isAuthEndpoint || noRetry ? 1 : 3;
   const retryDelay = 2000;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     let response;
     try {
       response = await fetch(`${API_URL}${endpoint}`, {
-        ...options,
+        ...fetchOptions,
         headers
       });
       markServerUp();
@@ -100,6 +104,13 @@ export const apiFetch = async (endpoint, options = {}) => {
     }
 
     const data = await response.json().catch(() => ({}));
+
+    if (response.status === 429) {
+      const err = new Error(data.error || 'طلبات كثيرة؛ حاول مرة أخرى لاحقاً');
+      err.status = 429;
+      err.retryAfter = Number(response.headers.get('Retry-After')) || undefined;
+      throw err;
+    }
 
     if (response.status === 401 || data.forceLogout) {
       const isDeviceRevoked = !!data.deviceRevoked;
@@ -126,7 +137,9 @@ export const apiFetch = async (endpoint, options = {}) => {
         await new Promise(r => setTimeout(r, retryDelay));
         continue;
       }
-      throw new Error(data.error || 'حدث خطأ في الاتصال بالسيرفر');
+      const err = new Error(data.error || 'حدث خطأ في الاتصال بالسيرفر');
+      err.status = response.status;
+      throw err;
     }
 
     return data;
@@ -192,7 +205,9 @@ export const SCOUT_ROLES = ['كشاف', 'مرشدة', 'جوال', 'جوالة', 
 export const updateOwnDeviceIdentity = (displayName, role) =>
   apiFetch('/auth/device-identity', { method: 'PATCH', body: JSON.stringify({ displayName, role }) });
 
-export const sendAiMessage = (messages) => apiFetch('/ai/chat', { method: 'POST', body: JSON.stringify({ messages }) });
+// Provider calls are rate-limited and not safe to blindly retry; one user click must
+// produce at most one provider request.
+export const sendAiMessage = (messages) => apiFetch('/ai/chat', { method: 'POST', noRetry: true, body: JSON.stringify({ messages }) });
 
 // Judge API calls
 export const unlockJudgeSession = (passcode) =>

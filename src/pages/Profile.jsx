@@ -1,39 +1,19 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, LogOut, Shield, Lock, Award, Fingerprint, Flame, Trophy, Star, CheckCircle, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
 import { useNavigate } from 'react-router-dom';
 import { FESTIVAL_DETAILS } from '../data/mockData';
-import { SCOUT_ROLES, updateOwnDeviceIdentity } from '../services/api';
 
 const Profile = () => {
-  const { user, logout, setDeviceIdentity } = useAuth();
+  const { user, logout } = useAuth();
   const { submissions } = useCompetitions();
   const navigate = useNavigate();
-  const [deviceName, setDeviceName] = useState(user?.deviceName || '');
-  const [deviceRole, setDeviceRole] = useState(user?.deviceRole || '');
-  const [deviceNameMessage, setDeviceNameMessage] = useState('');
-  const [savingDeviceName, setSavingDeviceName] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
-  };
-
-  const saveDeviceName = async (event) => {
-    event.preventDefault();
-    setSavingDeviceName(true);
-    setDeviceNameMessage('');
-    try {
-      const result = await updateOwnDeviceIdentity(deviceName.trim(), deviceRole);
-      setDeviceIdentity(result.deviceName ?? deviceName.trim(), result.deviceRole ?? deviceRole);
-      setDeviceNameMessage('تم حفظ الاسم والصفة.');
-    } catch (error) {
-      setDeviceNameMessage(error.message || 'تعذر حفظ البيانات');
-    } finally {
-      setSavingDeviceName(false);
-    }
   };
 
   const teamName = user?.label || user?.name || user?.username || 'فرقة الصقور';
@@ -180,29 +160,20 @@ const Profile = () => {
             </div>
           </div>
 
-          <form onSubmit={saveDeviceName} className="relative z-10 mb-6 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(7,6,12,0.45)] p-4 text-right">
-            <label htmlFor="profile-device-name" className="mb-2 block text-xs font-black text-[#a9a3c2]">اسمك وصفتك على هذا الجهاز</label>
-            <input id="profile-device-name" value={deviceName} onChange={event => setDeviceName(event.target.value)} maxLength={80} className="input-field w-full text-sm" placeholder="الاسم كاملاً" />
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {SCOUT_ROLES.map(option => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setDeviceRole(option)}
-                  aria-pressed={deviceRole === option}
-                  className={`rounded-xl border px-2 py-2 text-xs font-bold transition ${deviceRole === option
-                    ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200'
-                    : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/25'
-                    }`}
-                >
-                  {option}
-                </button>
-              ))}
+          <section className="relative z-10 mb-6 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(7,6,12,0.45)] p-4 text-right">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black text-[#a9a3c2]">بيانات الجهاز المسجلة</p>
+                <p className="mt-1 text-sm font-black text-white">{user?.deviceName || 'غير مسجل'}</p>
+              </div>
+              <span className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-200">
+                {user?.deviceRole || 'غير محددة'}
+              </span>
             </div>
-            <button type="submit" disabled={savingDeviceName || !deviceName.trim() || !deviceRole} className="btn-violet mt-3 w-full !py-2 text-xs">{savingDeviceName ? '...' : 'حفظ'}</button>
-            <p className="mt-2 text-[10px] text-[#6e6889]">يظهر اسمك في أنشطة الفريق وعند الإدارة. لا يغيّر هوية الجهاز أو الفريق.</p>
-            {deviceNameMessage && <p className="mt-2 text-xs font-bold text-emerald-300">{deviceNameMessage}</p>}
-          </form>
+            <p className="mt-3 text-[10px] leading-5 text-[#6e6889]">
+              الاسم والصفة ثابتان بعد التسجيل لحماية كشف أفراد الفرقة. لتصحيح البيانات، اطلب من الإدارة إلغاء اعتماد الجهاز ثم سجّل الدخول من جديد.
+            </p>
+          </section>
 
           {/* Footer ID Details */}
           <div className="relative z-10 flex items-center justify-between pt-4 border-t border-[rgba(255,255,255,0.08)] text-[11px] font-mono text-[#6e6889]">

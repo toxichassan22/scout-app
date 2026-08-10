@@ -46,6 +46,10 @@ try {
   assert.equal(saved.body.deviceName, 'محمد عبد الله', 'the name should be trimmed');
   assert.equal(saved.body.deviceRole, 'جوال', 'the role should be stored');
 
+  const secondSave = await call('/auth/device-identity', { method: 'PATCH', token, body: { displayName: 'اسم آخر', role: 'قائد/ة' } });
+  assert.equal(secondSave.status, 409, 'a team user must not be able to change a completed identity');
+  assert.equal(secondSave.body.code, 'IDENTITY_LOCKED', 'the API should identify the immutable identity error');
+
   // The token still carries the values from login, so /auth/me must read the row —
   // otherwise a page reload would prompt someone who has already answered.
   const me = await call('/auth/me', { token });

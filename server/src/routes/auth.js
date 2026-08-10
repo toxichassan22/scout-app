@@ -123,9 +123,31 @@ const identitySchema = {
   },
 };
 router.patch('/device-identity', authenticateToken, requireRole(['team']), validate(identitySchema), async (req, res) => {
-  const device = await prisma.teamDevice.update({
+  const displayName = req.body.displayName.trim();
+  const role = req.body.role;
+
+  // This is a first-registration endpoint, not a profile editor. updateMany makes
+  // the lock atomic: two tabs cannot race and overwrite the identity after the first
+  // successful save. Existing pre-feature devices with one missing field can finish
+  // registration once; a complete identity is immutable for the team user.
+  const updated = await prisma.teamDevice.updateMany({
+    where: {
+      teamId: req.user.id,
+      deviceId: req.user.deviceId,
+      OR: [{ displayName: '' }, { role: '' }],
+    },
+    data: { displayName, role },
+  });
+  if (updated.count === 0) {
+    return res.status(409).json({
+      success: false,
+      code: 'IDENTITY_LOCKED',
+      error: 'تم تسجيل الاسم والصفة من قبل؛ تعديلهما متاح للإدارة فقط',
+    });
+  }
+
+  const device = await prisma.teamDevice.findUnique({
     where: { teamId_deviceId: { teamId: req.user.id, deviceId: req.user.deviceId } },
-    data: { displayName: req.body.displayName.trim(), role: req.body.role },
     select: { id: true, deviceId: true, displayName: true, role: true },
   });
   res.json({ success: true, device, deviceName: device.displayName, deviceRole: device.role });
