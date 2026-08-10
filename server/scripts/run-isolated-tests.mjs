@@ -95,6 +95,10 @@ try {
     ]);
 
     await run(process.execPath, [
+        path.join(scriptDirectory, 'unit-githubBackupHttp.mjs')
+    ]);
+
+    await run(process.execPath, [
         path.join(scriptDirectory, 'integration-permissions.mjs')
     ]);
 

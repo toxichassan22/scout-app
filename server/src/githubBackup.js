@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveDatabasePath } from '../scripts/sqlite-operations-lib.mjs';
+import logger from './logger.js';
 
 const repo = String(process.env.GITHUB_BACKUP_REPO || '').trim();
 const token = String(process.env.GITHUB_BACKUP_TOKEN || '').trim();
@@ -48,7 +49,7 @@ function apiUrl(filePath = '') {
   return `https://api.github.com/repos/${repo}/contents/${encoded}`;
 }
 
-async function githubRequest(url, options = {}) {
+async function githubRequest(url, options = {}, tolerate = [404]) {
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -59,16 +60,24 @@ async function githubRequest(url, options = {}) {
     },
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok && response.status !== 404) throw new Error(`GitHub backup request failed with HTTP ${response.status}`);
+  if (!response.ok && !tolerate.includes(response.status)) {
+    const detail = body?.message ? ` (${body.message})` : '';
+    throw new Error(`GitHub backup request failed with HTTP ${response.status}${detail}`);
+  }
   return { response, body };
 }
 
 async function putFile(relativePath, buffer, message) {
   const url = apiUrl(`${rootPath}/${relativePath}`);
-  const existing = await githubRequest(`${url}?ref=${encodeURIComponent(branch)}`);
+  // A repository with no commits yet answers 409 "Git Repository is empty" here, and
+  // a path that simply does not exist answers 404. Both mean "create it", so neither
+  // may abort the backup. The write below stays strict.
+  const existing = await githubRequest(`${url}?ref=${encodeURIComponent(branch)}`, {}, [404, 409]);
   const payload = { message, content: buffer.toString('base64'), branch };
   if (existing.response.ok && existing.body.sha) payload.sha = existing.body.sha;
-  const result = await githubRequest(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  // No tolerated statuses on the write: a 404 here means the repository or the token
+  // is wrong, and treating that as success would report a backup that never happened.
+  const result = await githubRequest(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, []);
   return result.body;
 }
 
@@ -110,15 +119,29 @@ export function requestGithubBackup({ reason = 'event' } = {}) {
   if (!configured() || debounceTimer) return false;
   debounceTimer = setTimeout(() => {
     debounceTimer = undefined;
-    syncGithubBackup({ reason }).catch(() => {});
+    // A swallowed failure here is the worst outcome: the data looks protected while
+    // nothing is leaving the machine. Never rethrown, but always recorded.
+    syncGithubBackup({ reason })
+      .then(result => {
+        if (result?.skipped) logger.warn({ reason, why: result.reason }, 'private repo backup skipped');
+        else logger.info({ reason, files: result?.files }, 'private repo backup finished');
+      })
+      .catch(err => logger.error({ err, reason }, 'PRIVATE REPO BACKUP FAILED — data is not being copied off this server'));
   }, debounceMs);
   debounceTimer.unref?.();
   return true;
 }
 
 export function startGithubBackupWorker() {
-  if (!configured() || timer) return timer;
-  timer = setInterval(() => syncGithubBackup({ reason: 'scheduled' }).catch(() => {}), intervalMs);
+  if (!configured()) {
+    logger.warn('private repo backup is not configured; finalised data stays on this server only');
+    return undefined;
+  }
+  if (timer) return timer;
+  timer = setInterval(() => {
+    syncGithubBackup({ reason: 'scheduled' })
+      .catch(err => logger.error({ err }, 'scheduled private repo backup failed'));
+  }, intervalMs);
   timer.unref?.();
   return timer;
 }
