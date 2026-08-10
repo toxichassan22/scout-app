@@ -63,7 +63,7 @@ export const OFFICIAL_AGENDA = [
     item({ id: 'agenda-official-24', period: 'period-3', order: 25, title: 'المجلة الأرضية', type: 'competition', zoneId: zone.camp, startTime: '14:00', endTime: '16:00', competitionId: 'comp-report-18' }),
 
     item({ id: 'agenda-official-25', period: 'period-4', order: 26, title: 'مهرجان التلاوة', type: 'ceremony', zoneId: zone.radio, startTime: '16:00', endTime: '17:30', competitionId: 'comp-report-23' }),
-    item({ id: 'agenda-official-26', period: 'period-4', order: 27, title: 'من سيربح الكود', type: 'competition', zoneId: zone.secondFloor, startTime: '16:00', endTime: '17:30', locationNote: 'الدور الثاني' }),
+    item({ id: 'agenda-official-26', period: 'period-4', order: 27, title: 'من سيربح الكود', type: 'competition', zoneId: zone.secondFloor, startTime: '16:00', endTime: '17:30', competitionId: 'comp-digital-1', locationNote: 'الدور الثاني' }),
     item({ id: 'agenda-official-27', period: 'period-4', order: 28, title: 'عرض تقديمي كوميدي عن مهارة', type: 'ceremony', zoneId: zone.secondFloor, startTime: '16:00', endTime: '17:30', competitionId: 'comp-report-21', locationNote: 'الدور الثالث' }),
     item({ id: 'agenda-official-28', period: 'period-4', order: 29, title: 'مشروع الخدمة العامة', type: 'workshop', zoneId: zone.camp, startTime: '16:00', endTime: '17:30' }),
     item({ id: 'agenda-official-29-video', period: 'period-4', order: 30, title: 'نشر الفيديو التوثيقي', type: 'workshop', zoneId: zone.camp, startTime: '16:00', endTime: '17:30', locationNote: 'المكان غير محدد حتى التأكيد' }),

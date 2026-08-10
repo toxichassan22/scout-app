@@ -3,7 +3,7 @@ import prisma, { databaseReady } from '../src/db.js';
 import { OFFICIAL_AGENDA, OFFICIAL_AGENDA_IDS, OFFICIAL_ZONES } from '../src/agendaCanonical.js';
 
 const SYNC_KEY = 'official_agenda_version';
-const SYNC_VERSION = '20260810-program-v4-catalog-criteria';
+const SYNC_VERSION = '20260810-program-v5-names';
 const explicitlyAllowed = process.env.SYNC_OFFICIAL_AGENDA === 'true';
 const festivalDate = process.env.FESTIVAL_DATE || '2026-08-21';
 
@@ -13,7 +13,8 @@ if (!explicitlyAllowed) {
 }
 
 const competitionNames = {
-  'comp-digital-3': 'عواصم وعملات الدول العربية',
+  'comp-digital-2': 'المحقق الذكي',
+  'comp-digital-3': 'رحال العالم الذكي',
   'comp-video-1': 'تصميم فيديو دقيقتين بالـ AI',
   'comp-report-12': 'عرض ثلاث مبتكرات علمية',
   'comp-report-13': 'بحث على خطى الأنبياء',
@@ -21,7 +22,6 @@ const competitionNames = {
   'comp-report-18': 'المجلة الأرضية',
   'comp-report-19': 'الكشاف الذكي',
   'comp-report-21': 'عرض تقديمي كوميدي عن مهارة',
-  'comp-digital-2': 'حقيقتين وكذبة',
 };
 const competitionSlugs = {
   'comp-digital-1': 'genius',
@@ -31,7 +31,7 @@ const competitionSlugs = {
 };
 const autoDigitalIds = new Set(['comp-digital-1', 'comp-digital-2', 'comp-digital-3']);
 const standaloneCompetitions = [
-  { id: 'comp-digital-1', name: 'مسابقة عبقرينو', slug: 'genius', type: 'auto_digital', description: 'مسابقة معرفية من بنك الأسئلة.', details: 'مسابقة رقمية تلقائية.' },
+  { id: 'comp-digital-1', name: 'من سيربح الكود', slug: 'genius', type: 'auto_digital', description: 'مسابقة معرفية من بنك الأسئلة.', details: 'مسابقة رقمية تلقائية.' },
 ];
 const criteriaById = {
   'comp-digital-1': [{ key: 'score', label: 'الدرجة الصحيحة', maxScore: 50 }],
@@ -204,6 +204,20 @@ try {
     await tx.agendaItem.updateMany({
       where: { id: { startsWith: 'agenda-official-', notIn: OFFICIAL_AGENDA_IDS } },
       data: { isVisible: false },
+    });
+
+    // v4 briefly created a standalone schedule-only record for this item before it
+    // was correctly linked to the real digital competition. Remove only that generated
+    // empty record, never a competition that has scores, reports or assignments.
+    await tx.competition.deleteMany({
+      where: {
+        id: { in: ['comp-schedule-26'] },
+        scores: { none: {} },
+        reports: { none: {} },
+        judgeAssignments: { none: {} },
+        judgeScores: { none: {} },
+        teamAccess: { none: {} },
+      },
     });
 
     await tx.systemSetting.upsert({
