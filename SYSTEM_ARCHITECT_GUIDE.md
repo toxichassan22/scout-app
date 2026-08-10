@@ -26,7 +26,11 @@
 
 ## 3. ☁️ النسخ الاحتياطي والمزامنة اللحظية مع Google Drive
 - **روابط وخدمات Google Apps Script (Version 5 - Anti-Duplication)**:
-  - Web App URL: `https://script.google.com/macros/s/AKfycbzHD74T61yvqwmYXReiDoO74vIQ_bRMuxylQy_QhGO37whehtCmzDAGHFvx1Nuf1RCyzA/exec`
+  - Web App URL: يُقرأ من متغير البيئة `GDRIVE_WEBHOOK_URL` ولا يُكتب هنا.
+    الرابط يسمح بالكتابة والحذف في Drive، وهذا المستودع عام، فكتابته هنا كان
+    يعرّض النسخ الاحتياطية لأي شخص. يُضاف كـ repository secret باسم
+    `GDRIVE_WEBHOOK_URL`، ويُفضّل أن يتحقق الـ Script من
+    `GDRIVE_WEBHOOK_BEARER_TOKEN` قبل تنفيذ أي عملية.
   - يحتوي الـ Script على خوارزمية استبدال الملفات المكررة بنعومة (`setTrashed(true)`) بدون تكرار النسخ.
 - **هيكلية مجلدات الحفظ الآلي على Google Drive**:
   - `01_DATABASE/`: نسخ احتياطية كاملة من قاعدة بيانات SQLite.

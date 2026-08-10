@@ -134,6 +134,19 @@ for (const [key, alias] of BACKUP_KEYS) {
 const githubBackupReady = Boolean(readEnvValue(lines, 'GITHUB_BACKUP_REPO') && readEnvValue(lines, 'GITHUB_BACKUP_TOKEN'));
 const driveBackupReady = Boolean(readEnvValue(lines, 'GDRIVE_WEBHOOK_URL'));
 console.log(`[ensure-env] off-box backups — private repo: ${githubBackupReady ? 'configured' : 'MISSING'}, google drive: ${driveBackupReady ? 'configured' : 'MISSING'}`);
-if (!githubBackupReady) console.warn('[ensure-env] WARNING: no private repo backup configured; finalised scores exist only on this server.');
+
+if (!githubBackupReady) {
+    // Name what is absent, so a wrong or missing repository setting is obvious from
+    // the deploy log instead of requiring a look at the server.
+    const absent = BACKUP_KEYS
+        .filter(([key]) => key.startsWith('GITHUB_BACKUP_') && !readEnvValue(lines, key))
+        .map(([, alias]) => alias);
+    console.warn('[ensure-env] WARNING: no private repo backup configured; finalised scores exist only on this server.');
+    console.warn(`[ensure-env] not supplied: ${absent.join(', ')} — add them as repository secrets or variables.`);
+} else if (process.env.NODE_ENV === 'production' && !readEnvValue(lines, 'GITHUB_BACKUP_ENCRYPTION_KEY')) {
+    // syncGithubBackup refuses to run in production without this, so a repo that
+    // looks configured would still never receive a backup.
+    console.warn('[ensure-env] WARNING: BACKUP_ENCRYPTION_KEY is missing; production backups will refuse to run.');
+}
 
 writeEnvLines(lines);
