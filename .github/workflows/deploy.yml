@@ -65,11 +65,14 @@ jobs:
           AI_CHAT_URL: ${{ vars.AI_CHAT_URL }}
           AI_CHAT_MODEL: ${{ vars.AI_CHAT_MODEL }}
           # Off-box backups. Unset values keep whatever the server already has.
-          GITHUB_BACKUP_TOKEN: ${{ secrets.GITHUB_BACKUP_TOKEN }}
-          GITHUB_BACKUP_ENCRYPTION_KEY: ${{ secrets.GITHUB_BACKUP_ENCRYPTION_KEY }}
-          GITHUB_BACKUP_REPO: ${{ vars.GITHUB_BACKUP_REPO }}
-          GITHUB_BACKUP_BRANCH: ${{ vars.GITHUB_BACKUP_BRANCH }}
-          GITHUB_BACKUP_PATH: ${{ vars.GITHUB_BACKUP_PATH }}
+          # GitHub rejects secret and variable names beginning with GITHUB_, so the
+          # private repo settings are stored under these aliases and ensure-env.mjs
+          # translates them.
+          BACKUP_REPO_TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          BACKUP_REPO: ${{ vars.BACKUP_REPO }}
+          BACKUP_REPO_BRANCH: ${{ vars.BACKUP_REPO_BRANCH }}
+          BACKUP_REPO_PATH: ${{ vars.BACKUP_REPO_PATH }}
           GDRIVE_WEBHOOK_URL: ${{ secrets.GDRIVE_WEBHOOK_URL }}
           GDRIVE_WEBHOOK_BEARER_TOKEN: ${{ secrets.GDRIVE_WEBHOOK_BEARER_TOKEN }}
           GDRIVE_WEBHOOK_SIGNING_SECRET: ${{ secrets.GDRIVE_WEBHOOK_SIGNING_SECRET }}
@@ -78,7 +81,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
-          envs: BOOTSTRAP_ADMIN,INITIAL_ADMIN_USERNAME,INITIAL_ADMIN_PASSWORD,AI_CHAT_TOKEN,AI_CHAT_URL,AI_CHAT_MODEL,GITHUB_BACKUP_TOKEN,GITHUB_BACKUP_ENCRYPTION_KEY,GITHUB_BACKUP_REPO,GITHUB_BACKUP_BRANCH,GITHUB_BACKUP_PATH,GDRIVE_WEBHOOK_URL,GDRIVE_WEBHOOK_BEARER_TOKEN,GDRIVE_WEBHOOK_SIGNING_SECRET
+          envs: BOOTSTRAP_ADMIN,INITIAL_ADMIN_USERNAME,INITIAL_ADMIN_PASSWORD,AI_CHAT_TOKEN,AI_CHAT_URL,AI_CHAT_MODEL,BACKUP_REPO_TOKEN,BACKUP_ENCRYPTION_KEY,BACKUP_REPO,BACKUP_REPO_BRANCH,BACKUP_REPO_PATH,GDRIVE_WEBHOOK_URL,GDRIVE_WEBHOOK_BEARER_TOKEN,GDRIVE_WEBHOOK_SIGNING_SECRET
           script: |
             export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin
             chmod +x /var/www/scout-app/deploy.sh

@@ -113,18 +113,21 @@ console.log(aiChatToken
 // Off-box backup credentials. Same rule as the chat token: a deploy that does not
 // supply them keeps whatever is already on the server, so backups never silently
 // switch off after a routine deploy. No secret is logged.
+// GitHub refuses to store any secret or variable whose name begins with GITHUB_,
+// and its UI drops such a name silently, so the pipeline supplies these under an
+// unreserved alias which is translated to the key the application reads.
 const BACKUP_KEYS = [
-    'GITHUB_BACKUP_REPO',
-    'GITHUB_BACKUP_TOKEN',
-    'GITHUB_BACKUP_BRANCH',
-    'GITHUB_BACKUP_PATH',
-    'GITHUB_BACKUP_ENCRYPTION_KEY',
-    'GDRIVE_WEBHOOK_URL',
-    'GDRIVE_WEBHOOK_BEARER_TOKEN',
-    'GDRIVE_WEBHOOK_SIGNING_SECRET',
+    ['GITHUB_BACKUP_REPO', 'BACKUP_REPO'],
+    ['GITHUB_BACKUP_TOKEN', 'BACKUP_REPO_TOKEN'],
+    ['GITHUB_BACKUP_BRANCH', 'BACKUP_REPO_BRANCH'],
+    ['GITHUB_BACKUP_PATH', 'BACKUP_REPO_PATH'],
+    ['GITHUB_BACKUP_ENCRYPTION_KEY', 'BACKUP_ENCRYPTION_KEY'],
+    ['GDRIVE_WEBHOOK_URL', 'GDRIVE_WEBHOOK_URL'],
+    ['GDRIVE_WEBHOOK_BEARER_TOKEN', 'GDRIVE_WEBHOOK_BEARER_TOKEN'],
+    ['GDRIVE_WEBHOOK_SIGNING_SECRET', 'GDRIVE_WEBHOOK_SIGNING_SECRET'],
 ];
-for (const key of BACKUP_KEYS) {
-    const value = process.env[key] || readEnvValue(lines, key);
+for (const [key, alias] of BACKUP_KEYS) {
+    const value = process.env[alias] || process.env[key] || readEnvValue(lines, key);
     if (value) upsertEnv(lines, key, value);
 }
 
