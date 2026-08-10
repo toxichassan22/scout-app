@@ -6,7 +6,7 @@ import { enforceNotFrozen } from '../freeze.js';
 import { getAnonymousLeaderboard, clearLeaderboardCache } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { recalculateTeamStanding } from '../teamStanding.js';
-import { requestGithubBackup } from '../githubBackup.js';
+import { requestDataBackup } from '../backupScheduler.js';
 import { idempotent } from '../middleware/idempotent.js';
 import { validate, zString, zId, zNumber } from '../middleware/validate.js';
 import { z } from 'zod';
@@ -205,7 +205,7 @@ router.post('/scores', enforceNotFrozen, validate(scoreSchema), idempotent('judg
     await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
     req.io?.to('admin').emit('admin:score:new', { scoreRecord, teamId, competitionId });
     // Persist the finalised score off-box without blocking the judge's response.
-    requestGithubBackup({ reason: 'judge-score-finalised' });
+    requestDataBackup({ reason: 'judge-score-finalised' });
 
     res.json({ success: true, score: scoreRecord });
   } catch (err) {

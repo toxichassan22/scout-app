@@ -24,6 +24,55 @@ const GDRIVE_SIGNING_SECRET = String(process.env.GDRIVE_WEBHOOK_SIGNING_SECRET |
 const GDRIVE_UPLOAD_CONCURRENCY = Math.max(1, Number(process.env.GDRIVE_UPLOAD_CONCURRENCY) || 3);
 const GDRIVE_UPLOAD_MAX_RETRIES = Math.max(0, Number(process.env.GDRIVE_UPLOAD_MAX_RETRIES) || 3);
 
+// A full backup used to re-upload every team file on every run, base64 inflated,
+// which is wasteful and slow once a festival has real data. Content hashes of what
+// was last uploaded let unchanged files be skipped.
+const MANIFEST_PATH = path.join(BACKUP_ROOT, 'upload-manifest.json');
+
+function sha256(buffer) {
+  return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
+async function readUploadManifest() {
+  try {
+    const parsed = JSON.parse(await readFile(MANIFEST_PATH, 'utf8'));
+    return parsed && typeof parsed === 'object' && parsed.files ? parsed : { files: {} };
+  } catch {
+    return { files: {} };
+  }
+}
+
+async function writeUploadManifest(manifest) {
+  try {
+    await mkdir(BACKUP_ROOT, { recursive: true });
+    await writeFile(MANIFEST_PATH, JSON.stringify(manifest, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[Backup] failed to persist the upload manifest:', err.message);
+  }
+}
+
+/**
+ * Upload only when the content differs from what the manifest recorded. The key is
+ * the destination path, so renaming or moving a file still uploads it.
+ */
+async function uploadIfChanged(manifest, stats, fileName, mimeType, buffer, folderPath) {
+  const key = `${folderPath}/${fileName}`;
+  const digest = sha256(buffer);
+  if (manifest.files[key] === digest) {
+    stats.skipped += 1;
+    stats.skippedBytes += buffer.length;
+    return { skipped: true, unchanged: true };
+  }
+  const result = await uploadToGoogleDrive(fileName, mimeType, buffer, folderPath);
+  // A skipped upload means Drive is not configured; do not record it as uploaded.
+  if (!result?.skipped) {
+    manifest.files[key] = digest;
+    stats.uploaded += 1;
+    stats.uploadedBytes += buffer.length;
+  }
+  return result;
+}
+
 /**
  * Upload a file buffer to Google Drive with structured subfolder path support.
  * The buffer is converted to base64 only for the outbound webhook request.
@@ -218,11 +267,27 @@ export async function generateFullBackup() {
       mkdir(summaryDir, { recursive: true }),
     ]);
 
+    const manifest = await readUploadManifest();
+    const stats = { uploaded: 0, skipped: 0, uploadedBytes: 0, skippedBytes: 0 };
+
     const snapshot = await createVerifiedSqliteSnapshot({ destinationDirectory: dbBackupDir, filePrefix: 'dev-backup' });
     snapshotPath = snapshot.snapshotPath;
     const timestampedDbName = path.basename(snapshotPath);
     const dbBuffer = await readFile(snapshotPath);
-    await uploadToGoogleDrive(timestampedDbName, 'application/x-sqlite3', dbBuffer, '01_DATABASE');
+    // The snapshot name carries a timestamp, so key the manifest on a stable name
+    // and let the hash decide whether the database actually changed.
+    const dbDigest = sha256(dbBuffer);
+    if (manifest.files['01_DATABASE/latest'] === dbDigest) {
+      stats.skipped += 1;
+      stats.skippedBytes += dbBuffer.length;
+    } else {
+      const dbResult = await uploadToGoogleDrive(timestampedDbName, 'application/x-sqlite3', dbBuffer, '01_DATABASE');
+      if (!dbResult?.skipped) {
+        manifest.files['01_DATABASE/latest'] = dbDigest;
+        stats.uploaded += 1;
+        stats.uploadedBytes += dbBuffer.length;
+      }
+    }
 
     // 2️⃣ Fetch All Teams, Scores, Competitions & Reports
     const teams = await prisma.team.findMany({
@@ -266,8 +331,20 @@ export async function generateFullBackup() {
 
     await writeFile(path.join(summaryDir, 'leaderboard_summary.json'), summaryBuffer);
 
-    // Upload Leaderboard summary to Google Drive folder: 02_SCORES_LEADERBOARD
-    await uploadToGoogleDrive(`leaderboard-summary-${timestamp}.json`, 'application/json', summaryBuffer, '02_SCORES_LEADERBOARD');
+    // Upload Leaderboard summary to Google Drive folder: 02_SCORES_LEADERBOARD.
+    // generatedAt changes every run, so hash the leaderboard itself to decide.
+    const leaderboardDigest = sha256(Buffer.from(JSON.stringify(leaderboard), 'utf8'));
+    if (manifest.files['02_SCORES_LEADERBOARD/latest'] === leaderboardDigest) {
+      stats.skipped += 1;
+      stats.skippedBytes += summaryBuffer.length;
+    } else {
+      const summaryResult = await uploadToGoogleDrive(`leaderboard-summary-${timestamp}.json`, 'application/json', summaryBuffer, '02_SCORES_LEADERBOARD');
+      if (!summaryResult?.skipped) {
+        manifest.files['02_SCORES_LEADERBOARD/latest'] = leaderboardDigest;
+        stats.uploaded += 1;
+        stats.uploadedBytes += summaryBuffer.length;
+      }
+    }
 
     // 3️⃣ Create Individual Team Folders & Organize Reports
     const uploadsSourceDir = path.join(__dirname, '..', 'uploads');
@@ -285,7 +362,7 @@ export async function generateFullBackup() {
       await writeFile(path.join(teamFolderPath, 'scores_detail.json'), teamDataBuffer);
 
       // Upload Team Profile JSON to Google Drive folder: 03_TEAMS_DATA/Team_Name
-      await uploadToGoogleDrive('scores_detail.json', 'application/json', teamDataBuffer, `03_TEAMS_DATA/${safeFolderName}`);
+      await uploadIfChanged(manifest, stats, 'scores_detail.json', 'application/json', teamDataBuffer, `03_TEAMS_DATA/${safeFolderName}`);
 
       // Copy & Upload Team PDF/Video Reports if exists
       if (team.reports && team.reports.length > 0) {
@@ -300,7 +377,7 @@ export async function generateFullBackup() {
               await writeFile(path.join(teamReportsFolderPath, safeReportName), reportBuffer);
 
               // Upload Team Report to Google Drive folder: 03_TEAMS_DATA/Team_Name/reports
-              await uploadToGoogleDrive(safeReportName, 'application/pdf', reportBuffer, `03_TEAMS_DATA/${safeFolderName}/reports`);
+              await uploadIfChanged(manifest, stats, safeReportName, 'application/pdf', reportBuffer, `03_TEAMS_DATA/${safeFolderName}/reports`);
             } catch (fileError) {
               if (fileError.code !== 'ENOENT') throw fileError;
             }
@@ -309,8 +386,20 @@ export async function generateFullBackup() {
       }
     }
 
-    console.log('[Backup] Structured Backup & Google Drive Folders Sync completed!');
-    return { success: true, timestamp, databaseBackup: snapshotPath, totalTeams: teams.length, gdriveSynced: Boolean(GDRIVE_WEBHOOK_URL) };
+    await writeUploadManifest(manifest);
+
+    console.log(`[Backup] completed: uploaded ${stats.uploaded}, unchanged ${stats.skipped}`);
+    return {
+      success: true,
+      timestamp,
+      databaseBackup: snapshotPath,
+      totalTeams: teams.length,
+      gdriveSynced: Boolean(GDRIVE_WEBHOOK_URL),
+      uploaded: stats.uploaded,
+      unchanged: stats.skipped,
+      uploadedBytes: stats.uploadedBytes,
+      savedBytes: stats.skippedBytes,
+    };
 
   } catch (err) {
     if (snapshotPath) await unlink(snapshotPath).catch(() => { });

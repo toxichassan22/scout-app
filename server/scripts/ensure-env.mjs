@@ -110,4 +110,27 @@ console.log(aiChatToken
     ? `[ensure-env] AI chat configured (model ${aiChatModel}).`
     : '[ensure-env] AI chat token missing; the assistant will report that it is not enabled.');
 
+// Off-box backup credentials. Same rule as the chat token: a deploy that does not
+// supply them keeps whatever is already on the server, so backups never silently
+// switch off after a routine deploy. No secret is logged.
+const BACKUP_KEYS = [
+    'GITHUB_BACKUP_REPO',
+    'GITHUB_BACKUP_TOKEN',
+    'GITHUB_BACKUP_BRANCH',
+    'GITHUB_BACKUP_PATH',
+    'GITHUB_BACKUP_ENCRYPTION_KEY',
+    'GDRIVE_WEBHOOK_URL',
+    'GDRIVE_WEBHOOK_BEARER_TOKEN',
+    'GDRIVE_WEBHOOK_SIGNING_SECRET',
+];
+for (const key of BACKUP_KEYS) {
+    const value = process.env[key] || readEnvValue(lines, key);
+    if (value) upsertEnv(lines, key, value);
+}
+
+const githubBackupReady = Boolean(readEnvValue(lines, 'GITHUB_BACKUP_REPO') && readEnvValue(lines, 'GITHUB_BACKUP_TOKEN'));
+const driveBackupReady = Boolean(readEnvValue(lines, 'GDRIVE_WEBHOOK_URL'));
+console.log(`[ensure-env] off-box backups — private repo: ${githubBackupReady ? 'configured' : 'MISSING'}, google drive: ${driveBackupReady ? 'configured' : 'MISSING'}`);
+if (!githubBackupReady) console.warn('[ensure-env] WARNING: no private repo backup configured; finalised scores exist only on this server.');
+
 writeEnvLines(lines);
