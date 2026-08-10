@@ -5,6 +5,8 @@ import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { JWT_SECRET, createMemoryRateLimiter } from '../security.js';
 import { validate, zString } from '../middleware/validate.js';
+import { SCOUT_ROLES } from '../validation.js';
+import { z } from 'zod';
 
 const router = Router();
 
@@ -53,6 +55,8 @@ router.post('/team/login', validate(loginSchema), async (req, res) => {
       const current = await tx.teamDevice.findUnique({ where: { teamId_deviceId: { teamId: team.id, deviceId } } });
       if (current?.revokedAt) throw Object.assign(new Error('revoked'), { status: 401 });
       if (current) return tx.teamDevice.update({ where: { id: current.id }, data: { lastLoginAt: new Date(), userAgent } });
+      // A device seen for the first time has no person attached to it yet; the client
+      // blocks on the identity form until deviceName and deviceRole come back filled.
       const count = await tx.teamDevice.count({ where: { teamId: team.id, revokedAt: null } });
       if (count >= team.maxDevices) throw Object.assign(new Error('limit'), { status: 403 });
       created = true;
@@ -60,8 +64,8 @@ router.post('/team/login', validate(loginSchema), async (req, res) => {
     });
 
     if (created) req.io?.emit('device:registered', { teamId: team.id, username: team.username });
-    const token = signToken({ id: team.id, username: team.username, role: 'team', label: team.label, deviceId, deviceName: device.displayName || '', deviceVersion: device.tokenVersion, authVersion: team.authVersion });
-    res.json({ token, user: { id: team.id, username: team.username, role: 'team', label: team.label, deviceName: device.displayName || '' } });
+    const token = signToken({ id: team.id, username: team.username, role: 'team', label: team.label, deviceId, deviceName: device.displayName || '', deviceRole: device.role || '', deviceVersion: device.tokenVersion, authVersion: team.authVersion });
+    res.json({ token, user: { id: team.id, username: team.username, role: 'team', label: team.label, deviceName: device.displayName || '', deviceRole: device.role || '' } });
   } catch (err) {
     if (err.message === 'limit') return res.status(403).json({ error: 'وصل الفريق للحد الأقصى للأجهزة المسموح بها', maxDevicesReached: true });
     if (err.message === 'revoked') return res.status(401).json({ error: 'تم إلغاء اعتماد هذا الجهاز', forceLogout: true, deviceRevoked: true });
@@ -91,15 +95,35 @@ async function roleLogin(req, res, role) {
 
 router.post('/judge/login', validate(roleLoginSchema), (req, res) => roleLogin(req, res, 'judge'));
 router.post('/admin/login', validate(roleLoginSchema), (req, res) => roleLogin(req, res, 'admin'));
-router.patch('/device-name', authenticateToken, requireRole(['team']), validate({ body: { displayName: zString('اسم الجهاز', { min: 1, max: 80 }) } }), async (req, res) => {
+// Who is using this device. Required before a team member can use the app, so the
+// admin and the group activities show real people instead of "device 3".
+const identitySchema = {
+  body: {
+    displayName: zString('الاسم', { min: 2, max: 80 }),
+    role: z.enum(SCOUT_ROLES, { errorMap: () => ({ message: 'الصفة غير صالحة' }) }),
+  },
+};
+router.patch('/device-identity', authenticateToken, requireRole(['team']), validate(identitySchema), async (req, res) => {
   const device = await prisma.teamDevice.update({
     where: { teamId_deviceId: { teamId: req.user.id, deviceId: req.user.deviceId } },
-    data: { displayName: req.body.displayName.trim() },
-    select: { id: true, deviceId: true, displayName: true },
+    data: { displayName: req.body.displayName.trim(), role: req.body.role },
+    select: { id: true, deviceId: true, displayName: true, role: true },
   });
-  res.json({ success: true, device });
+  res.json({ success: true, device, deviceName: device.displayName, deviceRole: device.role });
 });
 
-router.get('/me', authenticateToken, (req, res) => res.json({ user: req.user }));
+router.get('/roles', (req, res) => res.json({ roles: SCOUT_ROLES }));
+
+router.get('/me', authenticateToken, async (req, res) => {
+  // The token is issued at login, so for a team it still carries the device identity
+  // as it was then. Reading the row keeps a reload from re-prompting someone who has
+  // already filled the form.
+  if (req.user.role !== 'team') return res.json({ user: req.user });
+  const device = await prisma.teamDevice.findUnique({
+    where: { teamId_deviceId: { teamId: req.user.id, deviceId: req.user.deviceId } },
+    select: { displayName: true, role: true },
+  });
+  res.json({ user: { ...req.user, deviceName: device?.displayName || '', deviceRole: device?.role || '' } });
+});
 
 export default router;

@@ -204,6 +204,11 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // Applied after the identity form is submitted so the gate closes without needing
+  // a fresh token — the one in hand still carries the values from login time.
+  const setDeviceIdentity = (deviceName, deviceRole) =>
+    setUser(previous => (previous ? { ...previous, deviceName, deviceRole } : previous));
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -212,6 +217,8 @@ export const AuthProvider = ({ children }) => {
       loginJudge,
       loginAdmin,
       logout,
+      setDeviceIdentity,
+      needsDeviceIdentity: user?.role === 'team' && !(user?.deviceName && user?.deviceRole),
       isAdmin: user?.role === 'admin',
       isJudge: user?.role === 'judge',
       isTeam: user?.role === 'team'

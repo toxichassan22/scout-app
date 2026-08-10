@@ -1,9 +1,10 @@
 import { memo } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import DeviceIdentityGate from './DeviceIdentityGate';
 
 export const ProtectedRoute = memo(function ProtectedRoute({ children, allowedRoles }) {
-  const { user, loading } = useAuth();
+  const { user, loading, needsDeviceIdentity } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -30,6 +31,10 @@ export const ProtectedRoute = memo(function ProtectedRoute({ children, allowedRo
     if (user.role === 'judge') return <Navigate to="/judge" replace />;
     return <Navigate to="/" replace />;
   }
+
+  // A shared team account says nothing about who is holding the phone. Ask before any
+  // team screen is reachable, rather than leaving devices anonymous in the admin list.
+  if (needsDeviceIdentity) return <DeviceIdentityGate />;
 
   return children;
 });

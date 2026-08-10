@@ -103,6 +103,10 @@ try {
     ]);
 
     await run(process.execPath, [
+        path.join(scriptDirectory, 'integration-device-identity.mjs')
+    ]);
+
+    await run(process.execPath, [
         path.join(scriptDirectory, 'integration-security.mjs')
     ]);
 

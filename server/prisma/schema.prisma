@@ -46,7 +46,8 @@ model TeamDevice {
   teamId       String
   team         Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
   deviceId     String // Unique browser/device identifier from localStorage
-  displayName  String    @default("")
+  displayName  String    @default("") // The person's own name, required on first use
+  role         String    @default("") // كشاف | مرشدة | جوال | جوالة | قائد/ة
   userAgent    String    @default("")
   tokenVersion Int       @default(0)
   revokedAt    DateTime?

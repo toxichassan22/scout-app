@@ -570,7 +570,12 @@ const AdminTeams = () => {
                     </button>
 
                     <div className="flex-1 mr-3">
-                      <p className="font-black text-[11px] text-white">{d.displayName || `جهاز ${idx + 1}`}</p>
+                      {/* Devices used to be listed as "جهاز 1"; each one now carries the
+                          name and role its owner entered on first use. */}
+                      <p className="flex flex-wrap items-center gap-2 font-black text-[11px] text-white">
+                        {d.displayName || <span className="text-slate-500">لم يُدخل اسمه بعد</span>}
+                        {d.role && <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">{d.role}</span>}
+                      </p>
                       <p className="font-mono text-[10px] text-sky-300 break-all" dir="ltr">{d.deviceId}</p>
                       <p className="text-[10px] text-slate-500 mt-1 truncate" dir="ltr">{d.userAgent}</p>
                       <p className="text-[10px] text-slate-400 mt-1">

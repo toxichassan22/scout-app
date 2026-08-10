@@ -54,6 +54,12 @@ else
   printf '%s\n' 'Skipping migration application; readiness and drift checks must already pass.'
 fi
 
+# The production database predates Prisma Migrate, so additive columns are applied
+# here rather than through migrate deploy. Only ADD COLUMN statements live in that
+# script; the drift check below is still what proves the schema is correct.
+printf '%s\n' 'Applying additive schema columns...'
+npm --prefix server run db:columns
+
 printf '%s\n' 'Checking SQLite readiness and schema drift before restart...'
 npm --prefix server run db:ready
 npm --prefix server run db:drift

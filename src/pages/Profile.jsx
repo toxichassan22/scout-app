@@ -5,13 +5,14 @@ import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
 import { useNavigate } from 'react-router-dom';
 import { FESTIVAL_DETAILS } from '../data/mockData';
-import { updateOwnDeviceName } from '../services/api';
+import { SCOUT_ROLES, updateOwnDeviceIdentity } from '../services/api';
 
 const Profile = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, setDeviceIdentity } = useAuth();
   const { submissions } = useCompetitions();
   const navigate = useNavigate();
   const [deviceName, setDeviceName] = useState(user?.deviceName || '');
+  const [deviceRole, setDeviceRole] = useState(user?.deviceRole || '');
   const [deviceNameMessage, setDeviceNameMessage] = useState('');
   const [savingDeviceName, setSavingDeviceName] = useState(false);
 
@@ -25,10 +26,11 @@ const Profile = () => {
     setSavingDeviceName(true);
     setDeviceNameMessage('');
     try {
-      await updateOwnDeviceName(deviceName.trim());
-      setDeviceNameMessage('تم حفظ اسم الجهاز الظاهر فقط.');
+      const result = await updateOwnDeviceIdentity(deviceName.trim(), deviceRole);
+      setDeviceIdentity(result.deviceName ?? deviceName.trim(), result.deviceRole ?? deviceRole);
+      setDeviceNameMessage('تم حفظ الاسم والصفة.');
     } catch (error) {
-      setDeviceNameMessage(error.message || 'تعذر حفظ الاسم');
+      setDeviceNameMessage(error.message || 'تعذر حفظ البيانات');
     } finally {
       setSavingDeviceName(false);
     }
@@ -103,8 +105,13 @@ const Profile = () => {
               <h1 className="text-3xl sm:text-4xl font-black text-white leading-tight">
                 {teamName}
               </h1>
+              {/* The person on this device, collected at first use. Previously this
+                  read user.leaderName, a field the token never carried, so every team
+                  saw the same hardcoded fallback name. */}
               <p className="mt-1.5 text-sm font-bold text-[#a9a3c2]">
-                قائد: <span className="text-white">{user?.leaderName || 'أحمد الكشاف'}</span>
+                {user?.deviceName
+                  ? <>{user.deviceRole || 'عضو'}: <span className="text-white">{user.deviceName}</span></>
+                  : <span className="text-white">عضو الفريق</span>}
               </p>
               <div className="mt-2.5 flex flex-wrap items-center justify-center sm:justify-start gap-3">
                 <span className="flex items-center gap-1.5 text-xs font-black text-[#6ee7b7]">
@@ -174,12 +181,26 @@ const Profile = () => {
           </div>
 
           <form onSubmit={saveDeviceName} className="relative z-10 mb-6 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(7,6,12,0.45)] p-4 text-right">
-            <label className="mb-2 block text-xs font-black text-[#a9a3c2]">اسم هذا الجهاز داخل أنشطة الفريق</label>
-            <div className="flex gap-2">
-              <input value={deviceName} onChange={event => setDeviceName(event.target.value)} maxLength={80} className="input-field flex-1 text-sm" placeholder="اسم الجهاز" />
-              <button type="submit" disabled={savingDeviceName || !deviceName.trim()} className="btn-violet !px-4 !py-2 text-xs">{savingDeviceName ? '...' : 'حفظ'}</button>
+            <label htmlFor="profile-device-name" className="mb-2 block text-xs font-black text-[#a9a3c2]">اسمك وصفتك على هذا الجهاز</label>
+            <input id="profile-device-name" value={deviceName} onChange={event => setDeviceName(event.target.value)} maxLength={80} className="input-field w-full text-sm" placeholder="الاسم كاملاً" />
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {SCOUT_ROLES.map(option => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setDeviceRole(option)}
+                  aria-pressed={deviceRole === option}
+                  className={`rounded-xl border px-2 py-2 text-xs font-bold transition ${deviceRole === option
+                    ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200'
+                    : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/25'
+                    }`}
+                >
+                  {option}
+                </button>
+              ))}
             </div>
-            <p className="mt-2 text-[10px] text-[#6e6889]">تغيير الاسم لا يغير هوية الجهاز أو الفريق أو البصمة المسجلة.</p>
+            <button type="submit" disabled={savingDeviceName || !deviceName.trim() || !deviceRole} className="btn-violet mt-3 w-full !py-2 text-xs">{savingDeviceName ? '...' : 'حفظ'}</button>
+            <p className="mt-2 text-[10px] text-[#6e6889]">يظهر اسمك في أنشطة الفريق وعند الإدارة. لا يغيّر هوية الجهاز أو الفريق.</p>
             {deviceNameMessage && <p className="mt-2 text-xs font-bold text-emerald-300">{deviceNameMessage}</p>}
           </form>
 

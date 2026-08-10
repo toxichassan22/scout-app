@@ -1,3 +1,7 @@
+// The scouting roles a person can hold. One list shared by the API and the client,
+// so the server accepts nothing the form does not offer.
+export const SCOUT_ROLES = ['كشاف', 'مرشدة', 'جوال', 'جوالة', 'قائد/ة'];
+
 export function boundedString(value, name, { min = 0, max = 1000, trim = true } = {}) {
     if (typeof value !== 'string') throw Object.assign(new Error(`${name} مطلوب`), { status: 400 });
     const result = trim ? value.trim() : value;

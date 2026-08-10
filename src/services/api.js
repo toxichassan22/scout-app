@@ -186,8 +186,11 @@ export const getLeaderboardVisibility = () => apiFetch('/admin/leaderboard/revea
 export const setLeaderboardVisibility = (visible) =>
   apiFetch('/admin/leaderboard/reveal', { method: 'POST', body: JSON.stringify({ visible }) });
 
-export const updateOwnDeviceName = (displayName) =>
-  apiFetch('/auth/device-name', { method: 'PATCH', body: JSON.stringify({ displayName }) });
+// Who is using this device: their own name and scouting role.
+export const SCOUT_ROLES = ['كشاف', 'مرشدة', 'جوال', 'جوالة', 'قائد/ة'];
+
+export const updateOwnDeviceIdentity = (displayName, role) =>
+  apiFetch('/auth/device-identity', { method: 'PATCH', body: JSON.stringify({ displayName, role }) });
 
 export const sendAiMessage = (messages) => apiFetch('/ai/chat', { method: 'POST', body: JSON.stringify({ messages }) });
 
