@@ -61,15 +61,21 @@ const Program = () => {
       console.info('[Program] agenda:update received', payload || {});
       fetchAgendaData('socket:agenda:update');
     };
+    const handleCompetitionUpdate = (payload) => {
+      console.info('[Program] competition:update received', payload || {});
+      fetchAgendaData('socket:competition:update');
+    };
     const handleConnect = () => fetchAgendaData('socket:connect');
     if (socket) {
       socket.on('agenda:update', handleAgendaUpdate);
+      socket.on('competition:update', handleCompetitionUpdate);
       socket.on('connect', handleConnect);
     }
     return () => {
       window.clearInterval(timer);
       if (socket) {
         socket.off('agenda:update', handleAgendaUpdate);
+        socket.off('competition:update', handleCompetitionUpdate);
         socket.off('connect', handleConnect);
       }
     };
@@ -151,7 +157,8 @@ const Program = () => {
     return <><span>{label.name}</span>{timeRange && <span dir="ltr" style={{ unicodeBidi: 'isolate' }}> · {timeRange}</span>}</>;
   };
   const statusMeta = {
-    upcoming: { label: 'قريبًا · مقفول', cls: 'border-slate-600/50 bg-slate-800/60 text-slate-400', icon: Lock },
+    upcoming: { label: 'قريبًا · مغلق', cls: 'border-slate-600/50 bg-slate-800/60 text-slate-400', icon: Lock },
+    closed: { label: 'مغلق بواسطة الإدارة', cls: 'border-red-500/30 bg-red-500/10 text-red-300', icon: Lock },
     active: { label: 'مفتوح الآن', cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300', icon: CheckCheck },
     finished: { label: 'انتهى · مغلق', cls: 'border-red-500/30 bg-red-500/10 text-red-300', icon: Lock }
   };

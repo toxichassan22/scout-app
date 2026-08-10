@@ -286,7 +286,7 @@ export const unassignJudgeCompetition = (judgeId, competitionId) =>
 
 export const getCompetitions = async () => unwrapList(await apiFetch('/competitions'));
 
-export const getAdminCompetitions = async () => unwrapList(await apiFetch('/admin/competitions'));
+export const getAdminCompetitions = async () => unwrapList(await apiFetch('/admin/competitions?limit=100'));
 
 export const createCompetition = (data) =>
   apiFetch('/admin/competitions', { method: 'POST', body: JSON.stringify(data) });

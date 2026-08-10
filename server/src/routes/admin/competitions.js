@@ -16,16 +16,29 @@ const timeFromDateInput = value => {
   const match = String(value || '').match(/T(\d{2}:\d{2})/);
   return match?.[1] || null;
 };
+const festivalDate = () => process.env.FESTIVAL_DATE || '2026-08-21';
+const dateFromTime = value => value ? new Date(`${festivalDate()}T${String(value).slice(0, 5)}:00+03:00`) : null;
 
 // Competitions & Passcodes
 router.get('/competitions', async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
     const [comps, total] = await Promise.all([
-      prisma.competition.findMany({ include: { questions: true }, skip, take: limit }),
+      prisma.competition.findMany({ skip, take: limit }),
       prisma.competition.count(),
     ]);
-    res.json(paginatedResponse({ data: comps, page, limit, total }));
+    const schedules = await prisma.agendaItem.findMany({
+      where: { competitionId: { in: comps.map(comp => comp.id) } },
+      include: { zone: true },
+      orderBy: { order: 'asc' },
+    });
+    const scheduleByCompetition = new Map(schedules.map(schedule => [schedule.competitionId, schedule]));
+    res.json(paginatedResponse({
+      data: comps.map(comp => ({ ...comp, schedule: scheduleByCompetition.get(comp.id) || null })),
+      page,
+      limit,
+      total,
+    }));
   } catch (err) {
     req.log.error({ err }, 'admin competitions failed');
     res.status(500).json({ success: false, error: 'فشل في جلب المسابقات', requestId: req.requestId, timestamp: new Date().toISOString() });
@@ -79,6 +92,10 @@ const competitionUpdateSchema = {
     questionCount: zNumber('عدد الأسئلة', { min: 1, max: 500, int: true, optional: true }),
     startsAt: zString('بداية الموعد', { max: 50 }).optional().nullable(),
     endsAt: zString('نهاية الموعد', { max: 50 }).optional().nullable(),
+    startTime: zString('وقت البدء', { max: 20 }).optional().nullable(),
+    endTime: zString('وقت الانتهاء', { max: 20 }).optional().nullable(),
+    zoneId: zString('المكان', { max: 100 }).optional().nullable(),
+    locationNote: zString('ملاحظة المكان', { max: 300 }).optional(),
     qrCode: zString('QR المسابقة', { max: 200 }).optional().nullable(),
     requiresQr: zBoolean('إلزام QR', { optional: true }),
     leaderboardVisible: zBoolean('إظهار النتائج', { optional: true }),
@@ -90,7 +107,7 @@ const competitionUpdateSchema = {
 };
 router.patch('/competitions/:id', validate(competitionUpdateSchema), async (req, res) => {
   try {
-    const { isOpen, slug, name, description, details, type, criteria, duration, questionCount, startsAt, endsAt, qrCode, requiresQr, leaderboardVisible, entryCode, passcode, custom, revoke } = req.body;
+    const { isOpen, slug, name, description, details, type, criteria, duration, questionCount, startsAt, endsAt, startTime, endTime, zoneId, locationNote, qrCode, requiresQr, leaderboardVisible, entryCode, passcode, custom, revoke } = req.body;
     if (type !== undefined && !['auto_digital', 'manual_judged', 'schedule_only'].includes(String(type))) return res.status(400).json({ error: 'نوع المسابقة غير صالح' });
     const data = {
       ...(isOpen !== undefined && { isOpen: Boolean(isOpen) }),
@@ -104,6 +121,8 @@ router.patch('/competitions/:id', validate(competitionUpdateSchema), async (req,
       ...(questionCount !== undefined && { questionCount: Number(questionCount) }),
       ...(startsAt !== undefined && { startsAt: startsAt ? new Date(startsAt) : null }),
       ...(endsAt !== undefined && { endsAt: endsAt ? new Date(endsAt) : null }),
+      ...(startTime !== undefined && { startsAt: dateFromTime(startTime) }),
+      ...(endTime !== undefined && { endsAt: dateFromTime(endTime) }),
       ...(qrCode !== undefined && { qrCode: qrCode ? String(qrCode).trim() : null }),
       ...(requiresQr !== undefined && { requiresQr: Boolean(requiresQr) }),
       ...(leaderboardVisible !== undefined && { leaderboardVisible: Boolean(leaderboardVisible) }),
@@ -112,23 +131,30 @@ router.patch('/competitions/:id', validate(competitionUpdateSchema), async (req,
     };
     if (custom !== undefined) data.type = custom ? 'manual_judged' : data.type;
     if (revoke === true) { data.passcode = null; data.entryCode = null; data.isOpen = false; }
-    const comp = await prisma.$transaction(async tx => {
+    const transactionResult = await prisma.$transaction(async tx => {
+      const before = await tx.competition.findUnique({ where: { id: req.params.id }, select: { isOpen: true } });
       const updated = await tx.competition.update({ where: { id: req.params.id }, data });
       const agendaData = {
         ...(data.name !== undefined && { title: updated.name }),
+        ...(startTime !== undefined && { startTime: startTime || undefined }),
+        ...(endTime !== undefined && { endTime: endTime || undefined }),
         ...(data.startsAt !== undefined && { startTime: timeFromDateInput(startsAt) || undefined }),
         ...(data.endsAt !== undefined && { endTime: timeFromDateInput(endsAt) || undefined }),
+        ...(zoneId !== undefined && { zoneId: zoneId || undefined }),
+        ...(locationNote !== undefined && { locationNote: locationNote || '' }),
       };
       const cleanAgendaData = Object.fromEntries(Object.entries(agendaData).filter(([, value]) => value !== undefined));
       if (Object.keys(cleanAgendaData).length) {
         await tx.agendaItem.updateMany({ where: { competitionId: updated.id }, data: cleanAgendaData });
       }
-      return updated;
+      return { updated, wasOpen: Boolean(before?.isOpen) };
     });
+    const comp = transactionResult.updated;
+    const justOpened = isOpen === true && !transactionResult.wasOpen;
     clearFestivalContextCache();
 
     if (req.io) {
-      req.io.emit('competition:update', { action: 'updated', competitionId: comp.id, isOpen: comp.isOpen });
+      req.io.emit('competition:update', { action: 'updated', competitionId: comp.id, name: comp.name, isOpen: comp.isOpen, opened: justOpened });
       if (isOpen === false) req.io.emit('judge:session:closed', { competitionId: comp.id });
     }
 
@@ -150,7 +176,8 @@ router.post('/competitions/:id/passcode', validate({ params: { id: zId('المس
       where: { id: req.params.id },
       data: { passcode: randomCode, isOpen: true }
     });
-    if (req.io) req.io.emit('competition:update', { action: 'opened', competitionId: comp.id, isOpen: comp.isOpen });
+    clearFestivalContextCache();
+    if (req.io) req.io.emit('competition:update', { action: 'opened', competitionId: comp.id, name: comp.name, isOpen: comp.isOpen, opened: true });
     res.json({ passcode: comp.passcode });
   } catch (err) {
     req.log.error({ err }, 'admin generate passcode failed');

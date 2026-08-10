@@ -43,6 +43,7 @@ const AdminStressTest = lazy(() => import('./pages/admin/StressTest'));
 import { TopHeader } from './components/TopHeader';
 import { ScoutMascotToy } from './components/ScoutMascotToy';
 import { ScoutCampfireScene } from './components/ScoutCampfireScene';
+import CompetitionNotice from './components/CompetitionNotice';
 
 const App = memo(function App() {
   const { user } = useAuth();
@@ -57,6 +58,7 @@ const App = memo(function App() {
   return (
     <div dir="rtl" className="app-shell min-h-screen">
       <TopHeader />
+      <CompetitionNotice />
       <ScoutCampfireScene />
       <Suspense fallback={<LoadingFallback />}>
         <Routes>

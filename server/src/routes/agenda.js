@@ -39,15 +39,17 @@ router.get('/', authenticateToken, async (req, res) => {
     const zoneById = new Map(zones.map((zone) => [zone.id, zone]));
     const agenda = allItems.map((item) => {
       const zoneId = LEGACY_ZONE_ALIASES[item.zoneId] || item.zoneId;
+      const linkedCompetition = competitionById.get(item.competitionId) || null;
+      const scheduleStatus = linkedCompetition?.isOpen === false ? 'closed' : getAgendaStatus(item);
       return {
         ...item,
-        title: competitionById.get(item.competitionId)?.name || item.title,
+        title: linkedCompetition?.name || item.title,
         zoneId,
         zone: zoneById.get(zoneId) || item.zone,
         locationLabel: item.locationNote || zoneById.get(zoneId)?.name || item.zone?.name || '',
-        competition: competitionById.get(item.competitionId) || null,
-        status: getAgendaStatus(item),
-        canOpen: getAgendaStatus(item) === 'active'
+        competition: linkedCompetition,
+        status: scheduleStatus,
+        canOpen: scheduleStatus === 'active'
       };
     });
     const totalPages = Math.ceil(total / limit) || 1;
