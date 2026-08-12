@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Bot, Send, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { sendAiMessage } from '../services/api';
+import { sendAiMessageStream } from '../services/api';
 
 function getAiErrorMessage(error) {
   if (error.code === 'AI_NOT_CONFIGURED') return 'مساعد الذكاء الاصطناعي غير مفعّل حالياً. تواصلوا مع الإدارة.';
@@ -21,20 +21,33 @@ const AiChat = () => {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [retryContent, setRetryContent] = useState('');
+  const [retryRequest, setRetryRequest] = useState(null);
 
   const sendMessage = async (content, previousMessages = messages) => {
     const next = [...previousMessages, { role: 'user', content }];
-    setMessages(next);
+    setMessages([...next, { role: 'assistant', content: '' }]);
     setInput('');
     setError('');
     setBusy(true);
+    let streamedContent = '';
     try {
-      const response = await sendAiMessage(next);
-      setMessages([...next, { role: 'assistant', content: response.message }]);
-      setRetryContent('');
+      await sendAiMessageStream(next, chunk => {
+        streamedContent += chunk;
+        setMessages(current => {
+          const lastIndex = current.length - 1;
+          if (lastIndex < 0 || current[lastIndex]?.role !== 'assistant') {
+            return [...current, { role: 'assistant', content: streamedContent }];
+          }
+          return [...current.slice(0, lastIndex), { ...current[lastIndex], content: streamedContent }];
+        });
+      });
+      setRetryRequest(null);
     } catch (err) {
-      setRetryContent(content);
+      setMessages(current => {
+        const last = current.at(-1);
+        return last?.role === 'assistant' && !last.content ? current.slice(0, -1) : current;
+      });
+      setRetryRequest({ content, previousMessages });
       setError(getAiErrorMessage(err));
     } finally {
       setBusy(false);
@@ -49,11 +62,8 @@ const AiChat = () => {
   };
 
   const retry = async () => {
-    if (!retryContent || busy) return;
-    const previousMessages = messages.at(-1)?.role === 'user' && messages.at(-1)?.content === retryContent
-      ? messages.slice(0, -1)
-      : messages;
-    await sendMessage(retryContent, previousMessages);
+    if (!retryRequest || busy) return;
+    await sendMessage(retryRequest.content, retryRequest.previousMessages);
   };
 
   return (
@@ -77,13 +87,14 @@ const AiChat = () => {
             <div key={`${message.role}-${index}`} className={`min-w-0 break-words rounded-2xl p-4 text-sm leading-7 ${message.role === 'user' ? 'mr-8 bg-violet-500/15 text-violet-100' : 'ml-8 bg-white/5 text-slate-200'}`}>
               <b className="mb-1 block text-xs text-slate-400">{message.role === 'user' ? 'أنت' : 'مساعد المخيم'}</b>
               {message.content}
+              {busy && index === messages.length - 1 && message.role === 'assistant' && <span className="ms-1 animate-pulse text-cyan-300">▌</span>}
             </div>
           ))}
         </div>
         {error && (
           <div role="alert" className="my-3 flex flex-wrap items-center justify-center gap-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-center text-xs font-bold text-amber-100">
             <p>{error}</p>
-            {retryContent && <button type="button" onClick={retry} disabled={busy} className="rounded-lg border border-amber-300/30 px-3 py-1.5 text-amber-200 transition hover:bg-amber-300/10 disabled:opacity-50">إعادة المحاولة</button>}
+            {retryRequest && <button type="button" onClick={retry} disabled={busy} className="rounded-lg border border-amber-300/30 px-3 py-1.5 text-amber-200 transition hover:bg-amber-300/10 disabled:opacity-50">إعادة المحاولة</button>}
           </div>
         )}
         <form onSubmit={submit} className="mt-5 flex min-w-0 gap-2">

@@ -162,6 +162,105 @@ export const apiFetch = async (endpoint, options = {}) => {
   }
 };
 
+export const sendAiMessageStream = async (messages, onToken) => {
+  const token = getAuthToken();
+  const deviceId = localStorage.getItem(DEVICE_ID_KEY);
+  const headers = {
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(deviceId ? { 'X-Device-Id': deviceId } : {}),
+    ...(globalThis.crypto?.randomUUID ? { 'Idempotency-Key': globalThis.crypto.randomUUID() } : {}),
+  };
+
+  let response;
+  try {
+    response = await fetch(`${API_URL}/ai/chat?stream=1`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ messages }),
+    });
+    markServerUp();
+  } catch (networkErr) {
+    markServerDown();
+    const err = new Error('السيرفر غير متاح حالياً');
+    err.isNetworkError = true;
+    throw err;
+  }
+
+  if (!response.ok) {
+    const data = await readResponseData(response);
+    const err = new Error(data.error || 'حدث خطأ في الاتصال بالسيرفر');
+    err.status = response.status;
+    err.code = data.code;
+    err.requestId = data.requestId;
+    err.retryAfter = Number(response.headers.get('Retry-After')) || undefined;
+    throw err;
+  }
+
+  if (!response.body?.getReader) throw new Error('المتصفح لا يدعم بث رد المساعد');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let message = '';
+  let finished = false;
+
+  const processEvent = async eventText => {
+    const eventName = eventText.split(/\r?\n/).find(line => line.startsWith('event:'))?.slice(6).trim();
+    const dataText = eventText
+      .split(/\r?\n/)
+      .filter(line => line.startsWith('data:'))
+      .map(line => line.slice(5).trim())
+      .join('\n')
+      .trim();
+    if (!dataText || dataText === '[DONE]') {
+      finished = true;
+      return;
+    }
+    let data;
+    try {
+      data = JSON.parse(dataText);
+    } catch {
+      return;
+    }
+    if (eventName === 'error' || data.error) {
+      const err = new Error(data.error || 'تعذر إكمال بث المساعد حالياً');
+      err.status = data.status || (data.code === 'AI_RATE_LIMITED' ? 429 : 502);
+      err.code = data.code;
+      err.retryAfter = Number(data.retryAfter) || undefined;
+      throw err;
+    }
+    if (eventName === 'done') {
+      finished = true;
+      return;
+    }
+    const chunk = String(data.content || '');
+    if (chunk) {
+      message += chunk;
+      await onToken?.(chunk);
+    }
+  };
+
+  try {
+    while (!finished) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      let boundary;
+      while (!finished && (boundary = buffer.search(/\r?\n\r?\n/)) >= 0) {
+        const eventText = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary).replace(/^\r?\n\r?\n/, '');
+        await processEvent(eventText);
+      }
+      if (done) break;
+    }
+    if (!finished && buffer.trim()) await processEvent(buffer);
+  } finally {
+    reader.releaseLock();
+  }
+
+  return { success: true, message };
+};
+
 // Auth API calls
 export const loginTeam = (username, password) => {
   const deviceId = getOrCreateDeviceId();

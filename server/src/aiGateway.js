@@ -45,6 +45,84 @@ export function resolveAiChatUrl(value) {
   return `${normalized}/chat/completions`;
 }
 
+function extractStreamContent(data) {
+  if (data?.type === 'response.output_text.delta') return data.delta || '';
+  const content = data.choices?.[0]?.delta?.content;
+  if (Array.isArray(content)) {
+    return content.map(part => typeof part === 'string' ? part : part?.text || '').join('');
+  }
+  return content || data.choices?.[0]?.message?.content || '';
+}
+
+function createProviderController(signal) {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) controller.abort();
+  else signal?.addEventListener('abort', abort, { once: true });
+  return {
+    controller,
+    cleanup: () => signal?.removeEventListener('abort', abort),
+  };
+}
+
+async function consumeProviderStream(body, onToken, controller) {
+  if (!body?.getReader) throw Object.assign(new Error('رد مزود الذكاء الاصطناعي لا يدعم البث'), { status: 502 });
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let raw = '';
+  let content = '';
+  let stopped = false;
+
+  const processEvent = async eventText => {
+    const dataText = eventText
+      .split(/\r?\n/)
+      .filter(line => line.startsWith('data:'))
+      .map(line => line.slice(5).trim())
+      .join('\n')
+      .trim();
+    if (!dataText || dataText === '[DONE]') return;
+    let data;
+    try {
+      data = JSON.parse(dataText);
+    } catch {
+      return;
+    }
+    if (data.error) throw Object.assign(new Error(data.error.message || 'تعذر إكمال بث المساعد'), { status: 502 });
+    const chunk = String(extractStreamContent(data) || '');
+    if (!chunk) return;
+    content += chunk;
+    if (await onToken?.(chunk) === false) {
+      stopped = true;
+      controller.abort();
+    }
+  };
+
+  while (!stopped) {
+    const { value, done } = await reader.read();
+    const text = decoder.decode(value || new Uint8Array(), { stream: !done });
+    raw += text;
+    buffer += text;
+    let boundary;
+    while (!stopped && (boundary = buffer.search(/\r?\n\r?\n/)) >= 0) {
+      const eventText = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary).replace(/^\r?\n\r?\n/, '');
+      await processEvent(eventText);
+    }
+    if (done) break;
+  }
+  if (!stopped && buffer.trim()) await processEvent(buffer);
+  if (!content && raw.trim() && !raw.includes('data:')) {
+    try {
+      const data = JSON.parse(raw);
+      content = String(extractContent(data) || '');
+      if (content) await onToken?.(content);
+    } catch {
+    }
+  }
+  return { content, stopped };
+}
+
 function queueError() {
   return Object.assign(new Error('مساعد الذكاء الاصطناعي مشغول حالياً؛ حاول بعد قليل'), {
     status: 429,
@@ -190,6 +268,61 @@ export async function requestAiProvider({ url, token, model, messages, festivalC
 
   cacheSet(cacheKey, result);
   return { content: result, cached: false };
+}
+
+export async function streamAiProvider({ url, token, model, messages, festivalContext, onToken, signal }) {
+  const cacheKey = getAiCacheKey({ model, messages, festivalContext });
+  const cached = cacheGet(cacheKey);
+  if (cached) {
+    const stopped = await onToken?.(cached) === false;
+    return { content: cached, cached: true, stopped };
+  }
+
+  const result = await enqueueAiRequest(async () => {
+    const key = await acquireKey();
+    const provider = createProviderController(signal);
+    const timeout = setTimeout(() => provider.controller.abort(), providerTimeoutMs);
+    let failure;
+    try {
+      const response = await fetch(resolveAiChatUrl(url), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', Authorization: `Bearer ${key?.token || token}` },
+        signal: provider.controller.signal,
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: 0.2,
+          max_tokens: Math.max(64, Number(process.env.AI_MAX_OUTPUT_TOKENS) || 350),
+          stream: true,
+        }),
+      });
+      if (!response.ok) {
+        const error = new Error(response.status === 429
+          ? 'مزود الذكاء الاصطناعي وصل للحد المؤقت'
+          : 'تعذر الاتصال بمزود الذكاء الاصطناعي');
+        error.status = response.status === 429 ? 429 : 502;
+        error.retryAfter = Number(response.headers.get('retry-after')) || undefined;
+        throw error;
+      }
+      const streamed = await consumeProviderStream(response.body, onToken, provider.controller);
+      if (!streamed.stopped && !streamed.content) throw Object.assign(new Error('رد مزود الذكاء الاصطناعي غير صالح'), { status: 502 });
+      return streamed;
+    } catch (error) {
+      failure = error;
+      if (error.name === 'AbortError') {
+        throw Object.assign(new Error('مساعد الذكاء الاصطناعي استغرق وقتاً طويلاً؛ حاول مرة أخرى'), { status: 504 });
+      }
+      if (error.status) throw error;
+      throw Object.assign(new Error('تعذر الوصول إلى مزود الذكاء الاصطناعي حالياً'), { status: 502, cause: error });
+    } finally {
+      clearTimeout(timeout);
+      provider.cleanup();
+      releaseKey(key, failure);
+    }
+  });
+
+  if (!result.stopped && result.content) cacheSet(cacheKey, result.content);
+  return { content: result.content, cached: false, stopped: result.stopped };
 }
 
 export function getAiGatewayStats() {

@@ -4,7 +4,7 @@ import { validate, zString } from '../middleware/validate.js';
 import { createMemoryRateLimiter } from '../security.js';
 import { z } from 'zod';
 import { getFestivalContext } from '../aiContext.js';
-import { requestAiProvider } from '../aiGateway.js';
+import { requestAiProvider, streamAiProvider } from '../aiGateway.js';
 
 const router = Router();
 router.use(requireRole(['team']));
@@ -23,6 +23,54 @@ const chatSchema = {
     messages: z.array(z.object({ role: z.enum(['user', 'assistant']), content: zString('الرسالة', { min: 1, max: 4000 }) })).min(1).max(30),
   },
 };
+
+function writeStreamEvent(res, event, payload) {
+  res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
+}
+
+async function streamChatResponse(req, res, options) {
+  const abortController = new AbortController();
+  const handleClose = () => {
+    if (!res.writableEnded) abortController.abort();
+  };
+  req.on('close', handleClose);
+  res.status(200).set({
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders?.();
+
+  try {
+    await streamAiProvider({
+      ...options,
+      signal: abortController.signal,
+      onToken: content => {
+        if (res.writableEnded || res.destroyed) return false;
+        writeStreamEvent(res, 'token', { content });
+        return true;
+      },
+    });
+    if (!abortController.signal.aborted && !res.writableEnded && !res.destroyed) {
+      writeStreamEvent(res, 'done', { success: true });
+      res.end();
+    }
+  } catch (err) {
+    if (abortController.signal.aborted || res.writableEnded || res.destroyed) return;
+    const status = err.status === 429 ? 429 : err.status === 504 ? 504 : 502;
+    if (err.retryAfter) res.setHeader('Retry-After', String(err.retryAfter));
+    req.log.warn({ err, status, teamId: req.user?.id }, 'AI chat stream did not complete');
+    writeStreamEvent(res, 'error', {
+      error: err.message || 'تعذر إكمال بث المساعد حالياً',
+      code: status === 429 ? 'AI_RATE_LIMITED' : status === 504 ? 'AI_TIMEOUT' : 'AI_PROVIDER_ERROR',
+      retryAfter: err.retryAfter,
+    });
+    res.end();
+  } finally {
+    req.off('close', handleClose);
+  }
+}
 
 router.post('/chat', aiUserRateLimiter, validate(chatSchema), async (req, res) => {
   const url = String(process.env.AI_CHAT_URL || '').trim();
@@ -53,6 +101,11 @@ router.post('/chat', aiUserRateLimiter, validate(chatSchema), async (req, res) =
     'لا تكشف درجات أو بيانات أي فريق، ولا تطلب أو تذكر كلمات مرور أو أكواد دخول أو أكواد المحكمين.',
     festivalContext ? `\n=== بيانات المهرجان ===\n${festivalContext}` : '',
   ].filter(Boolean).join('\n');
+  const providerMessages = [{ role: 'system', content: systemPrompt }, ...conversation];
+
+  if (req.query.stream === '1' || req.query.stream === 'true') {
+    return streamChatResponse(req, res, { url, token, model, festivalContext, messages: providerMessages });
+  }
 
   try {
     const result = await requestAiProvider({
@@ -60,7 +113,7 @@ router.post('/chat', aiUserRateLimiter, validate(chatSchema), async (req, res) =
       token,
       model,
       festivalContext,
-      messages: [{ role: 'system', content: systemPrompt }, ...conversation],
+      messages: providerMessages,
     });
     return res.json({ success: true, message: result.content, cached: result.cached });
   } catch (err) {

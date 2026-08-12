@@ -10,7 +10,7 @@ process.env.AI_MAX_QUEUE = '4';
 process.env.AI_PROVIDER_TIMEOUT_MS = '5000';
 process.env.AI_RESPONSE_CACHE_TTL_MS = '1000';
 
-const { requestAiProvider, resolveAiChatUrl } = await import('../src/aiGateway.js');
+const { requestAiProvider, resolveAiChatUrl, streamAiProvider } = await import('../src/aiGateway.js');
 const realFetch = globalThis.fetch;
 let calls = 0;
 let active = 0;
@@ -55,6 +55,31 @@ try {
   assert.ok(maxActive > 1, 'pool keys should allow safe concurrent provider requests');
   assert.equal(usedKeys.size, 3, 'three concurrent requests should be distributed across three keys');
   assert.equal(calls, 4, 'only uncached questions reach the provider');
+
+  globalThis.fetch = async (_url, options = {}) => {
+    assert.equal(JSON.parse(options.body).stream, true);
+    const encoder = new TextEncoder();
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"أهلاً "}}]}\n'));
+        controller.enqueue(encoder.encode('\ndata: {"choices":[{"delta":{"content":"بكم"}}]}\n\ndata: [DONE]\n\n'));
+        controller.close();
+      },
+    });
+    return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  };
+  let streamedContent = '';
+  const streamed = await streamAiProvider({
+    url: 'https://provider.test/v1',
+    token: 'token',
+    model: 'test-model',
+    festivalContext: 'schedule-v1',
+    messages: [{ role: 'user', content: 'سؤال بث' }],
+    onToken: chunk => { streamedContent += chunk; },
+  });
+  assert.equal(streamed.content, 'أهلاً بكم');
+  assert.equal(streamedContent, 'أهلاً بكم');
+  assert.equal(streamed.cached, false);
 
   globalThis.fetch = async () => { throw new TypeError('fetch failed'); };
   await assert.rejects(
