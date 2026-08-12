@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { ArrowRight, Bug, CheckCircle2, ExternalLink, Headphones, Lightbulb, MessageCircle, Send, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const SUPPORT_PHONE = '201015374789';
+const SUPPORT_PHONE = '201022529346';
+const SUPPORT_DISPLAY_PHONE = '+20 10 22529346';
+const SUPPORT_NAME = 'القائدة جني محمد شوقي';
+const SUPPORT_USERNAME = '@jjannaa_mmohammedd__';
 
 function whatsappUrl(message) {
   return `https://wa.me/${SUPPORT_PHONE}?text=${encodeURIComponent(message)}`;
@@ -50,6 +53,11 @@ const Support = () => {
           </div>
           <h2 className="text-xl font-black text-white">تواصل مع الدعم الفني</h2>
           <p className="mt-2 text-sm leading-7 text-slate-400">للمشاكل العاجلة في تسجيل الدخول أو المسابقات أو الحساب، افتح محادثة مباشرة مع فريق الدعم.</p>
+          <div className="mt-4 space-y-1 rounded-xl border border-cyan-300/15 bg-cyan-300/5 p-3 text-xs">
+            <p className="font-black text-cyan-200">{SUPPORT_NAME}</p>
+            <p dir="ltr" className="text-right text-slate-300">{SUPPORT_DISPLAY_PHONE}</p>
+            <p dir="ltr" className="text-right text-cyan-300/80">{SUPPORT_USERNAME}</p>
+          </div>
           <span className="mt-5 inline-flex items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs font-black text-cyan-200">فتح محادثة واتساب <ArrowRight size={14} /></span>
         </button>
 
