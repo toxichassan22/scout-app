@@ -1,15 +1,25 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, LogOut, Shield, Lock, Award, Fingerprint, Flame, Trophy, Star, CheckCircle, FileText } from 'lucide-react';
+import { ShieldCheck, LogOut, Shield, Lock, Award, Flame, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useCompetitions } from '../context/CompetitionContext';
 import { useNavigate } from 'react-router-dom';
-import { FESTIVAL_DETAILS } from '../data/mockData';
+import { getMyReportPermissions, getMyReports } from '../services/api';
 
 const Profile = () => {
   const { user, logout } = useAuth();
-  const { submissions } = useCompetitions();
   const navigate = useNavigate();
+  const [reportStats, setReportStats] = useState({ submitted: 0, total: 0, loading: true, error: false });
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([getMyReports(), getMyReportPermissions()]).then(([reports, permissions]) => {
+      if (!active) return;
+      setReportStats({ submitted: reports.length, total: permissions.length, loading: false, error: false });
+    }).catch(() => {
+      if (active) setReportStats({ submitted: 0, total: 0, loading: false, error: true });
+    });
+    return () => { active = false; };
+  }, [user?.id]);
 
   const handleLogout = () => {
     logout();
@@ -17,9 +27,8 @@ const Profile = () => {
   };
 
   const teamName = user?.label || user?.name || user?.username || 'فرقة الصقور';
-  const myReportsCount = submissions.filter(
-    (s) => (s.teamName === teamName || s.teamName === user?.username) && s.data?.type === 'report'
-  ).length;
+  const myReportsCount = reportStats.submitted;
+  const reportsTotal = reportStats.total;
 
   return (
     <main className="page-shell dir-rtl flex min-h-[85vh] flex-col items-center justify-center relative">
@@ -113,8 +122,8 @@ const Profile = () => {
               whileHover={{ y: -3 }}
               className="flex flex-col items-center justify-center rounded-2xl border border-[rgba(245,158,11,0.35)] bg-[rgba(245,158,11,0.08)] p-4 text-center shadow-[0_0_20px_rgba(245,158,11,0.15)]"
             >
-              <Trophy size={20} className="text-[#fcd34d] mb-1" />
-              <span className="text-xl sm:text-2xl font-black text-[#fcd34d]">الأول</span>
+              <Lock size={20} className="text-[#fcd34d] mb-1" />
+              <span className="text-xl sm:text-2xl font-black text-[#fcd34d]">محجوب</span>
               <span className="text-[10px] font-bold text-[#a9a3c2] mt-1">المركز</span>
             </motion.div>
 
@@ -123,8 +132,8 @@ const Profile = () => {
               whileHover={{ y: -3 }}
               className="flex flex-col items-center justify-center rounded-2xl border border-[rgba(139,92,246,0.35)] bg-[rgba(139,92,246,0.08)] p-4 text-center shadow-[0_0_20px_rgba(139,92,246,0.15)]"
             >
-              <Star size={20} className="text-[#c4b5fd] mb-1" />
-              <span className="font-mono text-xl sm:text-2xl font-black text-white" dir="ltr">2840</span>
+              <Lock size={20} className="text-[#c4b5fd] mb-1" />
+              <span className="font-mono text-xl sm:text-2xl font-black text-white">محجوبة</span>
               <span className="text-[10px] font-bold text-[#a9a3c2] mt-1">النقاط</span>
             </motion.div>
 
@@ -135,7 +144,7 @@ const Profile = () => {
             >
               <Award size={20} className="text-[#6ee7b7] mb-1" />
               <span className="font-mono text-xl sm:text-2xl font-black text-[#6ee7b7]" dir="ltr">
-                {myReportsCount}/24
+                {reportStats.loading ? '…/…' : reportStats.error ? '—/—' : `${myReportsCount}/${reportsTotal}`}
               </span>
               <span className="text-[10px] font-bold text-[#a9a3c2] mt-1">تقارير مرفوعة</span>
             </motion.div>

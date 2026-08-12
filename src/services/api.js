@@ -463,7 +463,7 @@ export const updateReportPermission = (teamId, competitionId, data) =>
 export const getMyReportPermissions = () =>
   apiFetch('/reports/permissions');
 
-export const getMyReports = async () => unwrapList(await apiFetch('/reports/mine'));
+export const getMyReports = async () => unwrapList(await apiFetch('/reports/mine?limit=100'));
 
 export const uploadTeamReport = (data) =>
   apiFetch('/reports', {
