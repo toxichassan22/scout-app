@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma, { databaseReady } from '../src/db.js';
-import { createMemoryRateLimiter, JWT_SECRET } from '../src/security.js';
+import { createMemoryRateLimiter, JWT_SECRET, securityHeaders } from '../src/security.js';
 import { verifyAuthenticatedUser } from '../src/middleware/auth.js';
 import { canJoinRoom } from '../src/middleware/socketAuth.js';
 import { MAX_UPLOAD_BYTES, validateBase64Upload } from '../src/uploadSecurity.js';
@@ -22,6 +22,10 @@ function mockResponse() {
         json(body) { this.body = body; return this; },
     };
 }
+
+const securityResponse = mockResponse();
+securityHeaders({}, securityResponse, () => {});
+assert.equal(securityResponse.headers['Permissions-Policy'], 'camera=(self), microphone=(), geolocation=()');
 
 const token = jwt.sign({ id: 'team-1', role: 'team' }, JWT_SECRET, { algorithm: 'HS256' });
 assert.equal(jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }).role, 'team');

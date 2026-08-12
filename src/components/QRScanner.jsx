@@ -19,7 +19,7 @@ const QRScanner = ({ onScan, onError }) => {
   return (
     <div className="h-full w-full overflow-hidden bg-black">
       <QrScanner
-        constraints={{ video: { facingMode: 'environment' } }}
+        constraints={{ audio: false, video: { facingMode: { ideal: 'environment' } } }}
         delay={350}
         onError={handleError}
         onScan={handleScan}

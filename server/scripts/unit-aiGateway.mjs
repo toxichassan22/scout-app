@@ -50,6 +50,13 @@ try {
   assert.equal(usedKeys.size, 3, 'three concurrent requests should be distributed across three keys');
   assert.equal(calls, 4, 'only uncached questions reach the provider');
 
+  globalThis.fetch = async () => { throw new TypeError('fetch failed'); };
+  await assert.rejects(
+    () => requestAiProvider({ url: 'https://provider.test/chat', token: 'token', model: 'test-model', festivalContext: 'schedule-v1', messages: [{ role: 'user', content: 'سؤال شبكة' }] }),
+    error => error.status === 502 && error.message === 'تعذر الوصول إلى مزود الذكاء الاصطناعي حالياً',
+    'provider network failures must become an actionable 502 error',
+  );
+
   globalThis.fetch = async () => new Response(JSON.stringify({ message: 'rate' }), { status: 429, headers: { 'Retry-After': '7' } });
   await assert.rejects(
     () => requestAiProvider({ url: 'https://provider.test/chat', token: 'token', model: 'test-model', festivalContext: 'schedule-v1', messages: [{ role: 'user', content: 'سؤال جديد' }] }),

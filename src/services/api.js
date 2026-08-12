@@ -1,4 +1,14 @@
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
+
+const readResponseData = async (response) => {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
+};
 
 // ─── Server Health Tracker ───
 let serverDown = false;
@@ -103,11 +113,13 @@ export const apiFetch = async (endpoint, options = {}) => {
       throw err;
     }
 
-    const data = await response.json().catch(() => ({}));
+    const data = await readResponseData(response);
 
     if (response.status === 429) {
       const err = new Error(data.error || 'طلبات كثيرة؛ حاول مرة أخرى لاحقاً');
       err.status = 429;
+      err.code = data.code;
+      err.requestId = data.requestId;
       err.retryAfter = Number(response.headers.get('Retry-After')) || undefined;
       throw err;
     }
@@ -128,6 +140,8 @@ export const apiFetch = async (endpoint, options = {}) => {
       }
       const err = new Error(data.error || 'جلسة الدخول غير صالحة');
       err.status = 401;
+      err.code = data.code;
+      err.requestId = data.requestId;
       err.forceLogout = !!data.forceLogout;
       throw err;
     }
@@ -139,6 +153,8 @@ export const apiFetch = async (endpoint, options = {}) => {
       }
       const err = new Error(data.error || 'حدث خطأ في الاتصال بالسيرفر');
       err.status = response.status;
+      err.code = data.code;
+      err.requestId = data.requestId;
       throw err;
     }
 

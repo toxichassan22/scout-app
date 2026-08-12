@@ -340,7 +340,7 @@ const Program = () => {
         </div>
 
         {/* Cards list - no timeline */}
-        <div className="p-3 space-y-2">
+        <div className="space-y-2 p-3 pb-36">
           {loading ? (
             <LoadingSpinner label="جاري تحميل برنامج المهرجان..." />
           ) : filteredCompetitions.length === 0 ? (
@@ -364,21 +364,23 @@ const Program = () => {
                       : 'border-slate-800 bg-slate-900/30'
                       }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[9px] font-black ${meta.cls}`}>{meta.label}</span>
-                        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black ${state.cls}`}>
-                          <StateIcon size={9} />{state.label}
-                        </span>
-                        <h3 className="text-sm font-bold text-white truncate">{item.title}</h3>
+                    <div className="grid min-w-0 gap-2">
+                      <div className="min-w-0">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          <span className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[9px] font-black ${meta.cls}`}>{meta.label}</span>
+                          <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black ${state.cls}`}>
+                            <StateIcon size={9} />{state.label}
+                          </span>
+                        </div>
+                        <h3 className="mt-1 break-words text-sm font-bold leading-6 text-white">{item.title}</h3>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                         {(item.locationLabel || item.zone) && (
-                          <span className="flex max-w-[12rem] items-center gap-0.5 truncate text-[10px] font-bold text-cyan-300">
+                          <span className="flex min-w-0 max-w-full items-center gap-0.5 truncate text-[10px] font-bold text-cyan-300">
                             <MapPin size={10} className="shrink-0" />{item.locationLabel || item.zone.name}
                           </span>
                         )}
-                        <span className="flex items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-mono font-black text-amber-300">
+                        <span className="flex shrink-0 items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-mono font-black text-amber-300">
                           <Clock size={10} />
                           <span dir="ltr">{item.startTime}</span>
                         </span>

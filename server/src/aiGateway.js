@@ -31,6 +31,14 @@ let drainTimer;
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+function extractContent(data) {
+  const content = data.choices?.[0]?.message?.content;
+  if (Array.isArray(content)) {
+    return content.map(part => typeof part === 'string' ? part : part?.text || '').join('');
+  }
+  return content || data.output?.[0]?.content?.[0]?.text;
+}
+
 function queueError() {
   return Object.assign(new Error('مساعد الذكاء الاصطناعي مشغول حالياً؛ حاول بعد قليل'), {
     status: 429,
@@ -44,7 +52,6 @@ function scheduleDrain(delay = 0) {
     drainTimer = undefined;
     drainQueue();
   }, Math.max(0, delay));
-  drainTimer.unref?.();
 }
 
 function drainQueue() {
@@ -159,7 +166,7 @@ export async function requestAiProvider({ url, token, model, messages, festivalC
         error.retryAfter = Number(response.headers.get('retry-after')) || undefined;
         throw error;
       }
-      const content = data.choices?.[0]?.message?.content || data.output?.[0]?.content?.[0]?.text;
+      const content = extractContent(data);
       if (!content) throw Object.assign(new Error('رد مزود الذكاء الاصطناعي غير صالح'), { status: 502 });
       return String(content);
     } catch (error) {
@@ -167,7 +174,8 @@ export async function requestAiProvider({ url, token, model, messages, festivalC
       if (error.name === 'AbortError') {
         throw Object.assign(new Error('مساعد الذكاء الاصطناعي استغرق وقتاً طويلاً؛ حاول مرة أخرى'), { status: 504 });
       }
-      throw error;
+      if (error.status) throw error;
+      throw Object.assign(new Error('تعذر الوصول إلى مزود الذكاء الاصطناعي حالياً'), { status: 502, cause: error });
     } finally {
       clearTimeout(timeout);
       releaseKey(key, failure);
