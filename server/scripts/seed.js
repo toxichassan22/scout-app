@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../src/db.js';
 import { OFFICIAL_AGENDA, OFFICIAL_ZONES } from '../src/agendaCanonical.js';
 import { loadArabCountries, loadTwoTruthsQuestions } from '../src/workbook.js';
+import { syncOfficialReportCatalog } from '../src/reportCatalog.js';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TWO_TRUTHS_WORKBOOK = path.join(PROJECT_ROOT, 'حقيقتين و كدبه.xlsx');
@@ -576,6 +577,7 @@ async function seed() {
     await prisma.agendaItem.create({ data: item });
   }
 
+  await syncOfficialReportCatalog(prisma);
   console.log('[Seed] Core data verified with 8 zones and ' + OFFICIAL_AGENDA.length + ' complete agenda items.');
 }
 

@@ -8,6 +8,15 @@ import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
 import { getMyReportPermissions, getMyReports, resubmitTeamReport, uploadTeamReport } from '../services/api';
 
+const REPORT_FIELD_GROUPS = [
+  { key: 'scientific', label: 'المجال العلمي', slugs: ['report-scientific-research', 'report-ai-models', 'report-smart-scout'] },
+  { key: 'scouting', label: 'المجال الكشفي', slugs: ['report-earth-magazine', 'report-scout-model', 'report-reels'] },
+  { key: 'artistic', label: 'المجال الفني', slugs: ['report-campfire', 'report-poster', 'report-exhibition', 'report-art-workshop'] },
+  { key: 'cultural', label: 'المجال الثقافي', slugs: ['report-video'] },
+  { key: 'religious', label: 'المجال الديني', slugs: ['report-surah-al-kahf', 'report-hadith', 'report-worksheet', 'report-tilawa'] },
+];
+const REPORT_FIELD_BY_SLUG = Object.fromEntries(REPORT_FIELD_GROUPS.flatMap(group => group.slugs.map(slug => [slug, group.key])));
+
 const UploadReport = () => {
   const { user } = useAuth();
   const { submitEntry } = useCompetitions();
@@ -50,7 +59,7 @@ const UploadReport = () => {
   const myReports = backendReports.map(report => ({
     ...report,
     data: { title: report.title, fileName: report.fileName, reportIndex: 1, isLate: false },
-    competitionName: competitions.find(c => c.id === report.competitionId)?.name || 'مسابقة',
+    competitionName: report.competition?.name || competitions.find(c => c.id === report.competitionId)?.name || 'مسابقة',
     timestamp: report.uploadedAt
   }));
 
@@ -62,6 +71,10 @@ const UploadReport = () => {
   const activeComp = competitions.find((c) => sameId(c.id, selectedCompId));
   const activePermission = permissions.find(p => sameId(p.competitionId, selectedCompId));
   const existingReport = backendReports.find(r => sameId(r.competitionId, selectedCompId));
+  const groupedPermissions = REPORT_FIELD_GROUPS.map(group => ({
+    ...group,
+    rows: permissions.filter(permission => REPORT_FIELD_BY_SLUG[permission.competition?.slug] === group.key),
+  })).filter(group => group.rows.length > 0);
   const deadlineExpired = Boolean(activePermission?.deadline && new Date(activePermission.deadline) < new Date());
   const canSubmit = Boolean(activePermission?.canSubmit && !deadlineExpired && (!activePermission.hasReport || activePermission.reopened));
 
@@ -350,10 +363,14 @@ const UploadReport = () => {
             className="input-field appearance-none"
           >
             <option value="">— اختر المسابقة المعنية بهذا التقرير —</option>
-            {permissions.map((p) => (
-              <option key={p.competitionId} value={p.competitionId} disabled={!p.canSubmit || (p.hasReport && !p.reopened)}>
-                {p.competition.name} {p.hasReport ? (p.reopened ? '— إعادة إرسال مفتوحة' : '— تم التسليم') : ''} {!p.canSubmit ? '— غير مسموح' : ''}
-              </option>
+            {groupedPermissions.map(group => (
+              <optgroup key={group.key} label={group.label}>
+                {group.rows.map(p => (
+                  <option key={p.competitionId} value={p.competitionId} disabled={!p.canSubmit || (p.hasReport && !p.reopened)}>
+                    {p.competition.name} {p.hasReport ? (p.reopened ? '— إعادة إرسال مفتوحة' : '— تم التسليم') : ''} {!p.canSubmit ? '— غير مسموح' : ''}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>

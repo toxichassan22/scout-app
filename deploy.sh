@@ -71,6 +71,9 @@ printf '%s\n' 'Checking SQLite readiness and schema drift before restart...'
 npm --prefix server run db:ready
 npm --prefix server run db:drift
 
+printf '%s\n' 'Synchronizing official report catalog...'
+npm --prefix server run reports:sync
+
 if [ "${ALLOW_PRODUCTION_SEED:-}" = "I_UNDERSTAND_THIS_MODIFIES_DATA" ]; then
   printf '%s\n' 'Seeding initial festival data...'
   npm --prefix server run seed

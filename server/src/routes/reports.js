@@ -12,6 +12,7 @@ import { isEmergencyFrozen } from '../freeze.js';
 import { validate, zString, zId } from '../middleware/validate.js';
 import { idempotent } from '../middleware/idempotent.js';
 import { parsePagination, paginatedResponse } from '../pagination.js';
+import { OFFICIAL_REPORT_IDS } from '../reportCatalog.js';
 
 const router = Router();
 
@@ -165,7 +166,7 @@ function handleUploadError(err, res, req) {
 
 // Team uploads a report (base64 file optional)
 router.get('/permissions', authenticateToken, requireRole(['team']), async (req, res) => {
-  const competitions = await prisma.competition.findMany({ orderBy: { createdAt: 'asc' }, select: safeCompetitionSelect });
+  const competitions = await prisma.competition.findMany({ where: { id: { in: OFFICIAL_REPORT_IDS } }, orderBy: { createdAt: 'asc' }, select: safeCompetitionSelect });
   const permissions = await prisma.reportPermission.findMany({ where: { teamId: req.user.id } });
   const reports = await prisma.report.findMany({ where: { teamId: req.user.id, competitionId: { not: null } }, select: { competitionId: true, uploadedAt: true } });
   const byComp = Object.fromEntries(permissions.map(p => [p.competitionId, p]));
@@ -287,7 +288,7 @@ router.get('/mine', authenticateToken, requireRole(['team']), async (req, res) =
     const { page, limit, skip } = parsePagination(req.query);
     const where = { teamId: req.user.id };
     const [reports, total] = await Promise.all([
-      prisma.report.findMany({ where, orderBy: { uploadedAt: 'desc' }, skip, take: limit }),
+      prisma.report.findMany({ where, orderBy: { uploadedAt: 'desc' }, skip, take: limit, include: { competition: { select: { id: true, name: true, slug: true, type: true } } } }),
       prisma.report.count({ where }),
     ]);
     res.json(paginatedResponse({ data: reports, page, limit, total }));
