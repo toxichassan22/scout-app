@@ -96,14 +96,14 @@ console.log(`[ensure-env] CORS_ORIGINS set to ${corsOrigins}`);
 // normal deploy never wipes a working token. The token is never logged.
 const aiChatUrl = process.env.AI_CHAT_URL
     || readEnvValue(lines, 'AI_CHAT_URL')
-    || 'https://opencode.ai/zen/v1/chat/completions';
+    || 'https://opencode.ai/zen/v1';
 const aiChatModel = process.env.AI_CHAT_MODEL
     || readEnvValue(lines, 'AI_CHAT_MODEL')
     || 'mimo-v2.5-free';
 const aiChatToken = process.env.AI_CHAT_TOKEN || readEnvValue(lines, 'AI_CHAT_TOKEN');
 const aiChatTokenPool = process.env.AI_CHAT_TOKEN_POOL || readEnvValue(lines, 'AI_CHAT_TOKEN_POOL');
 
-upsertEnv(lines, 'AI_CHAT_URL', aiChatUrl, 'OpenAI-compatible chat endpoint; chat returns 503 while the token is empty.');
+upsertEnv(lines, 'AI_CHAT_URL', aiChatUrl, 'OpenAI-compatible base URL; chat returns 503 while the token is empty.');
 upsertEnv(lines, 'AI_CHAT_MODEL', aiChatModel);
 upsertEnv(lines, 'AI_CHAT_TOKEN', aiChatToken);
 upsertEnv(lines, 'AI_CHAT_TOKEN_POOL', aiChatTokenPool);

@@ -39,6 +39,12 @@ function extractContent(data) {
   return content || data.output?.[0]?.content?.[0]?.text;
 }
 
+export function resolveAiChatUrl(value) {
+  const normalized = String(value || '').trim().replace(/\/+$/, '');
+  if (!normalized || normalized.endsWith('/chat/completions')) return normalized;
+  return `${normalized}/chat/completions`;
+}
+
 function queueError() {
   return Object.assign(new Error('مساعد الذكاء الاصطناعي مشغول حالياً؛ حاول بعد قليل'), {
     status: 429,
@@ -146,7 +152,7 @@ export async function requestAiProvider({ url, token, model, messages, festivalC
     const timeout = setTimeout(() => controller.abort(), providerTimeoutMs);
     let failure;
     try {
-      const response = await fetch(url, {
+      const response = await fetch(resolveAiChatUrl(url), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key?.token || token}` },
         signal: controller.signal,

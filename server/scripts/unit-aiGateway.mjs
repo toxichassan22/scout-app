@@ -10,14 +10,19 @@ process.env.AI_MAX_QUEUE = '4';
 process.env.AI_PROVIDER_TIMEOUT_MS = '5000';
 process.env.AI_RESPONSE_CACHE_TTL_MS = '1000';
 
-const { requestAiProvider } = await import('../src/aiGateway.js');
+const { requestAiProvider, resolveAiChatUrl } = await import('../src/aiGateway.js');
 const realFetch = globalThis.fetch;
 let calls = 0;
 let active = 0;
 let maxActive = 0;
 const usedKeys = new Set();
+const requestedUrls = [];
+
+assert.equal(resolveAiChatUrl('https://provider.test/v1'), 'https://provider.test/v1/chat/completions');
+assert.equal(resolveAiChatUrl('https://provider.test/v1/chat/completions'), 'https://provider.test/v1/chat/completions');
 
 globalThis.fetch = async (_url, options = {}) => {
+  requestedUrls.push(_url);
   calls += 1;
   usedKeys.add(options.headers?.Authorization || '');
   active += 1;
@@ -29,20 +34,21 @@ globalThis.fetch = async (_url, options = {}) => {
 
 try {
   const first = await requestAiProvider({
-    url: 'https://provider.test/chat', token: 'token', model: 'test-model',
+    url: 'https://provider.test/v1', token: 'token', model: 'test-model',
     festivalContext: 'schedule-v1', messages: [{ role: 'user', content: 'ما موعد الافتتاح؟' }],
   });
   const cached = await requestAiProvider({
-    url: 'https://provider.test/chat', token: 'token', model: 'test-model',
+    url: 'https://provider.test/v1', token: 'token', model: 'test-model',
     festivalContext: 'schedule-v1', messages: [{ role: 'user', content: 'ما موعد الافتتاح؟' }],
   });
   assert.equal(first.content, 'إجابة الاختبار');
   assert.equal(first.cached, false);
   assert.equal(cached.cached, true, 'the same standalone FAQ should use the short cache');
   assert.equal(calls, 1, 'the cache must prevent a second provider request');
+  assert.equal(requestedUrls[0], 'https://provider.test/v1/chat/completions', 'base URLs should resolve to chat completions');
 
   const results = await Promise.all(['سؤال 1', 'سؤال 2', 'سؤال 3'].map(question => requestAiProvider({
-    url: 'https://provider.test/chat', token: 'token', model: 'test-model',
+    url: 'https://provider.test/v1', token: 'token', model: 'test-model',
     festivalContext: 'schedule-v1', messages: [{ role: 'user', content: question }],
   })));
   assert.equal(results.length, 3);
@@ -52,14 +58,14 @@ try {
 
   globalThis.fetch = async () => { throw new TypeError('fetch failed'); };
   await assert.rejects(
-    () => requestAiProvider({ url: 'https://provider.test/chat', token: 'token', model: 'test-model', festivalContext: 'schedule-v1', messages: [{ role: 'user', content: 'سؤال شبكة' }] }),
+    () => requestAiProvider({ url: 'https://provider.test/v1', token: 'token', model: 'test-model', festivalContext: 'schedule-v1', messages: [{ role: 'user', content: 'سؤال شبكة' }] }),
     error => error.status === 502 && error.message === 'تعذر الوصول إلى مزود الذكاء الاصطناعي حالياً',
     'provider network failures must become an actionable 502 error',
   );
 
   globalThis.fetch = async () => new Response(JSON.stringify({ message: 'rate' }), { status: 429, headers: { 'Retry-After': '7' } });
   await assert.rejects(
-    () => requestAiProvider({ url: 'https://provider.test/chat', token: 'token', model: 'test-model', festivalContext: 'schedule-v1', messages: [{ role: 'user', content: 'سؤال جديد' }] }),
+    () => requestAiProvider({ url: 'https://provider.test/v1', token: 'token', model: 'test-model', festivalContext: 'schedule-v1', messages: [{ role: 'user', content: 'سؤال جديد' }] }),
     error => error.status === 429 && error.retryAfter === 7,
     'provider rate-limit responses must preserve status and retry-after',
   );
