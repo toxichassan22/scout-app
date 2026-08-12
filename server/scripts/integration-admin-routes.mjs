@@ -9,13 +9,14 @@ await databaseReady;
 const suffix = Date.now().toString();
 const password = 'Strong!Integration123';
 
-async function request(base, method, route, token) {
+async function request(base, method, route, token, body) {
   const response = await fetch(`${base}${route}`, {
     method,
     headers: {
       'content-type': 'application/json',
       ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await response.text();
   return { response, text };
@@ -63,6 +64,25 @@ try {
     assert.notEqual(result.response.status, 404, `${route} should exist`);
     assert(result.response.status >= 200 && result.response.status < 300, `${route} returned ${result.response.status}`);
   }
+
+  result = await request(base, 'GET', '/api/admin/activities/easter-egg/stages', adminToken);
+  assert.equal(result.response.status, 200);
+  const originalStages = JSON.parse(result.text).stages;
+  const customStages = [
+    { id: 'integration-stage-1', title: 'اختبار السواعد', taskType: 'مهمة ميدانية', task: 'نفذوا المهمة أمام السواعد.', requiresSawaed: true, clue: '' },
+    { id: 'integration-stage-2', title: 'اختبار clue', taskType: 'بحث', task: 'ابحثوا عن الكود التالي.', requiresSawaed: false, clue: 'بجوار لوحة الاختبار.' },
+    { id: 'integration-stage-3', title: 'النهاية', taskType: 'خاتمة', task: 'أكملوا الخاتمة.', requiresSawaed: true, clue: '' },
+  ];
+  result = await request(base, 'PUT', '/api/admin/activities/easter-egg/stages', adminToken, { stages: customStages });
+  assert.equal(result.response.status, 200);
+  const updatedStages = JSON.parse(result.text).stages;
+  assert.equal(updatedStages.length, customStages.length);
+  assert(updatedStages.every(stage => stage.qrValue));
+  assert.equal(updatedStages[1].clue, customStages[1].clue);
+  result = await request(base, 'PUT', '/api/admin/activities/easter-egg/stages', adminToken, { stages: originalStages.map(stage => ({ id: stage.id, title: stage.title, taskType: stage.taskType, task: stage.task, requiresSawaed: stage.requiresSawaed, clue: stage.clue })) });
+  assert.equal(result.response.status, 200);
+  result = await request(base, 'GET', '/api/admin/activities/easter-egg/stages');
+  assert.equal(result.response.status, 401);
 
   result = await request(base, 'DELETE', `/api/admin/devices/${device.id}`, adminToken);
   assert.equal(result.response.status, 200);

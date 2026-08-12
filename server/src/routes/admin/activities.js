@@ -1,6 +1,9 @@
 import { Router } from 'express';
+import crypto from 'node:crypto';
+import { z } from 'zod';
 import prisma from '../../db.js';
-import { EASTER_EGG_STAGES, getEasterEggQrPayload } from '../../activityService.js';
+import { ensureActivityCatalog, getEasterEggQrPayload, getEasterEggStages } from '../../activityService.js';
+import { validate } from '../../middleware/validate.js';
 
 const router = Router();
 
@@ -8,11 +11,42 @@ function parseJson(value, fallback = {}) {
   try { return JSON.parse(value || ''); } catch { return fallback; }
 }
 
+function stageResponse(stages) {
+  return stages.map((stage, index) => ({ ...stage, index, qrValue: getEasterEggQrPayload(stage) }));
+}
+
+const stageInput = z.strictObject({
+  id: z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/).optional(),
+  title: z.string().trim().min(1).max(160),
+  taskType: z.string().trim().min(1).max(80),
+  task: z.string().trim().min(1).max(2000),
+  requiresSawaed: z.boolean(),
+  clue: z.string().trim().max(500),
+});
+const updateStagesSchema = { body: z.strictObject({ stages: z.array(stageInput).min(1).max(50) }) };
+
 router.get('/activities/easter-egg/stages', async (req, res) => {
-  res.json({
-    success: true,
-    stages: EASTER_EGG_STAGES.map((stage, index) => ({ ...stage, index, qrValue: getEasterEggQrPayload(stage) })),
-  });
+  await ensureActivityCatalog();
+  const activity = await prisma.activity.findUnique({ where: { slug: 'easter-egg' } });
+  if (!activity) return res.status(404).json({ error: 'نشاط Easter Egg غير موجود' });
+  res.json({ success: true, stages: stageResponse(getEasterEggStages(activity)) });
+});
+
+router.put('/activities/easter-egg/stages', validate(updateStagesSchema), async (req, res) => {
+  const activity = await prisma.activity.findUnique({ where: { slug: 'easter-egg' } });
+  if (!activity) return res.status(404).json({ error: 'نشاط Easter Egg غير موجود' });
+  const stages = [];
+  const ids = new Set();
+  for (const [index, input] of req.body.stages.entries()) {
+    const id = input.id || `stage-${crypto.randomUUID()}`;
+    if (ids.has(id)) return res.status(400).json({ error: `معرّف المرحلة مكرر: ${id}` });
+    if (!input.requiresSawaed && index < req.body.stages.length - 1 && !input.clue.trim()) return res.status(400).json({ error: `المرحلة ${index + 1} تحتاج clue لأن السواعد غير مطلوبين فيها` });
+    ids.add(id);
+    stages.push({ id, title: input.title, taskType: input.taskType, task: input.task, requiresSawaed: input.requiresSawaed, clue: input.clue.trim() });
+  }
+  const currentConfig = parseJson(activity.config, {});
+  const updated = await prisma.activity.update({ where: { id: activity.id }, data: { config: JSON.stringify({ ...currentConfig, kind: 'easter', stages }) } });
+  res.json({ success: true, stages: stageResponse(getEasterEggStages(updated)) });
 });
 
 router.get('/activities/sessions/:sessionId', async (req, res) => {

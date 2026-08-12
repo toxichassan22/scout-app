@@ -43,6 +43,8 @@ try {
   let result = await request(base, 'GET', '/api/activities', undefined, player.token, player.device);
   assert.equal(result.response.status, 200);
   assert.deepEqual(result.data.activities.map(item => item.slug), ['color-hunter', 'guess-number', 'easter-egg', 'hacker-sandbox']);
+  const easterCatalog = result.data.activities.find(item => item.slug === 'easter-egg');
+  assert.equal(easterCatalog.config.stages, EASTER_EGG_STAGES.length);
 
   result = await request(base, 'POST', '/api/activities/color-hunter/sessions', {}, player.token, player.device);
   assert.equal(result.response.status, 201);

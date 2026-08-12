@@ -3,7 +3,7 @@ import prisma from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 import { enforceNotFrozen } from '../freeze.js';
 import { validate, zId, zNumber, zString } from '../middleware/validate.js';
-import { getActivityConfig, getCatalogEntry, generateColorTarget, generateRoomCode, HACKER_STAGES, EASTER_EGG_STAGES, getEasterStageView, getHackerStageView, matchesEasterEggQr, ensureActivityCatalog, finalizeActivitySession } from '../activityService.js';
+import { getActivityConfig, getCatalogEntry, getActivityPublicConfig, getEasterEggStages, generateColorTarget, generateRoomCode, HACKER_STAGES, getEasterStageView, getHackerStageView, matchesEasterEggQr, ensureActivityCatalog, finalizeActivitySession } from '../activityService.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -53,12 +53,15 @@ function sessionView(session, config = {}, viewer = null) {
   const mine = viewer && participants.find(item => item.teamId === (viewer.teamId || viewer.id) && item.deviceId === viewer.deviceId);
   const hackerMetadata = mine ? parseJson(mine.metadata, {}) : {};
   const hackerStageIndex = Number(hackerMetadata.currentStage || 0);
+  const easterStages = config.kind === 'easter'
+    ? getEasterEggStages({ ...config, stages: Array.isArray(gameState.easterStages) ? gameState.easterStages : config.stages })
+    : [];
   const easterStageIndex = Number(gameState.stageIndex || 0);
   delete safeSession.gameState;
   delete safeSession.participants;
   return {
     ...safeSession,
-    config,
+    config: getActivityPublicConfig(config),
     participantId: mine?.id || null,
     currentPlayerId,
     targetPlayerId,
@@ -69,8 +72,8 @@ function sessionView(session, config = {}, viewer = null) {
       progress: { current: Math.min(hackerStageIndex, HACKER_STAGES.length), total: HACKER_STAGES.length },
     } : {}),
     ...(config.kind === 'easter' ? {
-      easterProgress: { current: Math.min(easterStageIndex + (gameState.awaitingTask ? 1 : 0), EASTER_EGG_STAGES.length), total: EASTER_EGG_STAGES.length, awaitingTask: Boolean(gameState.awaitingTask) },
-      stage: gameState.awaitingTask ? getEasterStageView(EASTER_EGG_STAGES[easterStageIndex], easterStageIndex) : null,
+      easterProgress: { current: Math.min(easterStageIndex + (gameState.awaitingTask ? 1 : 0), easterStages.length), total: easterStages.length, awaitingTask: Boolean(gameState.awaitingTask) },
+      stage: gameState.awaitingTask ? getEasterStageView(easterStages[easterStageIndex], easterStageIndex, easterStages.length) : null,
     } : {}),
   };
 }
@@ -87,7 +90,7 @@ async function findParticipant(sessionId, teamId, deviceId) {
 router.get('/', async (req, res) => {
   await ensureActivityCatalog();
   const activities = await prisma.activity.findMany({ where: { isOpen: true }, orderBy: { createdAt: 'asc' } });
-  res.json({ success: true, activities: activities.map(activity => ({ ...activity, config: parseJson(activity.config) })) });
+  res.json({ success: true, activities: activities.map(activity => ({ ...activity, config: getActivityPublicConfig(getActivityConfig(activity)) })) });
 });
 
 router.post('/:slug/sessions', enforceNotFrozen, validate(sessionBody), async (req, res) => {
@@ -111,7 +114,7 @@ router.post('/:slug/sessions', enforceNotFrozen, validate(sessionBody), async (r
     const gameState = config.kind === 'guess'
       ? { secret: null }
       : config.kind === 'easter'
-        ? { stageIndex: 0, scannedStages: [], awaitingTask: false }
+        ? { stageIndex: 0, scannedStages: [], awaitingTask: false, easterStages: getEasterEggStages(config) }
         : '{}';
     session = await prisma.activitySession.create({ data: { activityId: activity.id, status: config.kind === 'guess' ? 'waiting' : 'active', minPlayers: catalog?.minPlayers || 1, maxPlayers: catalog?.maxPlayers || 1, gameState: JSON.stringify(gameState), startedAt: config.kind === 'guess' ? null : new Date() }, include: { participants: true } });
   }
@@ -280,16 +283,18 @@ router.post('/sessions/:sessionId/easter-scan', enforceNotFrozen, validate(easte
     if (!session || !participant || session.activity.slug !== 'easter-egg') throw Object.assign(new Error('جلسة Easter Egg غير موجودة'), { status: 404 });
     if (session.status !== 'active') throw Object.assign(new Error('انتهت رحلة Easter Egg'), { status: 409 });
     const state = parseJson(session.gameState, { stageIndex: 0, scannedStages: [], awaitingTask: false });
+    const activityConfig = getActivityConfig(session.activity);
+    const stages = getEasterEggStages({ ...activityConfig, stages: Array.isArray(state.easterStages) ? state.easterStages : activityConfig.stages });
     const currentStageIndex = Number(state.stageIndex) || 0;
     const nextStageIndex = state.awaitingTask ? currentStageIndex + 1 : currentStageIndex;
-    const stage = EASTER_EGG_STAGES[nextStageIndex];
+    const stage = stages[nextStageIndex];
     if (!stage) throw Object.assign(new Error('اكتملت رحلة Easter Egg بالفعل'), { status: 409 });
     if (!matchesEasterEggQr(req.body.qrValue, stage)) throw Object.assign(new Error('هذا QR ليس المرحلة المطلوبة'), { status: 409 });
     const nextState = { ...state, stageIndex: nextStageIndex, awaitingTask: true, scannedStages: [...(state.scannedStages || []), stage.id] };
     await tx.activitySession.update({ where: { id: session.id }, data: { gameState: JSON.stringify(nextState) } });
-    return { session: await tx.activitySession.findUnique({ where: { id: session.id }, include: { participants: true, activity: true } }), stage: getEasterStageView(stage, nextStageIndex) };
+    return { session: await tx.activitySession.findUnique({ where: { id: session.id }, include: { participants: true, activity: true } }), stage: getEasterStageView(stage, nextStageIndex, stages.length), total: stages.length };
   });
-  res.json({ success: true, stage: result.stage, progress: { current: result.stage.index + 1, total: EASTER_EGG_STAGES.length }, session: sessionView(result.session, getActivityConfig(result.session.activity), req.user) });
+  res.json({ success: true, stage: result.stage, progress: { current: result.stage.index + 1, total: result.total }, session: sessionView(result.session, getActivityConfig(result.session.activity), req.user) });
 });
 
 router.post('/sessions/:sessionId/easter-finish', enforceNotFrozen, validate({ params: { sessionId: zId('الجلسة') } }), async (req, res) => {
@@ -298,7 +303,9 @@ router.post('/sessions/:sessionId/easter-finish', enforceNotFrozen, validate({ p
     const participant = session && session.participants.find(item => item.teamId === req.user.id && item.deviceId === req.user.deviceId);
     if (!session || !participant || session.activity.slug !== 'easter-egg') throw Object.assign(new Error('جلسة Easter Egg غير موجودة'), { status: 404 });
     const state = parseJson(session.gameState, { stageIndex: 0, scannedStages: [], awaitingTask: false });
-    const finalStageIndex = EASTER_EGG_STAGES.length - 1;
+    const activityConfig = getActivityConfig(session.activity);
+    const stages = getEasterEggStages({ ...activityConfig, stages: Array.isArray(state.easterStages) ? state.easterStages : activityConfig.stages });
+    const finalStageIndex = stages.length - 1;
     if (!state.awaitingTask || Number(state.stageIndex) !== finalStageIndex) throw Object.assign(new Error('أكملوا كل مراحل الرحلة قبل الإنهاء'), { status: 409 });
     await tx.activityParticipant.update({ where: { id: participant.id }, data: { finishedAt: new Date() } });
     return finalizeActivitySession(tx, session.id);

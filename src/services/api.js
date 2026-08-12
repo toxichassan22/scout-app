@@ -309,6 +309,7 @@ export const getColorRound = (sessionId, round, value = {}) => apiFetch(`/activi
 export const scanEasterQr = (sessionId, qrValue) => apiFetch(`/activities/sessions/${sessionId}/easter-scan`, { method: 'POST', body: JSON.stringify({ qrValue }) });
 export const finishEasterEgg = (sessionId) => apiFetch(`/activities/sessions/${sessionId}/easter-finish`, { method: 'POST' });
 export const getAdminEasterEggStages = () => apiFetch('/admin/activities/easter-egg/stages');
+export const updateAdminEasterEggStages = stages => apiFetch('/admin/activities/easter-egg/stages', { method: 'PUT', body: JSON.stringify({ stages }) });
 
 export const getLeaderboardVisibility = () => apiFetch('/admin/leaderboard/reveal');
 
