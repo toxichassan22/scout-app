@@ -8,6 +8,7 @@ import { LoadingFallback } from './components/LoadingFallback';
 // Public Pages (lazy)
 const Landing = lazy(() => import('./pages/Landing'));
 const Contact = lazy(() => import('./pages/Contact'));
+const Support = lazy(() => import('./pages/Support'));
 
 // Team Pages (lazy)
 const Login = lazy(() => import('./pages/Login'));
@@ -68,7 +69,7 @@ const App = memo(function App() {
           <Route path="/judge/login" element={<JudgeLogin />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/support" element={<Contact />} />
+          <Route path="/support" element={<Support />} />
 
           {/* Team Routes */}
           <Route path="/home" element={<ProtectedRoute allowedRoles={['team']}><Home /></ProtectedRoute>} />

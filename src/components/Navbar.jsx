@@ -1,7 +1,7 @@
 import { memo, useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Compass, Sparkles, Newspaper, User, X, MessageCircle } from 'lucide-react';
+import { Home, Compass, Sparkles, Newspaper, User, X, MessageCircle, LifeBuoy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   // Keep the final two items at the same 35° spacing as the rest of the arc;
   // 15° put حسابي and شات AI only 15° apart and their 44px buttons overlapped.
   { path: '/ai-chat', icon: MessageCircle, label: 'شات AI', color: '#22d3ee', angle: 15 },
+  { path: '/support', icon: LifeBuoy, label: 'الدعم الفني', color: '#fb7185', angle: 50 },
 ];
 
 export const Navbar = memo(function Navbar() {
@@ -64,7 +65,7 @@ export const Navbar = memo(function Navbar() {
     <div
       ref={menuRef}
       dir="rtl"
-      className="pointer-events-auto fixed bottom-6 left-1/2 -translate-x-1/2 z-[999990] flex items-center justify-center select-none"
+      className={`pointer-events-auto fixed ${isOpen ? 'bottom-20' : 'bottom-6'} left-1/2 -translate-x-1/2 z-[999990] flex items-center justify-center select-none`}
     >
       {/* Floating Radial Arc Menu (Zero Overlap, Outward Radiating Labels) */}
       <AnimatePresence>
