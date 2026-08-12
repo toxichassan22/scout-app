@@ -39,6 +39,14 @@ function readEnvValue(lines, key) {
     return lines.find(l => l.startsWith(`${key}=`))?.slice(key.length + 1)?.trim() || '';
 }
 
+function normalizeTokenPool(value) {
+    return String(value || '')
+        .split(/[\s,]+/)
+        .map(token => token.trim())
+        .filter(Boolean)
+        .join(',');
+}
+
 function upsertEnv(lines, key, value, comment = null) {
     const prefix = comment ? `# ${comment}` : null;
     const line = `${key}=${value}`;
@@ -101,7 +109,7 @@ const aiChatModel = process.env.AI_CHAT_MODEL
     || readEnvValue(lines, 'AI_CHAT_MODEL')
     || 'mimo-v2.5-free';
 const aiChatToken = process.env.AI_CHAT_TOKEN || readEnvValue(lines, 'AI_CHAT_TOKEN');
-const aiChatTokenPool = process.env.AI_CHAT_TOKEN_POOL || readEnvValue(lines, 'AI_CHAT_TOKEN_POOL');
+const aiChatTokenPool = normalizeTokenPool(process.env.AI_CHAT_TOKEN_POOL || readEnvValue(lines, 'AI_CHAT_TOKEN_POOL'));
 
 upsertEnv(lines, 'AI_CHAT_URL', aiChatUrl, 'OpenAI-compatible base URL; chat returns 503 while the token is empty.');
 upsertEnv(lines, 'AI_CHAT_MODEL', aiChatModel);

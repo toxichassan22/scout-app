@@ -103,6 +103,10 @@ try {
     ]);
 
     await run(process.execPath, [
+        path.join(scriptDirectory, 'unit-ensure-env.mjs')
+    ]);
+
+    await run(process.execPath, [
         path.join(scriptDirectory, 'unit-aiGateway.mjs')
     ]);
 
