@@ -39,6 +39,30 @@ export function resolveAiChatUrl(value) {
   return `${normalized}/chat/completions`;
 }
 
+function isOpenCodeUrl(value) {
+  try {
+    const hostname = new URL(resolveAiChatUrl(value)).hostname;
+    return hostname === 'opencode.ai' || hostname.endsWith('.opencode.ai');
+  } catch {
+    return false;
+  }
+}
+
+function createProviderHeaders({ url, token, stream = false }) {
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+  if (stream) headers.Accept = 'text/event-stream';
+  if (isOpenCodeUrl(url)) {
+    headers['x-opencode-client'] = 'cli';
+    headers['x-opencode-project'] = 'scout-festival';
+    headers['x-opencode-session'] = `ses_${crypto.randomUUID()}`;
+    headers['x-opencode-request'] = `msg_${crypto.randomUUID()}`;
+  }
+  return headers;
+}
+
 function extractStreamContent(data) {
   if (data?.type === 'response.output_text.delta') return data.delta || '';
   const content = data.choices?.[0]?.delta?.content;
@@ -247,7 +271,7 @@ export async function requestAiProvider({ url, token, model, messages, festivalC
     try {
       const response = await fetch(resolveAiChatUrl(url), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key?.token || token}` },
+        headers: createProviderHeaders({ url, token: key?.token || token }),
         signal: controller.signal,
         body: JSON.stringify({
           model,
@@ -299,7 +323,7 @@ export async function streamAiProvider({ url, token, model, messages, festivalCo
     try {
       const response = await fetch(resolveAiChatUrl(url), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', Authorization: `Bearer ${key?.token || token}` },
+        headers: createProviderHeaders({ url, token: key?.token || token, stream: true }),
         signal: provider.controller.signal,
         body: JSON.stringify({
           model,

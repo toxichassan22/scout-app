@@ -81,6 +81,10 @@ try {
   assert.equal(rateFailoverCalls, 2, 'a provider 429 should fail over to another pool key');
 
   globalThis.fetch = async (_url, options = {}) => {
+    assert.equal(options.headers?.['x-opencode-client'], 'cli');
+    assert.equal(options.headers?.['x-opencode-project'], 'scout-festival');
+    assert.match(options.headers?.['x-opencode-session'] || '', /^ses_/);
+    assert.match(options.headers?.['x-opencode-request'] || '', /^msg_/);
     assert.equal(JSON.parse(options.body).stream, true);
     const encoder = new TextEncoder();
     const body = new ReadableStream({
@@ -94,7 +98,7 @@ try {
   };
   let streamedContent = '';
   const streamed = await streamAiProvider({
-    url: 'https://provider.test/v1',
+    url: 'https://opencode.ai/zen/v1',
     token: 'token',
     model: 'test-model',
     festivalContext: 'schedule-v1',
