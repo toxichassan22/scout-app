@@ -16,6 +16,37 @@ function getAiErrorMessage(error) {
   return error.message || 'تعذر إكمال طلب المساعد حالياً.';
 }
 
+function formatAiContent(content) {
+  return String(content || '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/\s+(?=#{1,6}\s)/g, '\n')
+    .replace(/\s*\|+\s*/g, '\n')
+    .replace(/\s*[-–—]{4,}\s*/g, '\n')
+    .replace(/\s+(?=[•●▪]\s)/g, '\n')
+    .replace(/^\s*[-*]\s+/gm, '• ')
+    .split(/\n+/)
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+function AiMessageContent({ content }) {
+  return (
+    <div className="space-y-1.5 break-words">
+      {formatAiContent(content).map((line, index) => {
+        const isHeading = /^#{1,6}\s/.test(line);
+        const isBullet = /^[•●▪]\s?/.test(line);
+        const text = line.replace(/^#{1,6}\s*/, '').replace(/^[•●▪]\s?/, '');
+        return (
+          <p key={`${index}-${text}`} className={isHeading ? 'font-black text-white' : 'leading-7'}>
+            {isBullet && <span className="me-1.5 text-cyan-300">•</span>}
+            {text}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 const AiChat = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
@@ -87,7 +118,7 @@ const AiChat = () => {
           {messages.map((message, index) => (
             <div key={`${message.role}-${index}`} className={`min-w-0 break-words rounded-2xl p-4 text-sm leading-7 ${message.role === 'user' ? 'mr-8 bg-violet-500/15 text-violet-100' : 'ml-8 bg-white/5 text-slate-200'}`}>
               <b className="mb-1 block text-xs text-slate-400">{message.role === 'user' ? 'أنت' : 'مساعد المخيم'}</b>
-              {message.content}
+              <AiMessageContent content={message.content} />
               {busy && index === messages.length - 1 && message.role === 'assistant' && <span className="ms-1 animate-pulse text-cyan-300">▌</span>}
             </div>
           ))}
