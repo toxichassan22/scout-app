@@ -33,7 +33,7 @@ async function streamChatResponse(req, res, options) {
   const handleClose = () => {
     if (!res.writableEnded) abortController.abort();
   };
-  req.on('close', handleClose);
+  res.on('close', handleClose);
   res.status(200).set({
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
@@ -68,7 +68,7 @@ async function streamChatResponse(req, res, options) {
     });
     res.end();
   } finally {
-    req.off('close', handleClose);
+    res.off('close', handleClose);
   }
 }
 
