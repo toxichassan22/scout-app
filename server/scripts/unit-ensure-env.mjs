@@ -42,7 +42,17 @@ try {
   const lines = (await readFile(temporaryEnv, 'utf8')).split(/\r?\n/);
   assert.equal(lines.find(line => line.startsWith('AI_CHAT_TOKEN_POOL=')), `AI_CHAT_TOKEN_POOL=${pool.join(',')}`);
   assert.equal(lines.filter(line => pool.includes(line)).length, 0, 'pool entries must not spill into standalone .env lines');
-  console.log('ensure-env unit tests passed: multiline AI token pools are persisted safely');
+
+  await writeFile(temporaryEnv, `AI_CHAT_TOKEN_POOL=${pool[0]}\n${pool.slice(1).join('\n')}\n`);
+  await run(process.execPath, [temporaryScript], {
+    ...process.env,
+    AI_CHAT_TOKEN: '',
+    AI_CHAT_TOKEN_POOL: '',
+  });
+  const recoveredLines = (await readFile(temporaryEnv, 'utf8')).split(/\r?\n/);
+  assert.equal(recoveredLines.find(line => line.startsWith('AI_CHAT_TOKEN_POOL=')), `AI_CHAT_TOKEN_POOL=${pool.join(',')}`);
+  assert.equal(recoveredLines.filter(line => pool.includes(line)).length, 0, 'existing broken pool entries must be rewritten safely');
+  console.log('ensure-env unit tests passed: multiline AI token pools are persisted and recovered safely');
 } finally {
   await rm(temporaryDirectory, { recursive: true, force: true });
 }

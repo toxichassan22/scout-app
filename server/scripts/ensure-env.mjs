@@ -47,6 +47,32 @@ function normalizeTokenPool(value) {
         .join(',');
 }
 
+function isEnvBoundary(line) {
+    const value = line.trim();
+    return !value || value.startsWith('#') || /^[A-Z_][A-Z0-9_]*=/.test(value);
+}
+
+function readTokenPoolValue(lines) {
+    const index = lines.findIndex(line => line.startsWith('AI_CHAT_TOKEN_POOL='));
+    if (index < 0) return '';
+    const values = [lines[index].slice('AI_CHAT_TOKEN_POOL='.length).trim()];
+    for (let cursor = index + 1; cursor < lines.length && !isEnvBoundary(lines[cursor]); cursor += 1) {
+        values.push(lines[cursor].trim());
+    }
+    return values.join('\n');
+}
+
+function upsertTokenPool(lines, value) {
+    const line = `AI_CHAT_TOKEN_POOL=${value}`;
+    const index = lines.findIndex(entry => entry.startsWith('AI_CHAT_TOKEN_POOL='));
+    if (index < 0) {
+        lines.push(line);
+        return;
+    }
+    lines[index] = line;
+    while (index + 1 < lines.length && !isEnvBoundary(lines[index + 1])) lines.splice(index + 1, 1);
+}
+
 function upsertEnv(lines, key, value, comment = null) {
     const prefix = comment ? `# ${comment}` : null;
     const line = `${key}=${value}`;
@@ -109,12 +135,12 @@ const aiChatModel = process.env.AI_CHAT_MODEL
     || readEnvValue(lines, 'AI_CHAT_MODEL')
     || 'mimo-v2.5-free';
 const aiChatToken = process.env.AI_CHAT_TOKEN || readEnvValue(lines, 'AI_CHAT_TOKEN');
-const aiChatTokenPool = normalizeTokenPool(process.env.AI_CHAT_TOKEN_POOL || readEnvValue(lines, 'AI_CHAT_TOKEN_POOL'));
+const aiChatTokenPool = normalizeTokenPool(process.env.AI_CHAT_TOKEN_POOL || readTokenPoolValue(lines));
 
 upsertEnv(lines, 'AI_CHAT_URL', aiChatUrl, 'OpenAI-compatible base URL; chat returns 503 while the token is empty.');
 upsertEnv(lines, 'AI_CHAT_MODEL', aiChatModel);
 upsertEnv(lines, 'AI_CHAT_TOKEN', aiChatToken);
-upsertEnv(lines, 'AI_CHAT_TOKEN_POOL', aiChatTokenPool);
+upsertTokenPool(lines, aiChatTokenPool);
 
 // Non-secret AI pool controls can be changed as repository variables without
 // touching the server manually. Empty pipeline values preserve deployed settings.
