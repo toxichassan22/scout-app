@@ -1,11 +1,19 @@
 import { Router } from 'express';
 import prisma from '../../db.js';
+import { EASTER_EGG_STAGES, getEasterEggQrPayload } from '../../activityService.js';
 
 const router = Router();
 
 function parseJson(value, fallback = {}) {
   try { return JSON.parse(value || ''); } catch { return fallback; }
 }
+
+router.get('/activities/easter-egg/stages', async (req, res) => {
+  res.json({
+    success: true,
+    stages: EASTER_EGG_STAGES.map((stage, index) => ({ ...stage, index, qrValue: getEasterEggQrPayload(stage) })),
+  });
+});
 
 router.get('/activities/sessions/:sessionId', async (req, res) => {
   const session = await prisma.activitySession.findUnique({ where: { id: req.params.sessionId }, include: { activity: true, participants: { include: { team: { select: { id: true, label: true, username: true } } }, orderBy: [{ score: 'desc' }, { joinedAt: 'asc' }] } } });

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Clock3, Gamepad2, LockKeyhole, Play, Sparkles, Trophy } from 'lucide-react';
+import { ChevronLeft, Clock3, Gamepad2, Play, QrCode, ShieldCheck, Sparkles, Trophy, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
-import { createActivitySession, finishActivitySession, getActivityLeaderboard, getActivityShop, getColorRound, purchaseShopItem } from '../services/api';
+import { createActivitySession, finishActivitySession, getColorRound } from '../services/api';
 
 const competitionMeta = {
   genius: { tone: 'ember', label: 'من سيربح الكود — عبقرينو', description: 'بنك أسئلة معرفي سريع، كل إجابة صحيحة بنقطة.' },
@@ -29,7 +29,14 @@ function CompetitionCard({ competition, onEnter, index }) {
   const isReady = competition.state === 'active';
   return (
     <motion.article initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.08 }} className={`min-w-0 overflow-hidden rounded-[2rem] border backdrop-blur-xl ${toneClasses[meta.tone]}`}>
-      <div className="flex min-w-0 items-start justify-between gap-4 p-6"><div className="min-w-0 text-right"><span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-current/20 px-3 py-1 text-[11px] font-black"><span className={`h-2 w-2 rounded-full ${isReady ? 'animate-pulse bg-emerald-400' : 'bg-slate-500'}`} />{statusText(competition)}</span><h2 className="break-words text-xl font-black leading-7 text-white">{meta.label}</h2><p className="mt-2 break-words text-sm leading-7 text-slate-300">{meta.description || competition.description}</p></div><Trophy className="shrink-0 text-amber-300/60" size={28} /></div>
+      <div className="flex min-w-0 items-start justify-between gap-4 p-6">
+        <div className="min-w-0 text-right">
+          <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-current/20 px-3 py-1 text-[11px] font-black"><span className={`h-2 w-2 rounded-full ${isReady ? 'animate-pulse bg-emerald-400' : 'bg-slate-500'}`} />{statusText(competition)}</span>
+          <h2 className="break-words text-xl font-black leading-7 text-white">{meta.label}</h2>
+          <p className="mt-2 break-words text-sm leading-7 text-slate-300">{meta.description || competition.description}</p>
+        </div>
+        <Trophy className="shrink-0 text-amber-300/60" size={28} />
+      </div>
       <div className="grid grid-cols-2 gap-3 border-t border-white/10 bg-black/10 p-5 text-right text-xs font-bold text-slate-300"><span>الأسئلة: {competition.questionCount || 50}</span><span>الدرجة: 50 نقطة</span><span>المدة: {competition.duration ? `${Math.ceil(competition.duration / 60)} دقيقة` : 'قابلة للإعداد'}</span><span>الدخول: QR إجباري</span></div>
       <button type="button" onClick={() => onEnter(competition)} className="m-5 flex w-[calc(100%-2.5rem)] items-center justify-center gap-2 rounded-2xl bg-white/10 px-5 py-3.5 text-sm font-black text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50" disabled={competition.completed}>{competition.completed ? 'تم تسجيل النتيجة' : <><Play size={17} /> فتح صفحة التفاصيل ومسح QR</>}<ChevronLeft size={17} /></button>
     </motion.article>
@@ -44,12 +51,13 @@ function ColorHuntGame() {
   const [score, setScore] = useState(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [finished, setFinished] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
     let active = true;
     createActivitySession('color-hunter').then(result => {
-      if (!active) return;
+      if (!active) return null;
       setSession(result.session);
       return getColorRound(result.session.id, 1);
     }).then(result => {
@@ -59,7 +67,7 @@ function ColorHuntGame() {
   }, []);
 
   const check = async () => {
-    if (!session || !target || score !== null) return;
+    if (!session || !target || score !== null || finished) return;
     try {
       const result = await getColorRound(session.id, round, value);
       setScore(Number(result.score || 0).toFixed(1));
@@ -68,7 +76,7 @@ function ColorHuntGame() {
   };
 
   const next = async () => {
-    if (!session || round >= 10) return;
+    if (!session || round >= 10 || finished) return;
     const nextRound = round + 1;
     try {
       setRound(nextRound);
@@ -80,43 +88,59 @@ function ColorHuntGame() {
   };
 
   const finish = async () => {
+    if (!session || finished) return;
     try {
       await finishActivitySession(session.id, total, { rounds: 10 });
-      setMessage(`انتهى النشاط. مجموعك ${Math.round(total)} نقطة، وتم حفظ مكافأة الفريق.`);
+      setFinished(true);
+      setMessage('انتهت الجولة. شكرًا على اللعب — هذا النشاط للمتعة فقط.');
     } catch (error) { setMessage(error.message || 'تعذر إنهاء النشاط'); }
   };
 
-  return <div className="mt-5 rounded-3xl border border-white/10 bg-black/10 p-5"><div className="mb-4 flex items-center justify-between"><span className="text-xs font-black text-slate-400">جولة {round} من 10</span><Sparkles className="text-amber-300" size={18} /></div>{loading ? <p className="py-8 text-center text-sm font-bold text-slate-400">جاري تجهيز لون الجولة من السيرفر...</p> : target && <><div className="grid gap-5 md:grid-cols-2"><div className="flex justify-center gap-4"><div className="text-center"><div className="h-24 w-24 rounded-2xl border border-white/20" style={{ backgroundColor: `rgb(${value.r},${value.g},${value.b})` }} /><span className="mt-2 block text-xs text-slate-400">لونك</span></div><div className="text-center"><div className="h-24 w-24 rounded-2xl border border-white/20" style={{ backgroundColor: `rgb(${target.r},${target.g},${target.b})` }} /><span className="mt-2 block text-xs text-slate-400">المستهدف</span></div></div><div className="space-y-3" dir="ltr">{['r', 'g', 'b'].map(channel => <input key={channel} type="range" min="0" max="255" value={value[channel]} onChange={event => setValue(previous => ({ ...previous, [channel]: Number(event.target.value) }))} className="w-full" />)}</div></div><div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4"><span className="text-sm font-black text-emerald-300">{score !== null ? `مطابقة ${score}% · الإجمالي ${Math.round(total)}` : 'اضبط اللون ثم افحص'}</span><div className="flex gap-2"><button type="button" onClick={check} disabled={score !== null} className="btn-violet !px-4 !py-2 text-xs">فحص</button>{score !== null && round < 10 && <button type="button" onClick={next} className="btn-ghost !px-4 !py-2 text-xs">الجولة التالية</button>}{score !== null && round === 10 && <button type="button" onClick={finish} className="btn-ember !px-4 !py-2 text-xs">إنهاء</button>}</div></div></>}{message && <p className="mt-4 rounded-xl bg-white/5 p-3 text-center text-xs font-bold text-slate-300">{message}</p>}</div>;
+  return (
+    <div className="mt-5 rounded-3xl border border-white/10 bg-black/10 p-5">
+      <div className="mb-4 flex items-center justify-between"><span className="text-xs font-black text-slate-400">جولة {round} من 10</span><Sparkles className="text-amber-300" size={18} /></div>
+      {loading && <p className="py-8 text-center text-sm font-bold text-slate-400">جاري تجهيز لون الجولة من السيرفر...</p>}
+      {!loading && !target && <p className="py-8 text-center text-sm font-bold text-rose-200">{message || 'تعذر تجهيز النشاط.'}</p>}
+      {!loading && target && <>
+        <div className="grid gap-5 md:grid-cols-2">
+          <div className="flex justify-center gap-4"><div className="text-center"><div className="h-24 w-24 rounded-2xl border border-white/20" style={{ backgroundColor: `rgb(${value.r},${value.g},${value.b})` }} /><span className="mt-2 block text-xs text-slate-400">لونك</span></div><div className="text-center"><div className="h-24 w-24 rounded-2xl border border-white/20" style={{ backgroundColor: `rgb(${target.r},${target.g},${target.b})` }} /><span className="mt-2 block text-xs text-slate-400">المستهدف</span></div></div>
+          <div className="space-y-3" dir="ltr">{['r', 'g', 'b'].map(channel => <input key={channel} aria-label={`قناة ${channel}`} type="range" min="0" max="255" value={value[channel]} onChange={event => setValue(previous => ({ ...previous, [channel]: Number(event.target.value) }))} className="w-full" disabled={score !== null || finished} />)}</div>
+        </div>
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4"><span className="text-sm font-black text-emerald-300">{finished ? 'انتهت الجولة' : score !== null ? `مطابقة ${score}% · مجموع المرح` : 'اضبط اللون ثم افحص'}</span><div className="flex gap-2"><button type="button" onClick={check} disabled={score !== null || finished} className="btn-violet !px-4 !py-2 text-xs">فحص</button>{score !== null && round < 10 && <button type="button" onClick={next} disabled={finished} className="btn-ghost !px-4 !py-2 text-xs">الجولة التالية</button>}{score !== null && round === 10 && <button type="button" onClick={finish} disabled={finished} className="btn-ember !px-4 !py-2 text-xs">إنهاء</button>}</div></div>
+      </>}
+      {message && <p className="mt-4 text-center text-xs font-bold text-slate-300">{message}</p>}
+    </div>
+  );
 }
 
-function ActivityExtras() {
-  const [wallet, setWallet] = useState(null);
-  const [items, setItems] = useState([]);
-  const [leaders, setLeaders] = useState([]);
-  const [message, setMessage] = useState('');
-  useEffect(() => {
-    Promise.all([getActivityShop(), getActivityLeaderboard('color-hunter')]).then(([shop, leaderboard]) => {
-      setWallet(shop.wallet);
-      setItems(shop.items || []);
-      setLeaders((leaderboard.global || []).slice(0, 5));
-    }).catch(error => setMessage(error.message || 'تعذر تحميل المحفظة والمتجر'));
-  }, []);
-  const buy = async item => {
-    try {
-      const result = await purchaseShopItem(item.id);
-      setWallet(result.wallet);
-      setMessage(`تم شراء ${item.name}`);
-    } catch (error) { setMessage(error.message || 'تعذر إتمام الشراء'); }
-  };
-  return <div className="mt-6 grid gap-5 lg:grid-cols-2"><div className="rounded-3xl border border-amber-400/20 bg-amber-400/5 p-5 text-right"><div className="flex items-center justify-between"><h3 className="font-black text-white">محفظة الفريق</h3><span className="font-mono text-amber-300">{wallet?.balance ?? 0} عملة</span></div><div className="mt-4 space-y-2">{items.map(item => <div key={item.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/10 p-3"><div className="min-w-0"><p className="break-words text-sm font-black text-white">{item.name}</p><p className="break-words text-[10px] text-slate-500">{item.description}</p></div><button type="button" onClick={() => buy(item)} className="rounded-lg bg-amber-400 px-3 py-1.5 text-[10px] font-black text-slate-950">{item.price}</button></div>)}</div></div><div className="rounded-3xl border border-emerald-400/20 bg-emerald-400/5 p-5 text-right"><h3 className="font-black text-white">ترتيب Color Hunter</h3><div className="mt-4 space-y-2">{leaders.length ? leaders.map((leader, index) => <div key={leader.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/10 p-3 text-xs"><span className="font-mono text-emerald-300">#{leader.rank || index + 1}</span><span className="font-bold text-white">{leader.displayName}</span><span className="font-mono text-amber-300">{Math.round(leader.score)}</span></div>) : <p className="text-xs text-slate-500">لا توجد نتائج مكتملة بعد.</p>}</div></div>{message && <p className="lg:col-span-2 text-center text-xs font-bold text-slate-300">{message}</p>}</div>;
+function EntertainmentCard({ activity, onOpen }) {
+  const Icon = activity.icon;
+  return (
+    <motion.article whileHover={{ y: -3 }} className="flex min-h-52 flex-col justify-between rounded-3xl border border-white/10 bg-black/15 p-5 text-right transition-colors hover:border-cyan-400/30">
+      <div><div className="mb-4 flex items-start justify-between gap-3"><span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black text-cyan-200">نشاط ترفيهي</span><Icon className="text-cyan-300/80" size={24} /></div><h3 className="text-lg font-black text-white">{activity.title}</h3><p className="mt-2 text-xs leading-6 text-slate-400">{activity.description}</p></div>
+      <button type="button" onClick={() => onOpen(activity.path)} className="mt-5 flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black text-white transition hover:border-cyan-300/40 hover:bg-cyan-400/10"><Play size={15} />{activity.action}<ChevronLeft size={15} /></button>
+    </motion.article>
+  );
 }
+
+const entertainmentActivities = [
+  { title: 'Hacker Sandbox', description: 'مهمة آمنة داخل بنك بيكسل الوهمي، بقرارات أمنية وقصة قصيرة.', action: 'بدء مهمة البنك', path: '/activities/hacker-sandbox', icon: ShieldCheck },
+  { title: 'Guess the Number', description: 'لعبة جماعية من 3 إلى 10 لاعبين، تعتمد على الأدوار وكشف الأكواد.', action: 'فتح غرفة اللعب', path: '/activities/guess-number', icon: Users },
+  { title: 'Easter Egg', description: 'رحلة QR طويلة بمهام صوتية وثقافية وحركية، وتتابعها السواعد ميدانيًا.', action: 'بدء رحلة QR', path: '/activities/easter-egg', icon: QrCode },
+];
 
 const Activities = () => {
   const { user } = useAuth();
   const { competitions } = useCompetitions();
   const navigate = useNavigate();
   const official = competitions.filter(competition => ['genius', 'geography', 'two_truths'].includes(competition.slug || competition.type));
-  return <main className="page-shell dir-rtl !max-w-6xl"><header className="mb-10 text-center"><span className="badge-ember mx-auto mb-4"><Trophy size={13} /> المسابقات والأنشطة</span><h1 className="text-3xl font-black text-white sm:text-4xl">ساحة المخيم الرقمي</h1><p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-slate-400">أهلاً {user?.label || user?.username || 'بفريقك'}. المسابقات الرسمية تؤثر على نتيجة المهرجان، والأنشطة الترفيهية لها ترتيب وعملات منفصلة.</p></header><section className="mb-10 grid gap-6 md:grid-cols-2">{official.map((competition, index) => <CompetitionCard key={competition.id} competition={{ ...competition, slug: competition.slug || competition.type }} index={index} onEnter={item => navigate(`/competition-entry/${item.slug}`)} />)}</section><section className="glass-sheen glass-violet p-6 sm:p-8"><div className="flex items-center justify-between gap-4"><div className="text-right"><span className="badge-violet mb-3"><Gamepad2 size={13} /> أنشطة ترفيهية</span><h2 className="text-2xl font-black text-white">العب، اجمع عملات، واصنع ترتيبك</h2><p className="mt-2 text-sm leading-7 text-slate-400">هذه الأنشطة لا تدخل في نتيجة المهرجان الرسمية، ولها Leaderboard ومحفظة فريق مستقلة.</p></div><Clock3 className="text-violet-300/60" size={36} /></div><ColorHuntGame /><ActivityExtras /><div className="mt-5 grid min-w-0 gap-3 sm:grid-cols-3">{[['محاكي الهاكر الآمن', 'hacker-sandbox'], ['Guess the Number', 'guess-number'], ['Easter Egg', 'easter-egg']].map(([label, slug]) => <button key={label} type="button" onClick={() => navigate(slug === 'guess-number' ? '/activities/guess-number' : slug === 'hacker-sandbox' ? '/activities/hacker-sandbox' : '/activities')} className="min-w-0 break-words rounded-2xl border border-white/10 bg-black/10 p-4 text-right text-sm font-black text-slate-300 transition hover:border-violet-400/40 hover:text-white"><LockKeyhole size={16} className="mb-2 text-violet-300" />{label}<span className="mt-1 block text-[10px] text-slate-500">سيتم فتح النشاط من نفس المنظومة</span></button>)}</div></section></main>;
+  return (
+    <main className="page-shell dir-rtl !max-w-6xl">
+      <header className="mb-10 text-center"><span className="badge-ember mx-auto mb-4"><Trophy size={13} /> المسابقات والأنشطة</span><h1 className="text-3xl font-black text-white sm:text-4xl">ساحة المخيم الرقمي</h1><p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-slate-400">أهلًا {user?.label || user?.username || 'بفريقك'}. المسابقات الرسمية تؤثر على نتيجة المهرجان، أما الأنشطة هنا فهي للمتعة والتجربة فقط.</p></header>
+      <section className="mb-10 grid gap-6 md:grid-cols-2">{official.map((competition, index) => <CompetitionCard key={competition.id} competition={{ ...competition, slug: competition.slug || competition.type }} index={index} onEnter={item => navigate(`/competition-entry/${item.slug}`)} />)}</section>
+      <section className="glass-sheen glass-violet p-6 sm:p-8"><div className="flex items-center justify-between gap-4"><div className="text-right"><span className="badge-violet mb-3"><Gamepad2 size={13} /> أنشطة ترفيهية</span><h2 className="text-2xl font-black text-white">العب من غير ضغط</h2><p className="mt-2 text-sm leading-7 text-slate-400">لا عملات، لا ترتيب، ولا تأثير على نتيجة المهرجان — مجرد ألعاب وتجارب خفيفة للفريق.</p></div><Clock3 className="text-violet-300/60" size={36} /></div><ColorHuntGame /><div className="mt-6 grid min-w-0 gap-4 md:grid-cols-3">{entertainmentActivities.map(activity => <EntertainmentCard key={activity.path} activity={activity} onOpen={navigate} />)}</div></section>
+    </main>
+  );
 };
 
 export default Activities;

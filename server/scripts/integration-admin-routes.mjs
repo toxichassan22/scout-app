@@ -51,6 +51,7 @@ try {
     `/api/admin/teams/${team.id}/devices`,
     '/api/admin/judges',
     '/api/admin/competitions',
+    '/api/admin/activities/easter-egg/stages',
     '/api/admin/report-permissions',
     '/api/admin/reports',
     '/api/admin/leaderboard',

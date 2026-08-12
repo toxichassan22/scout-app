@@ -22,6 +22,7 @@ const CompetitionEntry = lazy(() => import('./pages/CompetitionEntry'));
 const CompetitionPlay = lazy(() => import('./pages/CompetitionPlay'));
 const GuessTheNumber = lazy(() => import('./pages/activities/GuessTheNumber'));
 const HackerSandbox = lazy(() => import('./pages/activities/HackerSandbox'));
+const EasterEgg = lazy(() => import('./pages/activities/EasterEgg'));
 const AiChat = lazy(() => import('./pages/AiChat'));
 
 // Judge Pages (lazy)
@@ -40,6 +41,7 @@ const AdminScoring = lazy(() => import('./pages/admin/AdminScoring'));
 const AdminReports = lazy(() => import('./pages/admin/AdminReports'));
 const AdminAgenda = lazy(() => import('./pages/admin/Agenda'));
 const AdminStressTest = lazy(() => import('./pages/admin/StressTest'));
+const AdminActivitySetup = lazy(() => import('./pages/admin/ActivitySetup'));
 
 import { TopHeader } from './components/TopHeader';
 import { ScoutMascotToy } from './components/ScoutMascotToy';
@@ -85,6 +87,7 @@ const App = memo(function App() {
           <Route path="/competition/:slug" element={<ProtectedRoute allowedRoles={['team']}><CompetitionPlay /></ProtectedRoute>} />
           <Route path="/activities/guess-number" element={<ProtectedRoute allowedRoles={['team']}><GuessTheNumber /></ProtectedRoute>} />
           <Route path="/activities/hacker-sandbox" element={<ProtectedRoute allowedRoles={['team']}><HackerSandbox /></ProtectedRoute>} />
+          <Route path="/activities/easter-egg" element={<ProtectedRoute allowedRoles={['team']}><EasterEgg /></ProtectedRoute>} />
           <Route path="/ai-chat" element={<ProtectedRoute allowedRoles={['team']}><AiChat /></ProtectedRoute>} />
 
           {/* Judge Routes */}
@@ -103,6 +106,7 @@ const App = memo(function App() {
           <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={['admin']}><AdminReports /></ProtectedRoute>} />
           <Route path="/admin/agenda" element={<ProtectedRoute allowedRoles={['admin']}><AdminAgenda /></ProtectedRoute>} />
           <Route path="/admin/stress-test" element={<ProtectedRoute allowedRoles={['admin']}><AdminStressTest /></ProtectedRoute>} />
+          <Route path="/admin/activities" element={<ProtectedRoute allowedRoles={['admin']}><AdminActivitySetup /></ProtectedRoute>} />
 
           {/* Default Redirect */}
           <Route path="*" element={<Navigate to={defaultRoute} replace />} />

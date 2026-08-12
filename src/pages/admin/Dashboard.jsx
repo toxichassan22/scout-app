@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, Newspaper, Trophy, Users, UserCheck, Shield, ShieldAlert, FileText, Award, Calendar, RefreshCw, Snowflake, Database } from 'lucide-react';
+import { LogOut, Newspaper, Trophy, Users, UserCheck, Shield, ShieldAlert, FileText, Award, Calendar, RefreshCw, Snowflake, Database, QrCode } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAdminLeaderboard, getAdminTeams, getAdminJudges, getAdminReports, triggerEmergencyFreeze, triggerCleanSlate, apiFetch, triggerGithubBackup, getLeaderboardVisibility, setLeaderboardVisibility } from '../../services/api';
 
@@ -130,6 +130,7 @@ const Dashboard = () => {
         { path: '/admin/teams', label: 'إدارة الفرق', icon: Users, desc: 'إضافة واستيراد وحذف وحد الأجهزة', tone: 'emerald' },
         { path: '/admin/judges', label: 'إدارة المحكمين', icon: UserCheck, desc: 'حسابات وتكليف وتوليد الأكواد', tone: 'sky' },
         { path: '/admin/competitions', label: 'إدارة المسابقات', icon: Trophy, desc: 'المواعيد والفتح والقفل والمعايير', tone: 'amber' },
+        { path: '/admin/activities', label: 'تجهيز رحلة QR', icon: QrCode, desc: 'طباعة أكواد Easter Egg وتسليمها للسواعد', tone: 'cyan' },
         { path: '/admin/agenda', label: 'برنامج المهرجان', icon: Calendar, desc: 'الفعاليات والجدول والمناطق', tone: 'violet' },
       ],
     },

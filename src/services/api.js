@@ -296,9 +296,6 @@ export const getCompetitionPlay = (idOrSlug) =>
   apiFetch(`/competitions/${encodeURIComponent(idOrSlug)}/play`);
 
 export const getActivities = () => apiFetch('/activities');
-export const getActivityWallet = () => apiFetch('/activities/wallet');
-export const getActivityShop = () => apiFetch('/activities/shop');
-export const getActivityLeaderboard = (slug) => apiFetch(`/activities/${encodeURIComponent(slug)}/leaderboard`);
 export const createActivitySession = (slug, data = {}) => apiFetch(`/activities/${encodeURIComponent(slug)}/sessions`, { method: 'POST', body: JSON.stringify(data) });
 export const getActivitySession = (sessionId) => apiFetch(`/activities/sessions/${sessionId}`);
 export const createActivityInvite = (sessionId) => apiFetch(`/activities/sessions/${sessionId}/invite`, { method: 'POST' });
@@ -309,7 +306,9 @@ export const heartbeatActivitySession = (sessionId) => apiFetch(`/activities/ses
 export const submitGuess = (sessionId, guessCode) => apiFetch(`/activities/sessions/${sessionId}/guess`, { method: 'POST', body: JSON.stringify({ guessCode }) });
 export const submitHackerAnswer = (sessionId, challenge, selectedIndex) => apiFetch(`/activities/sessions/${sessionId}/hacker-answer`, { method: 'POST', body: JSON.stringify({ challenge, selectedIndex }) });
 export const getColorRound = (sessionId, round, value = {}) => apiFetch(`/activities/sessions/${sessionId}/color-round`, { method: 'POST', body: JSON.stringify({ round, ...value }) });
-export const purchaseShopItem = (itemId, quantity = 1) => apiFetch(`/activities/shop/${itemId}/purchase`, { method: 'POST', body: JSON.stringify({ quantity }) });
+export const scanEasterQr = (sessionId, qrValue) => apiFetch(`/activities/sessions/${sessionId}/easter-scan`, { method: 'POST', body: JSON.stringify({ qrValue }) });
+export const finishEasterEgg = (sessionId) => apiFetch(`/activities/sessions/${sessionId}/easter-finish`, { method: 'POST' });
+export const getAdminEasterEggStages = () => apiFetch('/admin/activities/easter-egg/stages');
 
 export const getLeaderboardVisibility = () => apiFetch('/admin/leaderboard/reveal');
 
