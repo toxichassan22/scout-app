@@ -1,22 +1,12 @@
 import { Router } from 'express';
 import { requireRole } from '../middleware/auth.js';
 import { validate, zString } from '../middleware/validate.js';
-import { createMemoryRateLimiter } from '../security.js';
 import { z } from 'zod';
 import { getFestivalContext } from '../aiContext.js';
 import { requestAiProvider, streamAiProvider } from '../aiGateway.js';
 
 const router = Router();
 router.use(requireRole(['team']));
-
-// One shared team account may be open on many phones. Limit by team, not device,
-// so all of its members share a fair allowance and cannot multiply provider calls.
-const aiUserRateLimiter = createMemoryRateLimiter({
-  windowMs: Number(process.env.AI_RATE_WINDOW_MS) || 60_000,
-  max: Number(process.env.AI_RATE_MAX) || 6,
-  keyGenerator: req => req.user?.id || 'unknown-team',
-  message: 'استخدمتم حد الشات المؤقت؛ حاولوا بعد قليل',
-});
 
 const chatSchema = {
   body: {
@@ -72,7 +62,7 @@ async function streamChatResponse(req, res, options) {
   }
 }
 
-router.post('/chat', aiUserRateLimiter, validate(chatSchema), async (req, res) => {
+router.post('/chat', validate(chatSchema), async (req, res) => {
   const url = String(process.env.AI_CHAT_URL || '').trim();
   const token = String(process.env.AI_CHAT_TOKEN || '').trim();
   const tokenPool = String(process.env.AI_CHAT_TOKEN_POOL || '').trim();

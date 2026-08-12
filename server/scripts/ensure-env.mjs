@@ -111,8 +111,6 @@ upsertEnv(lines, 'AI_CHAT_TOKEN_POOL', aiChatTokenPool);
 // Non-secret AI pool controls can be changed as repository variables without
 // touching the server manually. Empty pipeline values preserve deployed settings.
 const AI_CONFIG_KEYS = [
-    'AI_RATE_WINDOW_MS',
-    'AI_RATE_MAX',
     'AI_KEY_RPM',
     'AI_GLOBAL_RPM',
     'AI_KEY_MIN_INTERVAL_MS',
