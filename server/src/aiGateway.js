@@ -178,6 +178,10 @@ function isProviderKeyError(error) {
   return error?.providerStatus === 401 || error?.providerStatus === 403;
 }
 
+function isProviderRateLimitError(error) {
+  return error?.providerStatus === 429;
+}
+
 async function withProviderKey(task) {
   const maxAttempts = keyPool.length || 1;
   let lastError;
@@ -189,14 +193,15 @@ async function withProviderKey(task) {
     } catch (error) {
       failure = error;
       lastError = error;
-      if (!isProviderKeyError(error) || attempt === maxAttempts - 1) {
+      const canFailover = isProviderKeyError(error) || isProviderRateLimitError(error);
+      if (!canFailover || attempt === maxAttempts - 1) {
         if (isProviderKeyError(error)) {
           error.code = 'AI_PROVIDER_AUTH';
           error.message = 'مفاتيح مزود الذكاء الاصطناعي غير مقبولة';
         }
         throw error;
       }
-      key.blockedUntil = Math.max(key.blockedUntil, Date.now() + invalidKeyCooldownMs);
+      if (isProviderKeyError(error)) key.blockedUntil = Math.max(key.blockedUntil, Date.now() + invalidKeyCooldownMs);
     } finally {
       releaseKey(key, failure);
     }

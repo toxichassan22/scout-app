@@ -67,6 +67,19 @@ try {
   assert.equal(failover.content, 'إجابة بالمفتاح البديل');
   assert.equal(failoverCalls, 2, 'an invalid provider key should fail over to another pool key');
 
+  let rateFailoverCalls = 0;
+  globalThis.fetch = async () => {
+    rateFailoverCalls += 1;
+    if (rateFailoverCalls === 1) return new Response(JSON.stringify({ error: 'rate' }), { status: 429, headers: { 'Retry-After': '7' } });
+    return new Response(JSON.stringify({ choices: [{ message: { content: 'إجابة بعد تبديل المفتاح' } }] }), { status: 200 });
+  };
+  const rateFailover = await requestAiProvider({
+    url: 'https://provider.test/v1', token: 'token', model: 'test-model',
+    festivalContext: 'schedule-v1', messages: [{ role: 'user', content: 'سؤال تبديل بعد الحد' }],
+  });
+  assert.equal(rateFailover.content, 'إجابة بعد تبديل المفتاح');
+  assert.equal(rateFailoverCalls, 2, 'a provider 429 should fail over to another pool key');
+
   globalThis.fetch = async (_url, options = {}) => {
     assert.equal(JSON.parse(options.body).stream, true);
     const encoder = new TextEncoder();
