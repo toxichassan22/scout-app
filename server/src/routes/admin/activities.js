@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { z } from 'zod';
 import prisma from '../../db.js';
 import { ensureActivityCatalog, getEasterEggQrPayload, getEasterEggStages } from '../../activityService.js';
+import { clearFestivalContextCache } from '../../aiContext.js';
 import { validate } from '../../middleware/validate.js';
 
 const router = Router();
@@ -46,6 +47,7 @@ router.put('/activities/easter-egg/stages', validate(updateStagesSchema), async 
   }
   const currentConfig = parseJson(activity.config, {});
   const updated = await prisma.activity.update({ where: { id: activity.id }, data: { config: JSON.stringify({ ...currentConfig, kind: 'easter', stages }) } });
+  clearFestivalContextCache();
   res.json({ success: true, stages: stageResponse(getEasterEggStages(updated)) });
 });
 
