@@ -1,12 +1,7 @@
 import assert from 'node:assert/strict';
 
 process.env.AI_CHAT_TOKEN_POOL = 'key-a,key-b,key-c';
-process.env.AI_KEY_RPM = '6000';
-process.env.AI_GLOBAL_RPM = '6000';
-process.env.AI_KEY_MIN_INTERVAL_MS = '5';
-process.env.AI_GLOBAL_MIN_INTERVAL_MS = '5';
 process.env.AI_POOL_CONCURRENCY = '3';
-process.env.AI_MAX_QUEUE = '4';
 process.env.AI_PROVIDER_TIMEOUT_MS = '5000';
 process.env.AI_RESPONSE_CACHE_TTL_MS = '1000';
 

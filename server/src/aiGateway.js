@@ -6,11 +6,6 @@ const configuredPool = String(process.env.AI_CHAT_TOKEN_POOL || '')
   .filter(Boolean);
 const fallbackToken = String(process.env.AI_CHAT_TOKEN || '').trim();
 const tokens = [...new Set(configuredPool.length ? configuredPool : (fallbackToken ? [fallbackToken] : []))];
-const keyRpm = Math.max(1, Number(process.env.AI_KEY_RPM || process.env.AI_PROVIDER_RPM) || 20);
-const globalRpm = Math.max(1, Number(process.env.AI_GLOBAL_RPM) || keyRpm * Math.max(1, tokens.length));
-const keyMinIntervalMs = Math.max(0, Number(process.env.AI_KEY_MIN_INTERVAL_MS) || Math.ceil(60_000 / keyRpm));
-const globalMinIntervalMs = Math.max(0, Number(process.env.AI_GLOBAL_MIN_INTERVAL_MS) || Math.ceil(60_000 / globalRpm));
-const maxQueue = Math.max(1, Number(process.env.AI_MAX_QUEUE) || 12);
 const providerTimeoutMs = Math.max(5_000, Number(process.env.AI_PROVIDER_TIMEOUT_MS) || 30_000);
 const cacheTtlMs = Math.max(5_000, Number(process.env.AI_RESPONSE_CACHE_TTL_MS) || 60_000);
 const maxConcurrency = Math.max(1, Math.min(tokens.length || 1, Number(process.env.AI_POOL_CONCURRENCY) || tokens.length || 1));
@@ -19,14 +14,12 @@ const invalidKeyCooldownMs = Math.max(60_000, Number(process.env.AI_INVALID_KEY_
 const keyPool = (tokens.length ? tokens : ['']).map((token, index) => ({
   id: index + 1,
   token,
-  lastStartedAt: 0,
   blockedUntil: 0,
   inFlight: 0,
 }));
 const queue = [];
 const responseCache = new Map();
 let activeJobs = 0;
-let nextGlobalStartAt = 0;
 let globalBlockedUntil = 0;
 let drainTimer;
 
@@ -124,13 +117,6 @@ async function consumeProviderStream(body, onToken, controller) {
   return { content, stopped };
 }
 
-function queueError() {
-  return Object.assign(new Error('مساعد الذكاء الاصطناعي مشغول حالياً؛ حاول بعد قليل'), {
-    status: 429,
-    retryAfter: Math.max(1, Math.ceil(((queue.length + 1) * globalMinIntervalMs) / 1000)),
-  });
-}
-
 function scheduleDrain(delay = 0) {
   if (drainTimer) return;
   drainTimer = setTimeout(() => {
@@ -141,14 +127,13 @@ function scheduleDrain(delay = 0) {
 
 function drainQueue() {
   while (queue.length && activeJobs < maxConcurrency) {
-    const wait = Math.max(0, nextGlobalStartAt, globalBlockedUntil) - Date.now();
+    const wait = Math.max(0, globalBlockedUntil - Date.now());
     if (wait > 0) {
       scheduleDrain(wait);
       return;
     }
     const job = queue.shift();
     activeJobs += 1;
-    nextGlobalStartAt = Date.now() + globalMinIntervalMs;
     Promise.resolve(job.task())
       .then(job.resolve, job.reject)
       .finally(() => {
@@ -159,7 +144,6 @@ function drainQueue() {
 }
 
 export function enqueueAiRequest(task) {
-  if (queue.length >= maxQueue) return Promise.reject(queueError());
   const result = new Promise((resolve, reject) => queue.push({ task, resolve, reject }));
   drainQueue();
   return result;
@@ -169,16 +153,13 @@ async function acquireKey() {
   let selected;
   while (!selected) {
     const now = Date.now();
-    const available = keyPool
-      .filter(key => key.inFlight === 0 && key.blockedUntil <= now && key.lastStartedAt + keyMinIntervalMs <= now)
-      .sort((a, b) => a.lastStartedAt - b.lastStartedAt);
+    const available = keyPool.filter(key => key.inFlight === 0 && key.blockedUntil <= now);
     if (available.length) {
       selected = available[0];
       selected.inFlight += 1;
-      selected.lastStartedAt = now;
       break;
     }
-    const nextAvailable = Math.min(...keyPool.map(key => Math.max(key.blockedUntil, key.lastStartedAt + keyMinIntervalMs)));
+    const nextAvailable = Math.min(...keyPool.map(key => key.blockedUntil));
     await sleep(Math.max(10, nextAvailable - now));
   }
   return selected;
@@ -276,6 +257,7 @@ export async function requestAiProvider({ url, token, model, messages, festivalC
           ? 'مزود الذكاء الاصطناعي وصل للحد المؤقت'
           : 'تعذر الاتصال بمزود الذكاء الاصطناعي');
         error.status = response.status === 429 ? 429 : 502;
+        error.code = response.status === 429 ? 'AI_PROVIDER_RATE_LIMITED' : undefined;
         error.providerStatus = response.status;
         error.retryAfter = Number(response.headers.get('retry-after')) || undefined;
         throw error;
@@ -327,6 +309,7 @@ export async function streamAiProvider({ url, token, model, messages, festivalCo
           ? 'مزود الذكاء الاصطناعي وصل للحد المؤقت'
           : 'تعذر الاتصال بمزود الذكاء الاصطناعي');
         error.status = response.status === 429 ? 429 : 502;
+        error.code = response.status === 429 ? 'AI_PROVIDER_RATE_LIMITED' : undefined;
         error.providerStatus = response.status;
         error.retryAfter = Number(response.headers.get('retry-after')) || undefined;
         throw error;
@@ -355,12 +338,8 @@ export function getAiGatewayStats() {
     keys: keyPool.length,
     queued: queue.length,
     active: activeJobs,
-    keyRpm,
-    globalRpm,
-    keyMinIntervalMs,
-    globalMinIntervalMs,
     maxConcurrency,
-    maxQueue,
+    providerBlockedUntil: globalBlockedUntil,
     providerTimeoutMs,
   };
 }

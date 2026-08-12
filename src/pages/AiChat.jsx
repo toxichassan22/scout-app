@@ -7,9 +7,9 @@ function getAiErrorMessage(error) {
   if (error.code === 'AI_NOT_CONFIGURED') return 'مساعد الذكاء الاصطناعي غير مفعّل حالياً. تواصلوا مع الإدارة.';
   if (error.code === 'AI_PROVIDER_AUTH') return 'مفاتيح مزود الذكاء الاصطناعي غير مقبولة. راجعوا مفاتيح الـ API الخاصة بالمزود.';
   if (error.code === 'AI_TIMEOUT' || error.status === 504) return 'استغرق المساعد وقتاً طويلاً في الرد. حاول مرة أخرى.';
-  if (error.code === 'AI_RATE_LIMITED' || error.status === 429) {
+  if (error.code === 'AI_PROVIDER_RATE_LIMITED' || error.code === 'AI_RATE_LIMITED' || error.status === 429) {
     const retryHint = error.retryAfter ? ` جرّب بعد ${error.retryAfter} ثانية.` : '';
-    return `تم الوصول إلى الحد المؤقت للمساعد.${retryHint}`;
+    return `مزود الذكاء الاصطناعي رفض الطلب مؤقتًا، وليس هناك حد على فريقك.${retryHint}`;
   }
   if (error.isNetworkError) return 'تعذر الوصول إلى خادم المساعد. تحقق من الاتصال ثم حاول مرة أخرى.';
   if (error.status >= 500) return 'تعذر اتصال المساعد بمزود الذكاء الاصطناعي. حاول مرة أخرى بعد قليل.';
