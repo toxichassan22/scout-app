@@ -63,7 +63,7 @@ async function streamChatResponse(req, res, options) {
     req.log.warn({ err, status, teamId: req.user?.id }, 'AI chat stream did not complete');
     writeStreamEvent(res, 'error', {
       error: err.message || 'تعذر إكمال بث المساعد حالياً',
-      code: status === 429 ? 'AI_RATE_LIMITED' : status === 504 ? 'AI_TIMEOUT' : 'AI_PROVIDER_ERROR',
+      code: err.code || (status === 429 ? 'AI_RATE_LIMITED' : status === 504 ? 'AI_TIMEOUT' : 'AI_PROVIDER_ERROR'),
       retryAfter: err.retryAfter,
     });
     res.end();
@@ -122,7 +122,7 @@ router.post('/chat', aiUserRateLimiter, validate(chatSchema), async (req, res) =
     req.log.warn({ err, status, teamId: req.user?.id }, 'AI chat request did not complete');
     return res.status(status).json({
       error: err.message || 'تعذر إكمال طلب المساعد حالياً',
-      code: status === 429 ? 'AI_RATE_LIMITED' : status === 504 ? 'AI_TIMEOUT' : 'AI_PROVIDER_ERROR',
+      code: err.code || (status === 429 ? 'AI_RATE_LIMITED' : status === 504 ? 'AI_TIMEOUT' : 'AI_PROVIDER_ERROR'),
     });
   }
 });

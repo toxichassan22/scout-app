@@ -56,6 +56,22 @@ try {
   assert.equal(usedKeys.size, 3, 'three concurrent requests should be distributed across three keys');
   assert.equal(calls, 4, 'only uncached questions reach the provider');
 
+  let failoverCalls = 0;
+  globalThis.fetch = async () => {
+    failoverCalls += 1;
+    if (failoverCalls === 1) return new Response(JSON.stringify({ error: 'invalid key' }), { status: 401 });
+    return new Response(JSON.stringify({ choices: [{ message: { content: 'إجابة بالمفتاح البديل' } }] }), { status: 200 });
+  };
+  const failover = await requestAiProvider({
+    url: 'https://provider.test/v1',
+    token: 'token',
+    model: 'test-model',
+    festivalContext: 'schedule-v1',
+    messages: [{ role: 'user', content: 'سؤال تبديل مفتاح' }],
+  });
+  assert.equal(failover.content, 'إجابة بالمفتاح البديل');
+  assert.equal(failoverCalls, 2, 'an invalid provider key should fail over to another pool key');
+
   globalThis.fetch = async (_url, options = {}) => {
     assert.equal(JSON.parse(options.body).stream, true);
     const encoder = new TextEncoder();
@@ -80,6 +96,31 @@ try {
   assert.equal(streamed.content, 'أهلاً بكم');
   assert.equal(streamedContent, 'أهلاً بكم');
   assert.equal(streamed.cached, false);
+
+  let streamFailoverCalls = 0;
+  globalThis.fetch = async () => {
+    streamFailoverCalls += 1;
+    if (streamFailoverCalls === 1) return new Response(JSON.stringify({ error: 'invalid key' }), { status: 403 });
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"نجح البث"}}]}\n\ndata: [DONE]\n\n'));
+        controller.close();
+      },
+    });
+    return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  };
+  let streamFailoverContent = '';
+  const streamFailover = await streamAiProvider({
+    url: 'https://provider.test/v1',
+    token: 'token',
+    model: 'test-model',
+    festivalContext: 'schedule-v1',
+    messages: [{ role: 'user', content: 'سؤال تبديل بث' }],
+    onToken: chunk => { streamFailoverContent += chunk; },
+  });
+  assert.equal(streamFailover.content, 'نجح البث');
+  assert.equal(streamFailoverContent, 'نجح البث');
+  assert.equal(streamFailoverCalls, 2, 'streaming should fail over after an invalid provider key');
 
   globalThis.fetch = async () => { throw new TypeError('fetch failed'); };
   await assert.rejects(

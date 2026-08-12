@@ -14,6 +14,7 @@ const maxQueue = Math.max(1, Number(process.env.AI_MAX_QUEUE) || 12);
 const providerTimeoutMs = Math.max(5_000, Number(process.env.AI_PROVIDER_TIMEOUT_MS) || 30_000);
 const cacheTtlMs = Math.max(5_000, Number(process.env.AI_RESPONSE_CACHE_TTL_MS) || 60_000);
 const maxConcurrency = Math.max(1, Math.min(tokens.length || 1, Number(process.env.AI_POOL_CONCURRENCY) || tokens.length || 1));
+const invalidKeyCooldownMs = Math.max(60_000, Number(process.env.AI_INVALID_KEY_COOLDOWN_MS) || 15 * 60_000);
 
 const keyPool = (tokens.length ? tokens : ['']).map((token, index) => ({
   id: index + 1,
@@ -192,6 +193,36 @@ function releaseKey(key, error) {
   }
 }
 
+function isProviderKeyError(error) {
+  return error?.providerStatus === 401 || error?.providerStatus === 403;
+}
+
+async function withProviderKey(task) {
+  const maxAttempts = keyPool.length || 1;
+  let lastError;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const key = await acquireKey();
+    let failure;
+    try {
+      return await task(key);
+    } catch (error) {
+      failure = error;
+      lastError = error;
+      if (!isProviderKeyError(error) || attempt === maxAttempts - 1) {
+        if (isProviderKeyError(error)) {
+          error.code = 'AI_PROVIDER_AUTH';
+          error.message = 'مفاتيح مزود الذكاء الاصطناعي غير مقبولة';
+        }
+        throw error;
+      }
+      key.blockedUntil = Math.max(key.blockedUntil, Date.now() + invalidKeyCooldownMs);
+    } finally {
+      releaseKey(key, failure);
+    }
+  }
+  throw lastError;
+}
+
 function cacheGet(key) {
   if (!key) return null;
   const entry = responseCache.get(key);
@@ -224,11 +255,9 @@ export async function requestAiProvider({ url, token, model, messages, festivalC
   const cached = cacheGet(cacheKey);
   if (cached) return { content: cached, cached: true };
 
-  const result = await enqueueAiRequest(async () => {
-    const key = await acquireKey();
+  const result = await enqueueAiRequest(() => withProviderKey(async key => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), providerTimeoutMs);
-    let failure;
     try {
       const response = await fetch(resolveAiChatUrl(url), {
         method: 'POST',
@@ -247,6 +276,7 @@ export async function requestAiProvider({ url, token, model, messages, festivalC
           ? 'مزود الذكاء الاصطناعي وصل للحد المؤقت'
           : 'تعذر الاتصال بمزود الذكاء الاصطناعي');
         error.status = response.status === 429 ? 429 : 502;
+        error.providerStatus = response.status;
         error.retryAfter = Number(response.headers.get('retry-after')) || undefined;
         throw error;
       }
@@ -254,7 +284,6 @@ export async function requestAiProvider({ url, token, model, messages, festivalC
       if (!content) throw Object.assign(new Error('رد مزود الذكاء الاصطناعي غير صالح'), { status: 502 });
       return String(content);
     } catch (error) {
-      failure = error;
       if (error.name === 'AbortError') {
         throw Object.assign(new Error('مساعد الذكاء الاصطناعي استغرق وقتاً طويلاً؛ حاول مرة أخرى'), { status: 504 });
       }
@@ -262,9 +291,8 @@ export async function requestAiProvider({ url, token, model, messages, festivalC
       throw Object.assign(new Error('تعذر الوصول إلى مزود الذكاء الاصطناعي حالياً'), { status: 502, cause: error });
     } finally {
       clearTimeout(timeout);
-      releaseKey(key, failure);
     }
-  });
+  }));
 
   cacheSet(cacheKey, result);
   return { content: result, cached: false };
@@ -278,11 +306,9 @@ export async function streamAiProvider({ url, token, model, messages, festivalCo
     return { content: cached, cached: true, stopped };
   }
 
-  const result = await enqueueAiRequest(async () => {
-    const key = await acquireKey();
+  const result = await enqueueAiRequest(() => withProviderKey(async key => {
     const provider = createProviderController(signal);
     const timeout = setTimeout(() => provider.controller.abort(), providerTimeoutMs);
-    let failure;
     try {
       const response = await fetch(resolveAiChatUrl(url), {
         method: 'POST',
@@ -301,6 +327,7 @@ export async function streamAiProvider({ url, token, model, messages, festivalCo
           ? 'مزود الذكاء الاصطناعي وصل للحد المؤقت'
           : 'تعذر الاتصال بمزود الذكاء الاصطناعي');
         error.status = response.status === 429 ? 429 : 502;
+        error.providerStatus = response.status;
         error.retryAfter = Number(response.headers.get('retry-after')) || undefined;
         throw error;
       }
@@ -308,7 +335,6 @@ export async function streamAiProvider({ url, token, model, messages, festivalCo
       if (!streamed.stopped && !streamed.content) throw Object.assign(new Error('رد مزود الذكاء الاصطناعي غير صالح'), { status: 502 });
       return streamed;
     } catch (error) {
-      failure = error;
       if (error.name === 'AbortError') {
         throw Object.assign(new Error('مساعد الذكاء الاصطناعي استغرق وقتاً طويلاً؛ حاول مرة أخرى'), { status: 504 });
       }
@@ -317,9 +343,8 @@ export async function streamAiProvider({ url, token, model, messages, festivalCo
     } finally {
       clearTimeout(timeout);
       provider.cleanup();
-      releaseKey(key, failure);
     }
-  });
+  }));
 
   if (!result.stopped && result.content) cacheSet(cacheKey, result.content);
   return { content: result.content, cached: false, stopped: result.stopped };
