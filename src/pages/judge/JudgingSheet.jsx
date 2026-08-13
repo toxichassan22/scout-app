@@ -118,6 +118,8 @@ const JudgingSheet = () => {
     return Object.values(scores).reduce((acc, curr) => acc + (parseFloat(curr) || 0), 0);
   };
 
+  const maxTotal = (competition.criteria || []).reduce((sum, criterion) => sum + (Number(criterion.maxScore) || 0), 0);
+
   const handleSubmitScore = async () => {
     if (!selectedTeam) return;
     setSubmitting(true);
@@ -268,8 +270,8 @@ const JudgingSheet = () => {
 
               {/* Score summary & action */}
               <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between mb-6">
-                <span className="text-2xl font-mono font-black text-amber-400">{calculateTotal()} نقطة</span>
-                <span className="text-xs font-bold text-amber-300">النتيجة الإجمالية المحسوبة</span>
+                <span className="text-2xl font-mono font-black text-amber-400">{calculateTotal()} / {maxTotal} نقطة</span>
+                <span className="text-xs font-bold text-amber-300">الإجمالي — الحد الأقصى ثابت</span>
               </div>
 
               {message && (
