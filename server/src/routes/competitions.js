@@ -208,6 +208,7 @@ router.post('/:idOrSlug/enter', authenticateToken, requireRole(['team']), enforc
       ...sessionInfo,
     });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ success: false, error: err.message, requestId: req.requestId, timestamp: new Date().toISOString() });
     req.log.error({ err }, 'failed to enter competition');
     res.status(500).json({ success: false, error: 'فشل في دخول المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
@@ -319,6 +320,7 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
       }),
     });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ success: false, error: err.message, requestId: req.requestId, timestamp: new Date().toISOString() });
     req.log.error({ err }, 'failed to load competition content');
     res.status(500).json({ success: false, error: 'فشل في تحميل محتوى المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
