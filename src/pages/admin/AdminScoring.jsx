@@ -89,42 +89,42 @@ const ScoreCard = ({ score, editing, total, values, saving, onBegin, onSave, onC
       </div>
 
       <div className="grid gap-3 p-4 lg:grid-cols-[1.1fr_.9fr]">
-        <section className="rounded-xl border border-white/5 bg-slate-950/45 p-3">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="text-xs font-black text-slate-300">تفاصيل التحكيم</h3>
-            <span className="text-[10px] text-slate-600">القيم المسجلة</span>
+        <section className="rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-xs font-black text-slate-200">تفاصيل التحكيم</h3>
+            <span className="text-[10px] font-bold text-slate-400">القيم المسجلة</span>
           </div>
-          {score.judgeScores?.length ? <div className="space-y-2">
+          {score.judgeScores?.length ? <div className="max-h-48 space-y-2.5 overflow-y-auto pr-1">
             {score.judgeScores.map(judgeScore => (
-              <div key={judgeScore.id} className="rounded-lg border border-white/5 bg-slate-900/75 p-2.5">
+              <div key={judgeScore.id} className="rounded-xl border border-white/10 bg-slate-900/80 p-3">
                 <div className="flex items-center justify-between gap-3 text-xs">
                   <span className="font-black text-sky-300">{judgeScore.judge?.name || 'محكّم'}</span>
-                  <strong className="text-white">{judgeScore.total} نقطة</strong>
+                  <strong className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-black text-emerald-300">{judgeScore.total} نقطة</strong>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {Object.entries(json(judgeScore.values)).map(([key, value]) => <span key={key} className="rounded-md bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-400">{key}: {value}</span>)}
+                  {Object.entries(json(judgeScore.values)).map(([key, value]) => <span key={key} className="rounded-lg border border-slate-700/60 bg-slate-950/60 px-2.5 py-1 text-[11px] font-bold text-slate-300">{key}: <strong className="text-amber-300">{value}</strong></span>)}
                 </div>
               </div>
             ))}
-          </div> : <p className="text-xs text-slate-600">لا توجد تفاصيل محكمين لهذه النتيجة.</p>}
+          </div> : <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/40 p-4 text-center text-xs font-bold text-slate-500">لا توجد تفاصيل محكمين مسجّلة لهذه النتيجة</div>}
         </section>
 
-        <section className="rounded-xl border border-white/5 bg-slate-950/45 p-3">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="text-xs font-black text-slate-300">سجل التغييرات</h3>
-            <ShieldCheck size={15} className="text-violet-300" />
+        <section className="rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-xs font-black text-slate-200">سجل التغييرات</h3>
+            <ShieldCheck size={16} className="text-violet-400" />
           </div>
-          {score.audits?.length ? <div className="max-h-32 space-y-2 overflow-auto pr-1">
+          {score.audits?.length ? <div className="max-h-48 space-y-2.5 overflow-y-auto pr-1">
             {score.audits.map(audit => (
-              <div key={audit.id} className="rounded-lg border border-white/5 bg-slate-900/75 p-2.5 text-[10px]">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-black text-violet-200">{auditLabels[audit.action] || audit.action}</span>
-                  <span className="text-slate-600">{formatDate(audit.createdAt)}</span>
+              <div key={audit.id} className="rounded-xl border border-violet-500/20 bg-slate-900/90 p-3 text-xs leading-normal">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-black text-violet-300">{auditLabels[audit.action] || audit.action}</span>
+                  <span className="font-mono text-[11px] font-bold text-slate-400">{formatDate(audit.createdAt)}</span>
                 </div>
-                {audit.reason && <p className="mt-1 text-slate-500">{audit.reason}</p>}
+                {audit.reason && <p className="mt-1.5 text-[11px] font-bold text-slate-400">{audit.reason}</p>}
               </div>
             ))}
-          </div> : <p className="text-xs text-slate-600">لا توجد تغييرات مسجّلة.</p>}
+          </div> : <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/40 p-4 text-center text-xs font-bold text-slate-500">لا توجد تغييرات مسجّلة بعد</div>}
         </section>
       </div>
 
