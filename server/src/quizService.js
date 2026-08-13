@@ -2,8 +2,10 @@ import prisma from './db.js';
 import logger from './logger.js';
 import { getCompetitionState } from './competitionState.js';
 import { recalculateTeamStanding } from './teamStanding.js';
+import { buildGeographyQuestions } from './geographyQuestions.js';
 
 const MAX_ATTEMPTS = 3;
+const GEOGRAPHY_COMPETITION_ID = 'comp-digital-3';
 
 function parseOrder(value) {
   try {
@@ -27,7 +29,40 @@ async function findCompetition(client, key) {
   return client.competition.findFirst({ where: { OR: [{ id: String(key) }, { slug: String(key) }] } });
 }
 
+async function ensureGeographyQuestions(tx, competitionId) {
+  if (competitionId !== GEOGRAPHY_COMPETITION_ID) return;
+  const existing = await tx.question.count({ where: { competitionId } });
+  if (existing > 0) return;
+
+  const countries = await tx.geographyCountry.findMany({ orderBy: { sortOrder: 'asc' } });
+  if (countries.length === 0) {
+    logger.warn('GeographyCountry table is empty — cannot auto-generate questions');
+    return;
+  }
+
+  const questions = buildGeographyQuestions(countries);
+  for (const q of questions) {
+    await tx.question.create({
+      data: {
+        id: q.id,
+        competitionId,
+        text: q.text,
+        category: q.category || '',
+        options: JSON.stringify(q.options),
+        correctOption: q.correctOption,
+        points: Number(q.points || 1),
+        questionType: q.questionType || 'text',
+        mediaUrl: q.mediaUrl || null,
+        mediaAlt: q.mediaAlt || '',
+        sortOrder: q.sortOrder || 0,
+      },
+    });
+  }
+  logger.info({ competitionId, count: questions.length }, 'auto-generated geography questions from GeographyCountry table');
+}
+
 async function createQuestionOrder(tx, competitionId, questionCount) {
+  await ensureGeographyQuestions(tx, competitionId);
   const questions = await tx.question.findMany({ where: { competitionId }, select: { id: true }, orderBy: { sortOrder: 'asc' } });
   const selected = shuffle(questions.map(question => question.id)).slice(0, Math.min(questionCount, questions.length));
   if (selected.length === 0) throw Object.assign(new Error('لا توجد أسئلة منشورة لهذه المسابقة'), { status: 503 });
