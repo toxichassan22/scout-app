@@ -10,6 +10,10 @@ export default function InlinePdfViewer({ url, fileName }) {
   const containerRef = useRef(null);
   const renderTaskRef = useRef(null);
 
+  // Pinch-to-zoom touch tracking refs
+  const pinchStartDistRef = useRef(null);
+  const pinchStartScaleRef = useRef(null);
+
   const [pdfDoc, setPdfDoc] = useState(null);
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -103,6 +107,38 @@ export default function InlinePdfViewer({ url, fileName }) {
     renderPage();
   }, [renderPage]);
 
+  // ── Pinch-to-zoom handlers ──────────────────────────────────────────────────
+  const getPinchDist = (touches) => {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  const handleTouchStart = useCallback((e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      pinchStartDistRef.current = getPinchDist(e.touches);
+      pinchStartScaleRef.current = scale;
+    }
+  }, [scale]);
+
+  const handleTouchMove = useCallback((e) => {
+    if (e.touches.length === 2 && pinchStartDistRef.current !== null) {
+      e.preventDefault();
+      const newDist = getPinchDist(e.touches);
+      const ratio = newDist / pinchStartDistRef.current;
+      const newScale = Math.min(3.0, Math.max(0.6, pinchStartScaleRef.current * ratio));
+      setScale(newScale);
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((e) => {
+    if (e.touches.length < 2) {
+      pinchStartDistRef.current = null;
+      pinchStartScaleRef.current = null;
+    }
+  }, []);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center p-8 bg-slate-950 rounded-2xl border border-slate-800 text-center min-h-[300px]">
@@ -173,8 +209,14 @@ export default function InlinePdfViewer({ url, fileName }) {
         </div>
       </div>
 
-      {/* Canvas Container */}
-      <div className="flex-1 overflow-auto bg-slate-950 p-2 rounded-2xl border border-slate-800 text-center min-h-[350px] flex items-start justify-center">
+      {/* Canvas Container — pinch-to-zoom re-renders at new scale for crisp output */}
+      <div
+        className="flex-1 overflow-auto bg-slate-950 p-2 rounded-2xl border border-slate-800 text-center min-h-[350px] flex items-start justify-center"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ touchAction: 'pan-x pan-y' }}
+      >
         <div className="relative inline-block">
           {rendering && (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 rounded-xl z-10">
@@ -184,7 +226,7 @@ export default function InlinePdfViewer({ url, fileName }) {
           <canvas
             ref={canvasRef}
             className="mx-auto rounded-xl shadow-2xl border border-slate-700 bg-white block"
-            style={{ maxWidth: '100%' }}
+            style={{ maxWidth: '100%', touchAction: 'none' }}
           />
         </div>
       </div>
