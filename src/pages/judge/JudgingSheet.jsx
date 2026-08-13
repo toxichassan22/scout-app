@@ -354,13 +354,33 @@ const JudgingSheet = () => {
                     <p className="text-xs text-slate-500 bg-slate-950 p-3 rounded-xl border border-slate-800 text-center">
                       جاري تحميل الملف المرفق...
                     </p>
-                  ) : selectedTeam.report.fileUrl.endsWith('.pdf') ? (
-                    <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950 h-80">
-                      <iframe
-                        src={reportFileUrl}
-                        title="PDF Viewer"
-                        className="w-full h-full border-0"
-                      />
+                  ) : selectedTeam.report.fileUrl.toLowerCase().endsWith('.pdf') ? (
+                    <div className="space-y-3">
+                      {/* Direct mobile-friendly open button */}
+                      <a
+                        href={reportFileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black transition w-full justify-center shadow-md"
+                      >
+                        <ExternalLink size={16} />
+                        فتح معاينة ملف الـ PDF بحجم كامل (موصى به للموبايل)
+                      </a>
+
+                      {/* Embedded viewer for desktop / supporting browsers */}
+                      <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950 h-96">
+                        <object
+                          data={reportFileUrl}
+                          type="application/pdf"
+                          className="w-full h-full border-0"
+                        >
+                          <iframe
+                            src={reportFileUrl}
+                            title="PDF Viewer"
+                            className="w-full h-full border-0"
+                          />
+                        </object>
+                      </div>
                     </div>
                   ) : (
                     <a
