@@ -37,7 +37,25 @@ const AdminScoring = () => {
   const pickCompetition = id => { setCompetitionId(id); setTeamId(''); setEditing(null); };
   const unlock = async s => { const why = prompt('اكتب سبب فتح القفل (يسجل في سجل التدقيق):', 'تصحيح إداري'); if (!why) return; try { await unlockScore(s.id, why); await load() } catch (e) { alert(e.message) } };
   const begin = s => { setEditing(s.id); setTotal(s.total); setValues(JSON.stringify(json(s.values), null, 2)); setReason('') };
-  const save = async s => { if (!reason.trim()) return alert('سبب التصحيح مطلوب'); let parsed; try { parsed = JSON.parse(values) } catch { return alert('قيم المعايير JSON غير صحيحة') } try { await updateScoreOverride(s.id, { total: Number(total), values: parsed, reason }); setEditing(null); await load() } catch (e) { alert(e.message) } };
+  const getMaxScore = comp => {
+    if (!comp) return 50;
+    try {
+      const c = typeof comp.criteria === 'string' ? JSON.parse(comp.criteria) : comp.criteria;
+      if (Array.isArray(c) && c.length > 0) {
+        const sum = c.reduce((acc, item) => acc + Number(item.maxScore || 0), 0);
+        if (sum > 0) return sum;
+      }
+    } catch {}
+    return comp.questionCount || 50;
+  };
+  const save = async s => {
+    if (!reason.trim()) return alert('سبب التصحيح مطلوب');
+    const maxScore = getMaxScore(s.competition);
+    if (Number(total) < 0 || Number(total) > maxScore) return alert(`الدرجة غير صالحة؛ الحد الأقصى لهذه المسابقة هو ${maxScore} نقطة`);
+    let parsed;
+    try { parsed = JSON.parse(values) } catch { return alert('قيم المعايير JSON غير صحيحة') }
+    try { await updateScoreOverride(s.id, { total: Number(total), values: parsed, reason }); setEditing(null); await load() } catch (e) { alert(e.message) }
+  };
   return <div className="p-6 text-right dir-rtl text-white"><AdminBackLink /><header className="mb-8"><h1 className="text-2xl font-black flex gap-2">الدرجات والقفل وسجل التدقيق <Trophy className="text-amber-400" /></h1><p className="text-xs text-slate-400">لا يمكن التصحيح إلا بعد فتح صريح بسبب، ثم تعاد النتيجة إلى الحالة النهائية تلقائياً</p></header>
     <section className="card mb-7 rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -64,7 +82,7 @@ const AdminScoring = () => {
       <div className="flex flex-wrap justify-between gap-3 border-b border-slate-800 pb-3"><div className="flex gap-2"><span className={`px-2 py-1 rounded text-xs ${s.isFinal ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'}`}>{s.isFinal ? <><Lock size={12} className="inline" /> نهائي مقفل</> : <><Unlock size={12} className="inline" /> مفتوح للتصحيح</>}</span><b className="text-emerald-400">{s.total} نقطة</b></div><h2 className="font-black">{s.team?.label} • {s.competition?.name}</h2></div>
       <div className="grid md:grid-cols-2 gap-4 mt-4"><div><h3 className="text-xs text-slate-400 mb-2">المحكم وقيم المعايير</h3>{s.judgeScores?.map(j => <div key={j.id} className="p-3 bg-slate-950 rounded-xl text-xs mb-2"><b className="text-sky-400">{j.judge?.name || 'محكم'} — {j.total}</b><div className="flex flex-wrap gap-2 mt-2">{Object.entries(json(j.values)).map(([k, v]) => <span key={k} className="bg-slate-800 px-2 py-1 rounded">{k}: {v}</span>)}</div></div>)}</div>
         <div><h3 className="text-xs text-slate-400 mb-2">سجل التدقيق</h3><div className="space-y-1 max-h-32 overflow-auto">{s.audits?.map(a => <div key={a.id} className="text-[10px] bg-slate-950 p-2 rounded"><ShieldCheck size={11} className="inline text-violet-400" /> {a.action} • {a.reason || 'بدون سبب'} • {new Date(a.createdAt).toLocaleString('ar-EG')}</div>)}</div></div></div>
-      {editing === s.id ? <div className="mt-4 p-4 bg-slate-950 rounded-xl space-y-2"><input type="number" step="0.5" className="ai-input" value={total} onChange={e => setTotal(e.target.value)} /><textarea dir="ltr" className="ai-input text-left font-mono min-h-28" value={values} onChange={e => setValues(e.target.value)} /><input className="ai-input" placeholder="سبب التصحيح الإلزامي" value={reason} onChange={e => setReason(e.target.value)} /><button onClick={() => save(s)} className="px-4 py-2 rounded bg-emerald-600 font-bold flex gap-2"><Save size={15} /> حفظ وإعادة القفل</button></div> : <div className="mt-4 flex gap-2">{s.isFinal ? <button onClick={() => unlock(s)} className="px-3 py-2 bg-amber-500 text-slate-950 rounded-xl text-xs font-black flex gap-1"><Unlock size={14} /> فتح بسبب</button> : <><button onClick={() => begin(s)} className="px-3 py-2 bg-blue-600 rounded-xl text-xs font-bold flex gap-1"><Edit3 size={14} /> تصحيح</button><button onClick={() => lockScore(s.id).then(load)} className="px-3 py-2 bg-slate-700 rounded-xl text-xs font-bold flex gap-1"><Lock size={14} /> قفل دون تعديل</button></>}</div>}
+      {editing === s.id ? <div className="mt-4 p-4 bg-slate-950 rounded-xl space-y-2"><div className="flex justify-between items-center text-xs font-bold text-slate-400"><span>الدرجة الكلية</span><span>الحد الأقصى: {getMaxScore(s.competition)} نقطة</span></div><input type="number" step="0.5" min="0" max={getMaxScore(s.competition)} className="ai-input" value={total} onChange={e => setTotal(e.target.value)} /><textarea dir="ltr" className="ai-input text-left font-mono min-h-28" value={values} onChange={e => setValues(e.target.value)} /><input className="ai-input" placeholder="سبب التصحيح الإلزامي" value={reason} onChange={e => setReason(e.target.value)} /><button onClick={() => save(s)} className="px-4 py-2 rounded bg-emerald-600 font-bold flex gap-2"><Save size={15} /> حفظ وإعادة القفل</button></div> : <div className="mt-4 flex gap-2">{s.isFinal ? <button onClick={() => unlock(s)} className="px-3 py-2 bg-amber-500 text-slate-950 rounded-xl text-xs font-black flex gap-1"><Unlock size={14} /> فتح بسبب</button> : <><button onClick={() => begin(s)} className="px-3 py-2 bg-blue-600 rounded-xl text-xs font-bold flex gap-1"><Edit3 size={14} /> تصحيح</button><button onClick={() => lockScore(s.id).then(load)} className="px-3 py-2 bg-slate-700 rounded-xl text-xs font-bold flex gap-1"><Lock size={14} /> قفل دون تعديل</button></>}</div>}
     </article>)}</div>}
   </div>;
 };

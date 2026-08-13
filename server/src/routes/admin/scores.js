@@ -13,15 +13,36 @@ const scoreOverrideSchema = {
   params: { id: zId('النتيجة') },
   body: { total: zNumber('المجموع', { min: 0 }), values: z.union([z.string(), z.record(z.unknown())]).optional(), reason: zString('السبب', { min: 1, max: 500 }) },
 };
+function getCompetitionMaxScore(competition) {
+  if (!competition) return 50;
+  try {
+    const criteria = typeof competition.criteria === 'string' ? JSON.parse(competition.criteria) : competition.criteria;
+    if (Array.isArray(criteria) && criteria.length > 0) {
+      const sum = criteria.reduce((acc, item) => acc + Number(item.maxScore || 0), 0);
+      if (sum > 0) return sum;
+    }
+  } catch {}
+  if (competition.questionCount && Number(competition.questionCount) > 0) {
+    return Number(competition.questionCount);
+  }
+  return 50;
+}
+
 router.patch('/scores/:id', validate(scoreOverrideSchema), async (req, res) => {
   try {
     const { total, values, reason } = req.body;
     const adminId = req.user.id;
-    const existing = await prisma.score.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.score.findUnique({ where: { id: req.params.id }, include: { competition: true } });
     if (!existing) return res.status(404).json({ error: 'النتيجة غير موجودة' });
     if (existing.isFinal) return res.status(409).json({ error: 'يجب فتح قفل النتيجة أولاً' });
     const numericTotal = Number(total);
     if (!Number.isFinite(numericTotal) || !String(reason || '').trim()) return res.status(400).json({ error: 'الدرجة وسبب التصحيح مطلوبان' });
+
+    const maxAllowed = getCompetitionMaxScore(existing.competition);
+    if (numericTotal < 0 || numericTotal > maxAllowed) {
+      return res.status(400).json({ error: `الدرجة غير صالحة؛ لا يمكن أن تتجاوز الحد الأقصى للمسابقة (${maxAllowed} نقطة)` });
+    }
+
     const score = await prisma.$transaction(async tx => {
       const updated = await tx.score.update({ where: { id: existing.id }, data: { total: numericTotal, ...(values !== undefined && { values: typeof values === 'string' ? values : JSON.stringify(values) }), editedByAdminId: adminId, editedAt: new Date(), isFinal: true } });
       await tx.scoreAudit.create({ data: { scoreId: existing.id, competitionId: existing.competitionId, teamId: existing.teamId, adminId, action: 'admin_correction', reason: String(reason).trim(), previousData: JSON.stringify(existing), newData: JSON.stringify(updated) } });
