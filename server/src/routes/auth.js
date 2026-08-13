@@ -198,11 +198,25 @@ router.get('/me', authenticateToken, async (req, res) => {
   // as it was then. Reading the row keeps a reload from re-prompting someone who has
   // already filled the form.
   if (req.user.role !== 'team') return res.json({ user: req.user });
-  const device = await prisma.teamDevice.findUnique({
-    where: { teamId_deviceId: { teamId: req.user.id, deviceId: req.user.deviceId } },
-    select: { displayName: true, role: true },
+  const [device, team] = await Promise.all([
+    prisma.teamDevice.findUnique({
+      where: { teamId_deviceId: { teamId: req.user.id, deviceId: req.user.deviceId } },
+      select: { displayName: true, role: true },
+    }),
+    prisma.team.findUnique({
+      where: { id: req.user.id },
+      select: { logoUrl: true, label: true },
+    }),
+  ]);
+  res.json({
+    user: {
+      ...req.user,
+      deviceName: device?.displayName || '',
+      deviceRole: device?.role || '',
+      logoUrl: team?.logoUrl || null,
+      requiresLogoUpload: !team?.logoUrl,
+    },
   });
-  res.json({ user: { ...req.user, deviceName: device?.displayName || '', deviceRole: device?.role || '' } });
 });
 
 export default router;

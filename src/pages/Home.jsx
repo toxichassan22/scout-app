@@ -177,6 +177,7 @@ const Home = memo(function Home() {
   const [board, setBoard] = useState([]);
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [logoModalDismissed, setLogoModalDismissed] = useState(false);
 
   // اسم الفريق المسجل ديناميكياً
   const teamName = user?.name || user?.teamName || user?.username || 'الكشاف';
@@ -313,7 +314,8 @@ const Home = memo(function Home() {
 
       </div>
       <TeamLogoUploadModal
-        isOpen={Boolean(user?.role === 'team' && (user?.requiresLogoUpload || !user?.logoUrl))}
+        isOpen={Boolean(!logoModalDismissed && user?.role === 'team' && user?.requiresLogoUpload && !user?.logoUrl)}
+        onClose={() => setLogoModalDismissed(true)}
         onSuccess={() => window.location.reload()}
       />
     </main>

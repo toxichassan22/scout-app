@@ -63,13 +63,23 @@ export default function TeamLogoUploadModal({ isOpen, onClose, onSuccess }) {
   return (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 dir-rtl animate-fade-in">
       <div className="relative w-full max-w-md rounded-3xl border border-amber-500/40 bg-slate-950 p-6 shadow-[0_0_60px_rgba(245,158,11,0.25)] text-right">
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-5 left-5 rounded-full p-2 text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            aria-label="إغلاق"
+          >
+            ✕
+          </button>
+        )}
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-400/30 bg-amber-500/10 text-amber-300">
           <Camera size={28} />
         </div>
 
-        <h2 className="text-xl font-black text-white text-center mb-2">إلزام رفع لوجو الفريق 🛡️</h2>
+        <h2 className="text-xl font-black text-white text-center mb-2">شعار ولوجو الفريق 🛡️</h2>
         <p className="text-xs leading-6 text-slate-300 text-center mb-6">
-          بصفك الحساب الأول المسجل (قائد الفريق)، يلزم رفع صورة الشعار/اللوجو الخاص بفريقك لاكتمل التسجيل والسماح لبقية الأعضاء بالدخول.
+          يمكنك رفع أو تحديث صورة الشعار/اللوجو الخاص بفريقك ليظهر في لوحة الشرف وملفاتكم الكشفية.
         </p>
 
         {error && (
