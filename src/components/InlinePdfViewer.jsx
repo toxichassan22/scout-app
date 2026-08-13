@@ -84,9 +84,10 @@ export default function InlinePdfViewer({ url, fileName }) {
         await page.render(renderContext).promise;
         if (isCancelled) return;
 
+        const imgDataUrl = canvas.toDataURL('image/png');
         setRenderedPages((prev) => ({
           ...prev,
-          [currentPage]: canvas,
+          [currentPage]: imgDataUrl,
         }));
       } catch (err) {
         console.error(`Page ${currentPage} render failed:`, err);
@@ -155,7 +156,7 @@ export default function InlinePdfViewer({ url, fileName }) {
         {/* Zoom Controls */}
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setScale((s) => Math.min(2.2, s + 0.2))}
+            onClick={() => setScale((s) => Math.min(2.5, s + 0.25))}
             className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
             title="تكبير الصفحة"
           >
@@ -163,7 +164,7 @@ export default function InlinePdfViewer({ url, fileName }) {
           </button>
 
           <button
-            onClick={() => setScale((s) => Math.max(0.7, s - 0.2))}
+            onClick={() => setScale((s) => Math.max(0.6, s - 0.25))}
             className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
             title="تصغير الصفحة"
           >
@@ -172,18 +173,18 @@ export default function InlinePdfViewer({ url, fileName }) {
         </div>
       </div>
 
-      {/* Canvas Page Container */}
+      {/* Rendered PDF Page Image */}
       <div className="flex-1 overflow-y-auto bg-slate-950 p-2 sm:p-4 rounded-2xl border border-slate-800 text-center min-h-[350px] flex items-center justify-center">
         {renderedPages[currentPage] ? (
-          <div
-            dangerouslySetInnerHTML={{
-              __html: renderedPages[currentPage].outerHTML,
-            }}
+          <img
+            src={renderedPages[currentPage]}
+            alt={`صفحة التقرير ${currentPage}`}
+            className="mx-auto rounded-xl shadow-2xl border border-slate-800 max-w-full block bg-white transition-all duration-200"
           />
         ) : (
           <div className="flex flex-col items-center justify-center p-6 text-slate-400">
             <RefreshCw size={22} className="animate-spin text-purple-400 mb-2" />
-            <span className="text-xs">جاري تجهيز صفحة {currentPage}...</span>
+            <span className="text-xs font-bold text-slate-300">جاري تجهيز وعرض صفحة التقرير {currentPage}...</span>
           </div>
         )}
       </div>
