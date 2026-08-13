@@ -41,18 +41,19 @@ const AdminCompetitions = () => {
     setError('');
     try {
       const [rows, agenda] = await Promise.all([getAdminCompetitions(), getAgenda()]);
-      setCompetitions(rows);
-      setZones(agenda.zones || []);
-      setDrafts(Object.fromEntries(rows.map(item => {
-        const schedule = item.schedule || {};
+      const validRows = Array.isArray(rows) ? rows : (rows?.items || rows?.data || []);
+      setCompetitions(validRows);
+      setZones(Array.isArray(agenda?.zones) ? agenda.zones : (Array.isArray(agenda) ? agenda : []));
+      setDrafts(Object.fromEntries(validRows.map(item => {
+        const schedule = item?.schedule || {};
         return [item.id, {
-          name: item.name || '',
-          isOpen: Boolean(item.isOpen),
-          zoneId: schedule.zoneId || '',
-          locationNote: schedule.locationNote || '',
-          startTime: schedule.startTime || '',
-          endTime: schedule.endTime || '',
-          qrCode: item.qrCode || '',
+          name: item?.name || '',
+          isOpen: Boolean(item?.isOpen),
+          zoneId: schedule?.zoneId || '',
+          locationNote: schedule?.locationNote || '',
+          startTime: schedule?.startTime || '',
+          endTime: schedule?.endTime || '',
+          qrCode: item?.qrCode || '',
         }];
       })));
     } catch (loadError) {
@@ -66,7 +67,9 @@ const AdminCompetitions = () => {
 
   const groups = useMemo(() => {
     const grouped = new Map();
-    competitions.forEach(competition => {
+    const validCompetitions = Array.isArray(competitions) ? competitions : [];
+    validCompetitions.forEach(competition => {
+      if (!competition) return;
       const schedule = competition.schedule || {};
       const key = schedule.period || 'unlinked';
       if (!grouped.has(key)) grouped.set(key, []);
@@ -74,26 +77,28 @@ const AdminCompetitions = () => {
     });
     return [...grouped.entries()]
       .map(([key, items]) => {
-        const starts = items.map(item => item.schedule?.startTime).filter(Boolean).sort();
-        const ends = items.map(item => item.schedule?.endTime).filter(Boolean).sort();
+        const starts = items.map(item => item?.schedule?.startTime).filter(Boolean).sort();
+        const ends = items.map(item => item?.schedule?.endTime).filter(Boolean).sort();
         return { key, items, start: starts[0] || '', end: ends.at(-1) || '' };
       })
       .sort((a, b) => (a.start || '99:99').localeCompare(b.start || '99:99'));
   }, [competitions]);
 
   useEffect(() => {
-    if (groups.length && !Object.keys(openPeriods).length) {
-      setOpenPeriods({ [groups[0].key]: true });
+    if (groups && groups.length > 0 && !Object.keys(openPeriods).length) {
+      if (groups[0]?.key) {
+        setOpenPeriods({ [groups[0].key]: true });
+      }
     }
   }, [groups, openPeriods]);
 
   const field = (id, key, value) => setDrafts(previous => ({
     ...previous,
-    [id]: { ...previous[id], [key]: value },
+    [id]: { ...(previous[id] || {}), [key]: value },
   }));
 
   const save = async id => {
-    const draft = drafts[id];
+    const draft = drafts[id] || {};
     setBusy(id);
     try {
       await updateCompetition(id, {
@@ -114,7 +119,7 @@ const AdminCompetitions = () => {
   };
 
   const toggle = async id => {
-    const draft = drafts[id];
+    const draft = drafts[id] || {};
     const newIsOpen = !draft.isOpen;
     field(id, 'isOpen', newIsOpen);
     setBusy(`${id}:toggle`);
@@ -131,6 +136,9 @@ const AdminCompetitions = () => {
 
   const togglePeriod = key => setOpenPeriods(previous => ({ ...previous, [key]: !previous[key] }));
 
+  const validCompetitions = Array.isArray(competitions) ? competitions : [];
+  const qrCompetitions = validCompetitions.filter(c => c && (c.requiresQr || ['genius', 'geography', 'two_truths'].includes(c.slug)));
+
   return (
     <main className="app-shell min-h-screen p-4 text-white sm:p-6 dir-rtl">
       <div className="mx-auto max-w-6xl">
@@ -143,7 +151,7 @@ const AdminCompetitions = () => {
           <div className="flex flex-wrap items-center gap-2 print:hidden">
             <button type="button" onClick={() => setShowQrPrintView(!showQrPrintView)} className="btn-ghost flex items-center gap-1.5 !px-3 !py-2 text-xs"><QrCode size={16} /> {showQrPrintView ? 'إخفاء معاينة QR' : 'معاينة QR المسابقات'}</button>
             <button type="button" onClick={() => window.print()} className="btn-ember flex items-center gap-1.5 !px-3 !py-2 text-xs"><Printer size={16} /> طباعة أكواد QR</button>
-            <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-black text-cyan-300">{competitions.length} عنصر</span>
+            <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-black text-cyan-300">{validCompetitions.length} عنصر</span>
           </div>
         </header>
 
@@ -157,7 +165,7 @@ const AdminCompetitions = () => {
               <button type="button" onClick={() => window.print()} className="btn-primary flex items-center gap-2 !px-4 !py-2 text-xs"><Printer size={16} /> طباعة الآن</button>
             </div>
             <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3">
-              {competitions.filter(c => c.requiresQr || ['genius', 'geography', 'two_truths'].includes(c.slug)).map(comp => {
+              {qrCompetitions.map(comp => {
                 const qrValue = comp.qrCode || `scout-qr-${comp.slug || comp.id}`;
                 return (
                   <div key={comp.id} className="flex flex-col items-center justify-between rounded-2xl border border-slate-700 bg-white p-5 text-center text-slate-900 shadow-md print:border-slate-300">
@@ -177,7 +185,7 @@ const AdminCompetitions = () => {
         )}
 
         {loading ? <div className="py-20 text-center text-sm font-bold text-slate-400">جاري تحميل المسابقات...</div>
-          : competitions.length === 0 ? <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-12 text-center text-sm font-bold text-slate-400">لا توجد مسابقات مضافة بعد.</div>
+          : validCompetitions.length === 0 ? <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-12 text-center text-sm font-bold text-slate-400">لا توجد مسابقات مضافة بعد.</div>
             : <div className="space-y-4">
               {groups.map(group => {
                 const isOpen = Boolean(openPeriods[group.key]);
@@ -245,4 +253,3 @@ const AdminCompetitions = () => {
 };
 
 export default AdminCompetitions;
-
