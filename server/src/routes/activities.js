@@ -3,7 +3,7 @@ import prisma from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 import { enforceNotFrozen } from '../freeze.js';
 import { validate, zId, zNumber, zString } from '../middleware/validate.js';
-import { getActivityConfig, getCatalogEntry, getActivityPublicConfig, getEasterEggStages, generateColorTarget, generateRoomCode, HACKER_STAGES, getEasterStageView, getHackerStageView, matchesEasterEggQr, ensureActivityCatalog, finalizeActivitySession } from '../activityService.js';
+import { getActivityConfig, getCatalogEntry, getActivityPublicConfig, getEasterEggStages, generateColorTarget, generateRoomCode, getEasterStageView, matchesEasterEggQr, ensureActivityCatalog, finalizeActivitySession } from '../activityService.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -51,8 +51,6 @@ function sessionView(session, config = {}, viewer = null) {
   const activeOrder = config.kind === 'guess' ? (gameState.order || []).filter(id => participants.some(item => item.id === id && !item.eliminated)) : [];
   const targetPlayerId = currentPlayerId && activeOrder.length > 1 ? activeOrder[(activeOrder.indexOf(currentPlayerId) + 1) % activeOrder.length] : null;
   const mine = viewer && participants.find(item => item.teamId === (viewer.teamId || viewer.id) && item.deviceId === viewer.deviceId);
-  const hackerMetadata = mine ? parseJson(mine.metadata, {}) : {};
-  const hackerStageIndex = Number(hackerMetadata.currentStage || 0);
   const easterStages = config.kind === 'easter'
     ? getEasterEggStages({ ...config, stages: Array.isArray(gameState.easterStages) ? gameState.easterStages : config.stages })
     : [];
@@ -67,10 +65,6 @@ function sessionView(session, config = {}, viewer = null) {
     targetPlayerId,
     history: config.kind === 'guess' ? gameState.history || [] : [],
     participants: participants.map(participantView),
-    ...(config.kind === 'hacker' ? {
-      challenge: getHackerStageView(HACKER_STAGES[hackerStageIndex], hackerStageIndex),
-      progress: { current: Math.min(hackerStageIndex, HACKER_STAGES.length), total: HACKER_STAGES.length },
-    } : {}),
     ...(config.kind === 'easter' ? {
       easterProgress: { current: Math.min(easterStageIndex + (gameState.awaitingTask ? 1 : 0), easterStages.length), total: easterStages.length, awaitingTask: Boolean(gameState.awaitingTask) },
       stage: gameState.awaitingTask ? getEasterStageView(easterStages[easterStageIndex], easterStageIndex, easterStages.length) : null,
@@ -222,30 +216,6 @@ router.post('/sessions/:sessionId/guess', enforceNotFrozen, validate(guessSchema
   res.json({ success: true, feedback: result.feedback, eliminated: result.eliminated, finished: result.finished, targetId: result.targetId, currentPlayerId: result.currentPlayerId, history: parseJson(result.session.gameState, {}).history || [], participants: result.session.participants.map(participantView) });
 });
 
-const hackerAnswerSchema = { params: { sessionId: zId('الجلسة') }, body: { challenge: zNumber('المرحلة', { min: 0, max: HACKER_STAGES.length - 1, int: true }), selectedIndex: zNumber('الإجابة', { min: 0, max: 10, int: true }) } };
-router.post('/sessions/:sessionId/hacker-answer', enforceNotFrozen, validate(hackerAnswerSchema), async (req, res) => {
-  const result = await prisma.$transaction(async tx => {
-    const session = await tx.activitySession.findUnique({ where: { id: req.params.sessionId }, include: { participants: true, activity: true } });
-    const participant = session && session.participants.find(item => item.teamId === req.user.id && item.deviceId === req.user.deviceId);
-    const stage = HACKER_STAGES[req.body.challenge];
-    if (!session || !participant || session.activity.slug !== 'hacker-sandbox' || !stage) throw Object.assign(new Error('مرحلة التحدي غير موجودة'), { status: 404 });
-    if (session.status !== 'active') throw Object.assign(new Error('انتهت جلسة التحدي'), { status: 409 });
-    const metadata = parseJson(participant.metadata, { answers: {}, currentStage: 0 });
-    metadata.answers ||= {};
-    const currentStage = Number(metadata.currentStage || 0);
-    if (req.body.challenge !== currentStage) throw Object.assign(new Error('يجب إكمال مواقف التحدي بالترتيب'), { status: 409 });
-    const correct = Number(req.body.selectedIndex) === stage.answer;
-    metadata.answers[String(currentStage)] = { correct, points: correct ? 1 : 0 };
-    metadata.currentStage = currentStage + 1;
-    const score = Object.values(metadata.answers).reduce((sum, answer) => sum + Number(answer?.points || 0), 0);
-    const completed = metadata.currentStage >= HACKER_STAGES.length;
-    await tx.activityParticipant.update({ where: { id: participant.id }, data: { score, metadata: JSON.stringify(metadata), ...(completed && { finishedAt: new Date() }) } });
-    const latest = await tx.activitySession.findUnique({ where: { id: session.id }, include: { participants: true, activity: true } });
-    const finalSession = completed ? await finalizeActivitySession(tx, session.id) : latest;
-    return { correct, score, completed, session: finalSession, nextStage: completed ? null : getHackerStageView(HACKER_STAGES[metadata.currentStage], metadata.currentStage), feedback: stage.feedback };
-  });
-  res.json({ success: true, correct: result.correct, score: result.score, completed: result.completed, feedback: result.feedback, challenge: result.nextStage, session: sessionView(result.session, getActivityConfig(result.session.activity), req.user) });
-});
 
 const colorRoundSchema = {
   params: { sessionId: zId('الجلسة') },
@@ -322,12 +292,9 @@ router.post('/sessions/:sessionId/finish', enforceNotFrozen, validate({ params: 
     if (config.kind === 'easter') throw Object.assign(new Error('يجب إنهاء مراحل QR بالترتيب'), { status: 409 });
     const currentMetadata = config.kind === 'color' ? participant.metadata : (req.body.metadata ? JSON.stringify(req.body.metadata) : participant.metadata);
     const metadata = parseJson(currentMetadata, {});
-    if (config.kind === 'hacker' && Number(metadata.currentStage || 0) < HACKER_STAGES.length) throw Object.assign(new Error('يجب إكمال مواقف التحدي بالترتيب'), { status: 409 });
     const calculatedScore = config.kind === 'color'
       ? Object.values(metadata.rounds || {}).reduce((sum, round) => sum + Number(round.score || 0), 0)
-      : config.kind === 'hacker'
-        ? Object.values(metadata.answers || {}).reduce((sum, answer) => sum + Number(answer?.points || 0), 0)
-        : Number(req.body.score);
+      : Number(req.body.score);
     await tx.activityParticipant.update({ where: { id: participant.id }, data: { score: calculatedScore, metadata: currentMetadata, finishedAt: new Date() } });
     const latest = await tx.activitySession.findUnique({ where: { id: session.id }, include: { participants: true, activity: true } });
     const finished = latest.activity.slug !== 'guess-number' || latest.participants.every(item => item.finishedAt);

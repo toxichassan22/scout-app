@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Clock3, Gamepad2, Play, QrCode, ShieldCheck, Sparkles, Trophy, Users } from 'lucide-react';
+import { ChevronLeft, Clock3, Gamepad2, Play, QrCode, Sparkles, Trophy, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
@@ -124,7 +124,6 @@ function EntertainmentCard({ activity, onOpen }) {
 }
 
 const entertainmentActivities = [
-  { title: 'تحدي الحارس الرقمي', description: 'خمسة مواقف واضحة من تطبيق المهرجان؛ اختر التصرف الآمن وتعلّم السبب في دقيقتين.', action: 'ابدأ التحدي', path: '/activities/hacker-sandbox', icon: ShieldCheck },
   { title: 'Guess the Number', description: 'لعبة جماعية من 3 إلى 10 لاعبين، تعتمد على الأدوار وكشف الأكواد.', action: 'فتح غرفة اللعب', path: '/activities/guess-number', icon: Users },
   { title: 'Easter Egg', description: 'رحلة QR طويلة بمهام صوتية وثقافية وحركية، وتتابعها السواعد ميدانيًا.', action: 'بدء رحلة QR', path: '/activities/easter-egg', icon: QrCode },
 ];

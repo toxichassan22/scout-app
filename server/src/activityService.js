@@ -1,53 +1,6 @@
 import crypto from 'node:crypto';
 import prisma from './db.js';
 
-export const HACKER_STAGES = [
-  {
-    id: 'bank-gate',
-    title: 'استمارة تسجيل الفريق',
-    scene: 'أحد المشاركين أرسل بيانات طويلة وغريبة في استمارة التسجيل، والواجهة قبلتها بدون اعتراض.',
-    prompt: 'أين يجب فحص البيانات قبل حفظها؟',
-    options: ['على السيرفر مع تحديد النوع والطول', 'بتغيير شكل زر الإرسال فقط', 'على جهاز المستخدم فقط'],
-    answer: 0,
-    feedback: 'السيرفر هو نقطة الحماية الأساسية؛ يفحص النوع والطول ويرفض البيانات غير المتوقعة حتى لو تم تجاوز الواجهة.',
-  },
-  {
-    id: 'vault-access',
-    title: 'لوحة إدارة المهرجان',
-    scene: 'مستخدم عادي عرف رابط صفحة الإدارة، لكن حسابه لا يملك صلاحية تعديل المسابقات.',
-    prompt: 'أين يجب التأكد من صلاحية المستخدم؟',
-    options: ['بإخفاء زر الإدارة من الواجهة فقط', 'على السيرفر قبل تنفيذ كل عملية', 'بتغيير اسم صفحة الإدارة'],
-    answer: 1,
-    feedback: 'إخفاء الزر يحسن الواجهة لكنه لا يحمي البيانات. السيرفر يجب أن يراجع الدور والصلاحية قبل كل عملية حساسة.',
-  },
-  {
-    id: 'transfer-room',
-    title: 'تعديل درجات الفرق',
-    scene: 'تم تعديل نتيجة فريق، ونحتاج أن نعرف من نفّذ التعديل ومتى وما القيمة السابقة.',
-    prompt: 'ما أفضل طريقة لمراجعة التعديل لاحقًا؟',
-    options: ['حفظ سجل بالمسؤول والوقت والقيم القديمة والجديدة', 'حذف أي أثر بعد الحفظ', 'تسجيل اسم الفريق فقط'],
-    answer: 0,
-    feedback: 'سجل التدقيق الكامل يحمي الحقوق ويسهّل اكتشاف الخطأ: من عدّل، ومتى، وماذا كان قبل التعديل وبعده.',
-  },
-  {
-    id: 'fraud-control',
-    title: 'محاولات دخول متكررة',
-    scene: 'ظهرت مئات المحاولات السريعة لتخمين كلمة سر حساب واحد.',
-    prompt: 'ما التصرف الأنسب بدون تعطيل الموقع على الجميع؟',
-    options: ['تحديد معدل المحاولات وإضافة انتظار تدريجي', 'قبول كل المحاولات بلا حدود', 'إظهار كلمة السر الصحيحة في الخطأ'],
-    answer: 0,
-    feedback: 'تحديد المعدل والانتظار التدريجي يوقف التخمين الآلي مع استمرار الموقع للمستخدمين الطبيعيين.',
-  },
-  {
-    id: 'recovery-desk',
-    title: 'جهاز قائد مفقود',
-    scene: 'فقد قائد جهازه المسجل ويريد استعادة حسابه بدون ترك رابط دائم يمكن لأي شخص استخدامه.',
-    prompt: 'كيف يكون رابط الاستعادة أكثر أمانًا؟',
-    options: ['قصير العمر ويعمل مرة واحدة', 'ثابت ولا تنتهي صلاحيته', 'يحتوي على كلمة السر القديمة'],
-    answer: 0,
-    feedback: 'الرابط المؤقت أحادي الاستخدام يقلل أثر التسريب، وبعد استخدامه أو انتهاء مدته يصبح بلا قيمة.',
-  },
-];
 
 export const EASTER_EGG_STAGES = [
   { id: 'stage-01', title: 'نداء البداية', taskType: 'مهمة صوتية', task: 'غنّوا مقطعًا قصيرًا من أغنية المهرجان أمام أحد أفراد السواعد.', requiresSawaed: true, clue: '' },
@@ -66,7 +19,6 @@ export const ACTIVITY_CATALOG = [
   { slug: 'color-hunter', name: 'Color Hunter', description: 'طابق اللون المستهدف خلال عشر جولات للمتعة.', minPlayers: 1, maxPlayers: 1, config: { kind: 'color', rounds: 10 } },
   { slug: 'guess-number', name: 'Guess the Number', description: 'غرفة تخمين جماعية من 3 إلى 10 لاعبين للمتعة.', minPlayers: 3, maxPlayers: 10, config: { kind: 'guess', autoWaitSeconds: 60 } },
   { slug: 'easter-egg', name: 'Easter Egg', description: 'رحلة QR مرتبة بمهام يحددها الأدمن.', minPlayers: 1, maxPlayers: 1, config: { kind: 'easter', stages: EASTER_EGG_STAGES } },
-  { slug: 'hacker-sandbox', name: 'تحدي الحارس الرقمي', description: 'خمسة مواقف واضحة لتعلّم حماية تطبيق المهرجان في دقيقتين.', minPlayers: 1, maxPlayers: 1, config: { kind: 'hacker', stages: HACKER_STAGES.length } },
 ];
 
 function parseJson(value, fallback = {}) {
@@ -104,6 +56,9 @@ export async function ensureActivityCatalog(client = prisma) {
       await client.activity.upsert({ where: { slug: activity.slug }, update: { name: activity.name, description: activity.description, config: JSON.stringify(config) }, create: { slug: activity.slug, name: activity.name, description: activity.description, config: JSON.stringify(config), isOpen: true } });
     });
   }
+  // Keep historical sessions intact while preventing the retired activity from
+  // appearing in the catalog or accepting new sessions.
+  await client.activity.updateMany({ where: { slug: 'hacker-sandbox', isOpen: true }, data: { isOpen: false } });
 }
 
 export function getCatalogEntry(slug) {
@@ -156,10 +111,6 @@ export function matchesEasterEggQr(value, stage) {
   return crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
 }
 
-export function getHackerStageView(stage, index) {
-  if (!stage) return null;
-  return { index, title: stage.title, scene: stage.scene, prompt: stage.prompt, options: stage.options };
-}
 
 export function getEasterStageView(stage, index, total = Infinity) {
   if (!stage) return null;

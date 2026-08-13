@@ -3,7 +3,7 @@ process.env.SCOUT_NO_AUTOSTART = '1';
 import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
 import prisma, { databaseReady } from '../src/db.js';
-import { EASTER_EGG_STAGES, getEasterEggQrPayload, HACKER_STAGES } from '../src/activityService.js';
+import { EASTER_EGG_STAGES, getEasterEggQrPayload } from '../src/activityService.js';
 import { server, startServer } from '../src/index.js';
 
 await databaseReady;
@@ -39,10 +39,16 @@ try {
   const address = server.address();
   base = `http://127.0.0.1:${address.port}`;
   const player = await createTeam('main');
+  await prisma.activity.upsert({
+    where: { slug: 'hacker-sandbox' },
+    update: { isOpen: true },
+    create: { slug: 'hacker-sandbox', name: 'Retired activity', description: '', config: '{}', isOpen: true },
+  });
 
   let result = await request(base, 'GET', '/api/activities', undefined, player.token, player.device);
   assert.equal(result.response.status, 200);
-  assert.deepEqual(result.data.activities.map(item => item.slug), ['color-hunter', 'guess-number', 'easter-egg', 'hacker-sandbox']);
+  assert.deepEqual(result.data.activities.map(item => item.slug), ['color-hunter', 'guess-number', 'easter-egg']);
+  assert.equal((await prisma.activity.findUnique({ where: { slug: 'hacker-sandbox' } })).isOpen, false);
   const easterCatalog = result.data.activities.find(item => item.slug === 'easter-egg');
   assert.equal(easterCatalog.config.stages, EASTER_EGG_STAGES.length);
 
@@ -65,19 +71,8 @@ try {
   result = await request(base, 'GET', '/api/activities/shop', undefined, player.token, player.device);
   assert.equal(result.response.status, 404);
 
-  const hacker = await createTeam('hacker');
-  result = await request(base, 'POST', '/api/activities/hacker-sandbox/sessions', {}, hacker.token, hacker.device);
-  assert.equal(result.response.status, 201);
-  const hackerSession = result.data.session;
-  sessions.push(hackerSession.id);
-  assert.equal(hackerSession.challenge.index, 0);
-  for (let index = 0; index < HACKER_STAGES.length; index += 1) {
-    result = await request(base, 'POST', `/api/activities/sessions/${hackerSession.id}/hacker-answer`, { challenge: index, selectedIndex: HACKER_STAGES[index].answer }, hacker.token, hacker.device);
-    assert.equal(result.response.status, 200, `hacker stage ${index}`);
-    assert.equal(result.data.correct, true);
-  }
-  assert.equal(result.data.completed, true);
-  assert.equal(result.data.session.status, 'finished');
+  result = await request(base, 'POST', '/api/activities/hacker-sandbox/sessions', {}, player.token, player.device);
+  assert.equal(result.response.status, 404);
 
   const guessPlayers = [await createTeam('guess-a'), await createTeam('guess-b'), await createTeam('guess-c')];
   let guessSession;
@@ -136,7 +131,7 @@ try {
   assert.equal(result.data.session.status, 'finished');
   assert.equal(await prisma.teamWallet.count({ where: { teamId: easter.team.id } }), 0);
 
-  console.log('activities test passed: color fun-only, hacker story flow, guess multiplayer, ordered QR hunt, marketplace removed');
+  console.log('activities test passed: color fun-only, retired activity disabled, guess multiplayer, ordered QR hunt, marketplace removed');
 } finally {
   server.closeAllConnections?.();
   await new Promise(resolve => server.close(() => resolve()));

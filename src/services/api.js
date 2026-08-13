@@ -304,7 +304,6 @@ export const finishActivitySession = (sessionId, score, metadata) => apiFetch(`/
 export const setGuessSecret = (sessionId, secretCode) => apiFetch(`/activities/sessions/${sessionId}/secret`, { method: 'POST', body: JSON.stringify({ secretCode }) });
 export const heartbeatActivitySession = (sessionId) => apiFetch(`/activities/sessions/${sessionId}/heartbeat`, { method: 'POST' });
 export const submitGuess = (sessionId, guessCode) => apiFetch(`/activities/sessions/${sessionId}/guess`, { method: 'POST', body: JSON.stringify({ guessCode }) });
-export const submitHackerAnswer = (sessionId, challenge, selectedIndex) => apiFetch(`/activities/sessions/${sessionId}/hacker-answer`, { method: 'POST', body: JSON.stringify({ challenge, selectedIndex }) });
 export const getColorRound = (sessionId, round, value = {}) => apiFetch(`/activities/sessions/${sessionId}/color-round`, { method: 'POST', body: JSON.stringify({ round, ...value }) });
 export const scanEasterQr = (sessionId, qrValue) => apiFetch(`/activities/sessions/${sessionId}/easter-scan`, { method: 'POST', body: JSON.stringify({ qrValue }) });
 export const finishEasterEgg = (sessionId) => apiFetch(`/activities/sessions/${sessionId}/easter-finish`, { method: 'POST' });

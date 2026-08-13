@@ -21,7 +21,6 @@ const Profile = lazy(() => import('./pages/Profile'));
 const CompetitionEntry = lazy(() => import('./pages/CompetitionEntry'));
 const CompetitionPlay = lazy(() => import('./pages/CompetitionPlay'));
 const GuessTheNumber = lazy(() => import('./pages/activities/GuessTheNumber'));
-const HackerSandbox = lazy(() => import('./pages/activities/HackerSandbox'));
 const EasterEgg = lazy(() => import('./pages/activities/EasterEgg'));
 
 // Judge Pages (lazy)
@@ -85,7 +84,6 @@ const App = memo(function App() {
           <Route path="/competition-entry/:slug" element={<ProtectedRoute allowedRoles={['team']}><CompetitionEntry /></ProtectedRoute>} />
           <Route path="/competition/:slug" element={<ProtectedRoute allowedRoles={['team']}><CompetitionPlay /></ProtectedRoute>} />
           <Route path="/activities/guess-number" element={<ProtectedRoute allowedRoles={['team']}><GuessTheNumber /></ProtectedRoute>} />
-          <Route path="/activities/hacker-sandbox" element={<ProtectedRoute allowedRoles={['team']}><HackerSandbox /></ProtectedRoute>} />
           <Route path="/activities/easter-egg" element={<ProtectedRoute allowedRoles={['team']}><EasterEgg /></ProtectedRoute>} />
 
           {/* Judge Routes */}
