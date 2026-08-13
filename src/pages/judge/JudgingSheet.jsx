@@ -242,12 +242,12 @@ const JudgingSheet = () => {
               </div>
 
               {/* Dynamic Criteria inputs */}
-              <div className="space-y-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 {(competition.criteria || []).length === 0 ? (
-                  <p className="text-xs text-slate-500">لا توجد بنود تقييم محددة للمسابقة</p>
+                  <p className="text-xs text-slate-500 col-span-full">لا توجد بنود تقييم محددة للمسابقة</p>
                 ) : (
                   (competition.criteria || []).map((c) => (
-                    <div key={c.key} className="p-4 rounded-xl bg-slate-950/40 border border-slate-800">
+                    <div key={c.key} className="p-4 rounded-xl bg-slate-950/40 border border-slate-800 flex flex-col justify-between">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-mono text-amber-400 font-bold">
                           {scores[c.key] || 0} / {c.maxScore}
@@ -262,7 +262,7 @@ const JudgingSheet = () => {
                         step="0.5"
                         value={scores[c.key] || 0}
                         onChange={(e) => handleScoreChange(c.key, e.target.value, c.maxScore)}
-                        className="w-full accent-amber-500 bg-slate-800 rounded-lg cursor-pointer h-2"
+                        className="w-full accent-amber-500 bg-slate-800 rounded-lg cursor-pointer h-2 mt-2"
                       />
                     </div>
                   ))
