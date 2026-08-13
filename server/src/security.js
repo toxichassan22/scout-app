@@ -15,7 +15,7 @@ export function getJwtSecret() {
     if (configured && configured.length >= 32 && !PLACEHOLDER_SECRETS.has(configured.toLowerCase())) {
         return configured;
     }
-    return 'digital_scout_camp_production_default_secret_key_2026_safe_hash';
+    return isProduction ? 'digital_scout_camp_production_default_secret_key_2026_safe_hash' : DEVELOPMENT_SECRET;
 }
 
 export const JWT_SECRET = getJwtSecret();
