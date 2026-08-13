@@ -2,6 +2,7 @@ import { Router } from 'express';
 import prisma from '../../db.js';
 import { parsePagination, paginatedResponse } from '../../pagination.js';
 import { validate, zBoolean } from '../../middleware/validate.js';
+import { getCompetitionField } from '../../competitionFields.js';
 
 const safeTeamSelect = { id: true, username: true, label: true, maxDevices: true, authVersion: true, createdAt: true };
 
@@ -40,7 +41,12 @@ router.get('/leaderboard', async (req, res) => {
         label: team.label,
         username: team.username,
         totalScore: Math.round(totalScore * 10) / 10,
-        scores: team.scores
+        scores: team.scores,
+        fieldTotals: team.scores.filter(score => score.isFinal).reduce((fields, score) => {
+          const field = getCompetitionField(score.competition);
+          fields[field] = Math.round(((fields[field] || 0) + Number(score.total || 0)) * 10) / 10;
+          return fields;
+        }, {})
       };
     });
 

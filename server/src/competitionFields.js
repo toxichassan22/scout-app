@@ -1,0 +1,45 @@
+const FIELD_BY_SLUG = {
+  report_surah_al_kahf: 'المجال الديني',
+  report_quran: 'المجال الديني',
+  report_hadith: 'المجال الديني',
+  report_prophets: 'المجال الديني',
+  report_worksheet: 'المجال الديني',
+  report_tilawa: 'المجال الديني',
+  report_tilawa_festival: 'المجال الديني',
+  report_campfire: 'المجال الفني',
+  report_closing_night: 'المجال الفني',
+  report_poster: 'المجال الفني',
+  report_exhibition: 'المجال الفني',
+  report_art_workshop: 'المجال الفني',
+  report_scientific_research: 'المجال العلمي',
+  report_science_ideas: 'المجال العلمي',
+  report_ai_models: 'المجال العلمي',
+  report_smart_scout: 'المجال العلمي',
+  report_smart_detector: 'المجال العلمي',
+  report_video: 'المجال الثقافي',
+  report_carnival: 'المجال الثقافي',
+  report_comedy_scout: 'المجال الثقافي',
+  report_earth_magazine: 'المجال الكشفي',
+  report_scout_magazine: 'المجال الكشفي',
+  report_scout_model: 'المجال الكشفي',
+  report_reels: 'المجال الكشفي',
+  report_knots: 'المجال الكشفي',
+  report_model_presentation: 'المجال الكشفي',
+  genius: 'المجال الثقافي',
+  two_truths: 'المجال الثقافي',
+  geography: 'المجال الثقافي',
+  video_design: 'المجال الثقافي',
+  video: 'المجال العلمي',
+  sports: 'مجال الخدمة العامة',
+  quran: 'المجال الديني',
+  hadith: 'المجال الديني',
+  art_workshop: 'المجال الفني',
+  scout_model: 'المجال الكشفي',
+  innovation: 'المجال العلمي',
+};
+
+export function getCompetitionField(competition) {
+  return FIELD_BY_SLUG[competition?.slug] || competition?.field || 'غير مصنف';
+}
+
+export const COMPETITION_FIELD_MAP = FIELD_BY_SLUG;

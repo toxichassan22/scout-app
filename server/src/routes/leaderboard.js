@@ -2,6 +2,7 @@ import { Router } from 'express';
 import prisma from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { parsePagination, paginatedResponse } from '../pagination.js';
+import { getCompetitionField } from '../competitionFields.js';
 
 function formatStandingRow(item, previous) {
   const points = Math.round(Number(item.totalScore || 0) * 10) / 10;
@@ -103,6 +104,29 @@ router.get('/', authenticateToken, async (req, res) => {
   } catch (err) {
     req.log.error({ err }, 'failed to fetch leaderboard');
     res.status(500).json({ success: false, error: 'فشل في جلب الترتيب العام', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
+});
+
+router.get('/fields', authenticateToken, async (req, res) => {
+  try {
+    const revealed = await isLeaderboardVisible();
+    const teams = await prisma.team.findMany({
+      orderBy: { label: 'asc' },
+      select: { id: true, label: true, scores: { where: { isFinal: true }, select: { total: true, competition: { select: { slug: true } } } } },
+    });
+    const fields = new Map();
+    teams.forEach(team => team.scores.forEach(score => {
+      const field = getCompetitionField(score.competition);
+      if (!fields.has(field)) fields.set(field, []);
+      const row = fields.get(field).find(item => item.teamId === team.id);
+      if (row) row.points += Number(score.total || 0);
+      else fields.get(field).push({ teamId: team.id, teamName: revealed ? team.label : null, points: Number(score.total || 0) });
+    }));
+    const data = [...fields.entries()].map(([field, rows]) => ({ field, rankings: rows.sort((a, b) => b.points - a.points).map((row, index) => ({ ...row, rank: index + 1, points: Math.round(row.points * 10) / 10 })) }));
+    res.json({ success: true, data, timestamp: new Date().toISOString() });
+  } catch (err) {
+    req.log.error({ err }, 'failed to fetch field leaderboards');
+    res.status(500).json({ success: false, error: 'فشل في جلب ترتيب المجالات', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 
