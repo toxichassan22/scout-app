@@ -5,7 +5,7 @@ export function parsePagination(query, { defaultLimit = 20, maxLimit = 100 } = {
   return { page, limit, skip };
 }
 
-export function paginatedResponse({ data, page, limit, total }) {
+export function paginatedResponse({ data, page, limit, total, ...extra }) {
   const totalPages = Math.ceil(total / limit) || 1;
   return {
     success: true,
@@ -18,6 +18,7 @@ export function paginatedResponse({ data, page, limit, total }) {
       hasNextPage: page < totalPages,
       hasPrevPage: page > 1,
     },
+    ...extra,
     timestamp: new Date().toISOString(),
   };
 }

@@ -105,11 +105,33 @@ router.get('/', authenticateToken, requireRole(['admin', 'team', 'judge']), asyn
     let myRank = null;
     let myPoints = null;
     if (req.user?.role === 'team') {
-      const allRanks = await getTeamRanks();
-      const mine = allRanks.find(r => r.teamId === req.user.id);
-      if (mine && revealed) {
-        myRank = mine.rank;
-        myPoints = mine.points;
+      const allTeams = await prisma.team.findMany({
+        select: {
+          id: true,
+          label: true,
+          standing: { select: { totalScore: true, latestSubmitted: true } },
+          scores: { where: { isFinal: true }, select: { total: true } },
+        },
+      });
+
+      const rankedTeams = allTeams.map((t) => {
+        const totalFromStanding = t.standing?.totalScore !== undefined && t.standing?.totalScore !== null ? Number(t.standing.totalScore) : null;
+        const totalFromScores = t.scores.reduce((sum, s) => sum + (Number(s.total) || 0), 0);
+        const score = totalFromStanding !== null ? totalFromStanding : totalFromScores;
+        return {
+          id: String(t.id),
+          score: Math.round(score * 10) / 10,
+          latestSubmitted: t.standing?.latestSubmitted || new Date(0),
+        };
+      }).sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return new Date(a.latestSubmitted).getTime() - new Date(b.latestSubmitted).getTime();
+      });
+
+      const myIndex = rankedTeams.findIndex((t) => t.id === String(req.user.id));
+      if (myIndex !== -1) {
+        myRank = myIndex + 1;
+        myPoints = rankedTeams[myIndex].score;
       }
     }
 
