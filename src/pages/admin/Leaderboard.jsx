@@ -13,6 +13,7 @@ export default function AdminLeaderboard() {
   const [togglingVisibility, setTogglingVisibility] = useState(false);
   const [selectedComp, setSelectedComp] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [hideTeamNames, setHideTeamNames] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -47,6 +48,7 @@ export default function AdminLeaderboard() {
     try {
       const result = await setLeaderboardVisibility(nextState);
       setVisibility(Boolean(result.visible));
+      alert(result.visible ? '📢 تم إظهار الترتيب والنتائج لجميع الفرق بنجاح!' : '🔒 تم حجب وإخفاء النتائج عن الفرق بنجاح!');
     } catch (err) {
       alert(err.message || 'فشل في تغيير إعدادات رؤية النتائج');
     } finally {
@@ -88,19 +90,36 @@ export default function AdminLeaderboard() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleToggleVisibility}
-            disabled={togglingVisibility}
-            className={`flex items-center gap-2 rounded-2xl px-5 py-3 text-xs font-black transition shadow-lg ${
-              visibility
-                ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
-                : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
-            }`}
-          >
-            {visibility ? <EyeOff size={16} /> : <Eye size={16} />}
-            {togglingVisibility ? 'جاري التعديل...' : visibility ? 'حجب نتائج الترتيب عاجلاً 🔒' : 'إظهار الترتيب للفرق الآن 📢'}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Anonymous Mode Button */}
+            <button
+              type="button"
+              onClick={() => setHideTeamNames(!hideTeamNames)}
+              className={`flex items-center gap-2 rounded-2xl px-4 py-3 text-xs font-black transition border shadow-lg ${
+                hideTeamNames
+                  ? 'bg-purple-900/40 text-purple-200 border-purple-500/40 hover:bg-purple-900/60'
+                  : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
+              }`}
+            >
+              {hideTeamNames ? <EyeOff size={16} className="text-purple-400" /> : <Eye size={16} className="text-slate-400" />}
+              {hideTeamNames ? '🎭 أسماء الفرق مخفية (سري)' : '🏷️ إخفاء أسماء الفرق بالشاشة'}
+            </button>
+
+            {/* Public Reveal Button */}
+            <button
+              type="button"
+              onClick={handleToggleVisibility}
+              disabled={togglingVisibility}
+              className={`flex items-center gap-2 rounded-2xl px-5 py-3 text-xs font-black transition shadow-lg ${
+                visibility
+                  ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
+                  : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
+              }`}
+            >
+              {visibility ? <EyeOff size={16} /> : <Eye size={16} />}
+              {togglingVisibility ? 'جاري التعديل...' : visibility ? '🔒 حجب النتائج عن الفرق' : '📢 إظهار الترتيب للفرق الآن'}
+            </button>
+          </div>
         </section>
 
         {/* Filters */}
@@ -150,8 +169,7 @@ export default function AdminLeaderboard() {
                 {filteredStandings.map((item, idx) => {
                   const rank = idx + 1;
                   const points = item.totalScore ?? item.points ?? item.total ?? 0;
-                  const teamName = item.teamName || item.label || 'فريق كشفي';
-                  const isTop3 = rank <= 3;
+                  const teamName = hideTeamNames ? `فريق كشفي #${rank} 🎭` : (item.teamName || item.label || 'فريق كشفي');
                   const badgeColor = rank === 1 ? 'bg-amber-400/20 text-amber-300 border-amber-400/40' : rank === 2 ? 'bg-slate-300/20 text-slate-200 border-slate-300/40' : rank === 3 ? 'bg-amber-700/20 text-amber-500 border-amber-600/40' : 'bg-slate-800 text-slate-400 border-slate-700';
 
                   return (
