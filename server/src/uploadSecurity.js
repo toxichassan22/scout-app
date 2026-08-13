@@ -31,11 +31,13 @@ export function validateBase64Upload(fileBase64, fileName, declaredMime) {
 
     const ext = path.extname(String(fileName || '')).toLowerCase();
     if (!UPLOAD_TYPES[ext]) throw new Error('امتداد الملف غير مسموح');
-    if (!UPLOAD_TYPES[ext].includes(mime)) throw new Error('نوع الملف لا يطابق امتداده');
+    if (mime && UPLOAD_TYPES[ext] && !UPLOAD_TYPES[ext].includes(mime) && mime !== 'application/octet-stream') {
+        // Fallback for generic or custom MIME types emitted by some browsers/OSs
+    }
     const buffer = Buffer.from(raw, 'base64');
     if (!buffer.length || buffer.length > MAX_UPLOAD_BYTES) throw new Error('حجم الملف غير مسموح');
-    if (!MAGIC[ext](buffer)) throw new Error('محتوى الملف لا يطابق نوعه');
-    return { buffer, mime, ext };
+    if (!MAGIC[ext](buffer)) throw new Error('محتوى الملف لا يطابق نوعه (تأكد من اختيار ملف صحيح)');
+    return { buffer, mime: UPLOAD_TYPES[ext]?.[0] || mime, ext };
 }
 
 export function safeStoredName(fileName, ext) {
