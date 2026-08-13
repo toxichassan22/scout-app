@@ -3,7 +3,7 @@ import path from 'path';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../../db.js';
-import { deleteFromGoogleDrive } from '../../backup-exporter.js';
+import { deleteFromGoogleDrive, uploadToGoogleDrive } from '../../backup-exporter.js';
 import { boundedString, strongPassword } from '../../validation.js';
 import { validate, zString, zId, zNumber } from '../../middleware/validate.js';
 import { z } from 'zod';
@@ -203,6 +203,17 @@ router.post('/teams', validate(teamCreateSchema), async (req, res) => {
       req.io.emit('team:created', { teamId: team.id, username: team.username });
     }
 
+    // Google Drive: Create team folder and info file immediately
+    (async () => {
+      try {
+        const safeName = (team.label || team.username).replace(/[/\\?%*:|"<>]/g, '_');
+        const buf = Buffer.from(JSON.stringify({ ...team, createdAt: new Date().toISOString() }, null, 2), 'utf8');
+        await uploadToGoogleDrive(`بيانات_ودرجات_${safeName}.json`, 'application/json', buf, `الفرق_الكشفية/${safeName}`);
+      } catch (e) {
+        req.log.warn({ err: e.message }, 'Failed to create team folder on Google Drive');
+      }
+    })();
+
     res.status(201).json(team);
   } catch (err) {
     req.log.error({ err }, 'admin create team failed');
@@ -227,6 +238,15 @@ router.post('/teams/import', validate(teamImportSchema), async (req, res) => {
         const passwordHash = await bcrypt.hash(password, 12);
         const team = await prisma.team.create({ data: { username, passwordHash, label }, select: safeTeamSelect });
         created.push(team);
+
+        // Google Drive: create folder for each imported team
+        (async () => {
+          try {
+            const safeName = (team.label || team.username).replace(/[/\\?%*:|"<>]/g, '_');
+            const buf = Buffer.from(JSON.stringify({ ...team, createdAt: new Date().toISOString() }, null, 2), 'utf8');
+            await uploadToGoogleDrive(`بيانات_ودرجات_${safeName}.json`, 'application/json', buf, `الفرق_الكشفية/${safeName}`);
+          } catch {}
+        })();
       } catch (error) {
         if (error.code !== 'P2002') throw error;
       }

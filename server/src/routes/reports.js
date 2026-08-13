@@ -122,9 +122,8 @@ async function finalizeReport(req, res, { title, content, competitionId, storedN
   (async () => {
     try {
       const team = await prisma.team.findUnique({ where: { id: req.user.id } });
-      const teamLabel = team ? team.label : req.user.username;
-      const safeFolderName = `Team_${req.user.username}_${teamLabel.replace(/[/\\?%*:|"<>]/g, '_')}`;
-      const folderPath = `03_TEAMS_DATA/${safeFolderName}/reports`;
+      const teamLabel = (team?.label || team?.username || req.user.username || 'فريق').replace(/[/\\?%*:|"<>]/g, '_');
+      const folderPath = `الفرق_الكشفية/${teamLabel}/التقارير_المرفوعة`;
 
       const diskPath = path.join(uploadsDir, storedName);
       try {
