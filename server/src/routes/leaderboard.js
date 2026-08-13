@@ -96,7 +96,7 @@ export async function getTeamRanks() {
 }
 
 // GET /api/leaderboard
-router.get('/', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.get('/', authenticateToken, requireRole(['admin', 'team', 'judge']), async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
     const { data, total } = await fetchStandingsPage(skip, limit);
@@ -107,7 +107,7 @@ router.get('/', authenticateToken, requireRole(['admin']), async (req, res) => {
   }
 });
 
-router.get('/fields', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.get('/fields', authenticateToken, requireRole(['admin', 'team', 'judge']), async (req, res) => {
   try {
     const revealed = await isLeaderboardVisible();
     const teams = await prisma.team.findMany({
