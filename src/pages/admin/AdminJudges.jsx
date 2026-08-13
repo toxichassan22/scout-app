@@ -22,7 +22,67 @@ const AdminJudges = () => {
   const setCode = async (c, mode) => { try { if (mode === 'generate') await generateCompetitionPasscode(c.id); else if (mode === 'revoke') await updateCompetition(c.id, { revoke: true }); else { const code = prompt('أدخل كود المحكم المخصص', c.passcode || ''); if (code !== null) await updateCompetition(c.id, { passcode: code, isOpen: true }) } await load() } catch (e) { alert(e.message) } };
   return <div className="p-6 text-right dir-rtl text-white"><AdminBackLink /><header className="mb-7"><h1 className="text-2xl font-black flex gap-2">المحكمون والتكليفات <UserCheck className="text-blue-400" /></h1></header>
     <form onSubmit={saveJudge} className="card p-5 rounded-2xl bg-slate-900/60 border border-slate-800 grid md:grid-cols-4 gap-3 mb-6"><input className="ai-input" placeholder="اسم المحكم" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required /><input className="ai-input" placeholder="اسم المستخدم" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} required /><input type="password" className="ai-input" placeholder={editing ? 'كلمة جديدة (اختياري)' : 'كلمة السر'} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required={!editing} /><button className="bg-blue-600 rounded-xl font-bold flex justify-center items-center gap-2"><Plus size={16} />{editing ? 'حفظ التعديل' : 'إضافة محكم'}</button></form>
-    <div className="grid lg:grid-cols-2 gap-5"><section className="card p-5 rounded-2xl bg-slate-900/60 border border-slate-800"><h2 className="font-black mb-4">الحسابات والتكليفات</h2><div className="space-y-4">{judges.map(j => <article key={j.id} className="p-4 rounded-xl bg-slate-950/50 border border-slate-800"><div className="flex justify-between"><div className="flex gap-2"><button onClick={() => deleteJudge(j.id).then(load)} className="text-red-400"><Trash2 size={15} /></button><button onClick={() => startEdit(j)} className="text-amber-400"><Pencil size={15} /></button></div><p className="font-bold">{j.name} <span className="text-xs text-slate-500">@{j.username}</span></p></div><div className="flex flex-wrap gap-2 mt-3">{competitions.map(c => { const owner = ownerOf(c.id); const takenByOther = Boolean(owner && owner.id !== j.id); return <button key={c.id} onClick={() => toggleAssignment(j.id, c.id)} disabled={takenByOther} title={takenByOther ? `مكلّف بها المحكم: ${owner.name}` : ''} className={`px-2 py-1 rounded text-[10px] border ${assigned(j.id, c.id) ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : takenByOther ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>{assigned(j.id, c.id) ? '✓ ' : takenByOther ? '🔒 ' : ''}{c.name}</button> })}</div></article>)}</div></section>
+    <div className="grid lg:grid-cols-2 gap-5">
+      <section className="card p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
+        <h2 className="font-black mb-4">حسابات المحكمين وتكليفاتهم</h2>
+        <div className="space-y-4">
+          {judges.map(j => {
+            const judgeComps = (assignments[j.id] || []).map(a => a.competition).filter(Boolean);
+            const availableComps = competitions.filter(c => !ownerOf(c.id));
+
+            return (
+              <article key={j.id} className="p-4 rounded-xl bg-slate-950/50 border border-slate-800">
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex gap-2">
+                    <button onClick={() => deleteJudge(j.id).then(load)} className="text-red-400 hover:text-red-300 p-1" title="حذف المحكم"><Trash2 size={15} /></button>
+                    <button onClick={() => startEdit(j)} className="text-amber-400 hover:text-amber-300 p-1" title="تعديل"><Pencil size={15} /></button>
+                  </div>
+                  <div>
+                    <p className="font-bold text-white text-base">{j.name} <span className="text-xs font-normal text-slate-400">@{j.username}</span></p>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-800/80 pt-3 mt-2">
+                  <span className="text-[11px] font-bold text-slate-400 block mb-2">المسابقات المكلف بها:</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {judgeComps.length > 0 ? (
+                      judgeComps.map(c => (
+                        <span key={c.id} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                          ✓ {c.name}
+                          <button
+                            onClick={() => toggleAssignment(j.id, c.id)}
+                            className="text-emerald-400 hover:text-red-400 mr-1 transition"
+                            title="إلغاء التكليف"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-500 italic">لا توجد مسابقات مكلّف بها بعد</span>
+                    )}
+
+                    {availableComps.length > 0 && (
+                      <select
+                        className="ai-input text-xs py-1 px-2.5 bg-slate-900 border-slate-700 text-slate-300 rounded-lg cursor-pointer max-w-[160px]"
+                        value=""
+                        onChange={e => {
+                          if (e.target.value) toggleAssignment(j.id, e.target.value);
+                        }}
+                      >
+                        <option value="">+ إضافة تكليف...</option>
+                        {availableComps.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
       <section className="card p-5 rounded-2xl bg-slate-900/60 border border-slate-800"><h2 className="font-black mb-4 flex gap-2">أكواد المسابقات <KeyRound className="text-amber-400" /></h2><div className="space-y-3">{competitions.map(c => <article key={c.id} className="p-3 rounded-xl bg-slate-950/50 border border-slate-800"><div className="flex justify-between"><span className="font-mono text-amber-400">{c.passcode || '----'}</span><b className="text-xs">{c.name}</b></div><div className="flex gap-2 mt-2"><button onClick={() => setCode(c, 'generate')} className="text-[10px] bg-amber-500 text-slate-950 px-2 py-1 rounded">توليد</button><button onClick={() => setCode(c, 'custom')} className="text-[10px] bg-blue-600 px-2 py-1 rounded">كود مخصص</button><button onClick={() => setCode(c, 'revoke')} className="text-[10px] bg-red-600 px-2 py-1 rounded">إلغاء وإغلاق</button></div></article>)}</div></section></div>
     <button onClick={() => setShowScores(!showScores)} className="mt-6 px-4 py-2 bg-violet-600 rounded-xl font-bold flex gap-2"><Eye size={17} /> {showScores ? 'إخفاء' : 'عرض'} تفاصيل درجات المحكمين</button>
     {showScores && <div className="mt-4 space-y-3">{scores.map(s => <article key={s.id} className="p-4 rounded-xl bg-slate-900 border border-slate-800"><h3 className="font-bold">{s.team?.label} • {s.competition?.name} • {s.total} نقطة</h3>{s.judgeScores?.map(js => <div key={js.id} className="mt-2 text-xs bg-slate-950 p-3 rounded"><b className="text-sky-400">{js.judge?.name}</b> — {js.total} <pre dir="ltr" className="text-left text-slate-400 mt-1 whitespace-pre-wrap">{JSON.stringify(JSON.parse(js.values || '{}'), null, 2)}</pre></div>)}</article>)}</div>}
