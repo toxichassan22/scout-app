@@ -21,6 +21,7 @@ const JudgingSheet = () => {
   const [message, setMessage] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [isFullScreenReport, setIsFullScreenReport] = useState(false);
   const [reportFileUrl, setReportFileUrl] = useState('');
   const [reportFileError, setReportFileError] = useState('');
 
@@ -300,41 +301,56 @@ const JudgingSheet = () => {
 
       {/* ═══ Team Report Viewer Modal for Judge ═══ */}
       {showReportModal && selectedTeam?.report && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 dir-rtl">
-          <div className="card p-6 rounded-3xl bg-slate-900 border border-purple-500/30 max-w-2xl w-full text-right shadow-2xl relative max-h-[90vh] flex flex-col">
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md dir-rtl transition-all ${isFullScreenReport ? 'p-2 sm:p-4' : 'p-3 sm:p-5'}`}>
+          <div className={`card bg-slate-900 border border-purple-500/30 text-right shadow-2xl relative flex flex-col transition-all ${isFullScreenReport ? 'w-full h-full rounded-2xl p-4' : 'max-w-3xl w-full max-h-[92vh] rounded-3xl p-5 sm:p-6'}`}>
 
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <button
-                onClick={() => setShowReportModal(false)}
-                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
-              >
-                <X size={18} />
-              </button>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3.5 mb-3.5 shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setShowReportModal(false);
+                    setIsFullScreenReport(false);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-300 font-black text-xs transition flex items-center gap-1.5"
+                >
+                  <X size={16} />
+                  إغلاق التقرير والعودة للتقييم
+                </button>
+
+                <button
+                  onClick={() => setIsFullScreenReport(!isFullScreenReport)}
+                  className="px-3 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 font-bold text-xs transition hidden sm:inline-flex items-center gap-1"
+                >
+                  {isFullScreenReport ? 'تصغير المعاينة' : '🔍 تكبير التقرير لملء الشاشة'}
+                </button>
+              </div>
 
               <div className="flex items-center gap-2">
-                <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs px-3 py-1 rounded-full font-mono font-bold">
-                  ID: #{selectedTeam.report.id?.slice(-6) || 'RPT'}
+                <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs px-2.5 py-1 rounded-full font-mono font-bold">
+                  #{selectedTeam.report.id?.slice(-6) || 'RPT'}
                 </span>
                 <h3 className="text-base font-black text-white">
-                  تقرير فريق: <span className="text-amber-400">{selectedTeam.label}</span>
+                  تقرير: <span className="text-amber-400">{selectedTeam.label}</span>
                 </h3>
               </div>
             </div>
 
             {/* Modal Body */}
             <div className="space-y-4 overflow-y-auto flex-1 pr-1 text-right">
-              <div>
-                <span className="text-xs text-slate-400 font-bold block mb-1">اسم المسابقة المعنية:</span>
-                <p className="text-sm font-black text-purple-300 bg-purple-500/10 p-2.5 rounded-xl border border-purple-500/20">
-                  {selectedTeam.report.title}
-                </p>
-              </div>
-
-              {selectedTeam.report.content && (
+              {!isFullScreenReport && (
                 <div>
-                  <span className="text-xs text-slate-400 font-bold block mb-1">محتوى وملخص التقرير:</span>
-                  <div className="text-xs leading-relaxed text-slate-300 bg-slate-950 p-4 rounded-xl border border-slate-800 whitespace-pre-wrap">
+                  <span className="text-xs text-slate-400 font-bold block mb-1">عنوان التقرير / المسابقة:</span>
+                  <p className="text-sm font-black text-purple-300 bg-purple-500/10 p-2.5 rounded-xl border border-purple-500/20">
+                    {selectedTeam.report.title}
+                  </p>
+                </div>
+              )}
+
+              {!isFullScreenReport && selectedTeam.report.content && (
+                <div>
+                  <span className="text-xs text-slate-400 font-bold block mb-1">ملخص ومحتوى التقرير:</span>
+                  <div className="text-xs leading-relaxed text-slate-300 bg-slate-950 p-3.5 rounded-xl border border-slate-800 whitespace-pre-wrap">
                     {selectedTeam.report.content}
                   </div>
                 </div>
@@ -342,72 +358,56 @@ const JudgingSheet = () => {
 
               {/* Embedded Document / File Attachment */}
               {selectedTeam.report.fileUrl && (
-                <div>
-                  <span className="text-xs text-slate-400 font-bold block mb-2">الملف المرفق من الفريق:</span>
+                <div className="flex-1 flex flex-col min-h-0">
+                  {!isFullScreenReport && <span className="text-xs text-slate-400 font-bold block mb-2">معاينة الملف المرفق:</span>}
 
-                  {/* PDF or Image Viewer Embed (served through the authorised download route) */}
+                  {/* PDF or Image Viewer Embed inside the same page */}
                   {reportFileError ? (
                     <p className="text-xs font-bold text-red-400 bg-red-500/10 p-3 rounded-xl border border-red-500/20 text-center">
                       {reportFileError}
                     </p>
                   ) : !reportFileUrl ? (
-                    <p className="text-xs text-slate-500 bg-slate-950 p-3 rounded-xl border border-slate-800 text-center">
+                    <p className="text-xs text-slate-500 bg-slate-950 p-4 rounded-xl border border-slate-800 text-center">
                       جاري تحميل الملف المرفق...
                     </p>
                   ) : selectedTeam.report.fileUrl.toLowerCase().endsWith('.pdf') ? (
-                    <div className="space-y-3">
-                      {/* Direct mobile-friendly open button */}
-                      <a
-                        href={reportFileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black transition w-full justify-center shadow-md"
-                      >
-                        <ExternalLink size={16} />
-                        فتح معاينة ملف الـ PDF بحجم كامل (موصى به للموبايل)
-                      </a>
-
-                      {/* Embedded viewer for desktop / supporting browsers */}
-                      <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950 h-96">
-                        <object
-                          data={reportFileUrl}
-                          type="application/pdf"
+                    <div className="flex-1 flex flex-col min-h-0">
+                      <div className={`border border-purple-500/30 rounded-2xl overflow-hidden bg-slate-950 ${isFullScreenReport ? 'h-[80vh]' : 'h-[55vh] min-h-[380px]'}`}>
+                        <iframe
+                          src={reportFileUrl}
+                          title="معاينة التقرير"
                           className="w-full h-full border-0"
-                        >
-                          <iframe
-                            src={reportFileUrl}
-                            title="PDF Viewer"
-                            className="w-full h-full border-0"
-                          />
-                        </object>
+                          style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
+                        />
                       </div>
                     </div>
                   ) : (
-                    <a
-                      href={reportFileUrl}
-                      download={selectedTeam.report.fileName || 'report'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-black transition w-full justify-center"
-                    >
-                      <ExternalLink size={16} />
-                      فتح وتنزيل الملف المرفق ({selectedTeam.report.fileUrl.split('.').pop()?.toUpperCase()})
-                    </a>
+                    <div className="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950 p-2 flex items-center justify-center">
+                      <img
+                        src={reportFileUrl}
+                        alt="مرفق التقرير"
+                        className="max-w-full max-h-[60vh] object-contain rounded-xl"
+                      />
+                    </div>
                   )}
                 </div>
               )}
             </div>
 
             {/* Modal Footer */}
-            <div className="pt-4 border-t border-slate-800 mt-4 flex justify-between items-center">
+            <div className="pt-3 border-t border-slate-800 mt-3 flex justify-between items-center shrink-0">
               <span className="text-[11px] text-slate-500">
-                تاريخ الرفع: {new Date(selectedTeam.report.createdAt).toLocaleString('ar-EG')}
+                تاريخ التسليم: {new Date(selectedTeam.report.createdAt).toLocaleString('ar-EG')}
               </span>
               <button
-                onClick={() => setShowReportModal(false)}
-                className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition"
+                onClick={() => {
+                  setShowReportModal(false);
+                  setIsFullScreenReport(false);
+                }}
+                className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs transition shadow-lg flex items-center gap-1"
               >
-                إغلاق والعودة للدرجات
+                <X size={15} />
+                إغلاق والعودة للتقييم
               </button>
             </div>
 
