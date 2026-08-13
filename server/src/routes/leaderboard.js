@@ -98,9 +98,22 @@ export async function getTeamRanks() {
 // GET /api/leaderboard
 router.get('/', authenticateToken, requireRole(['admin', 'team', 'judge']), async (req, res) => {
   try {
+    const revealed = await isLeaderboardVisible();
     const { page, limit, skip } = parsePagination(req.query);
     const { data, total } = await fetchStandingsPage(skip, limit);
-    res.json(paginatedResponse({ data, page, limit, total }));
+
+    let myRank = null;
+    let myPoints = null;
+    if (req.user?.role === 'team') {
+      const allRanks = await getTeamRanks();
+      const mine = allRanks.find(r => r.teamId === req.user.id);
+      if (mine && revealed) {
+        myRank = mine.rank;
+        myPoints = mine.points;
+      }
+    }
+
+    res.json(paginatedResponse({ data, page, limit, total, revealed, myRank, myPoints }));
   } catch (err) {
     req.log.error({ err }, 'failed to fetch leaderboard');
     res.status(500).json({ success: false, error: 'فشل في جلب الترتيب العام', requestId: req.requestId, timestamp: new Date().toISOString() });

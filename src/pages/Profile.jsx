@@ -1,25 +1,60 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, LogOut, Shield, Lock, Award, Flame, FileText } from 'lucide-react';
+import { ShieldCheck, LogOut, Shield, Lock, Award, Flame, FileText, Trophy, Eye, Radio } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import { useNavigate } from 'react-router-dom';
-import { getMyReportPermissions, getMyReports } from '../services/api';
+import { getMyReportPermissions, getMyReports, apiFetch } from '../services/api';
 
 const Profile = () => {
   const { user, logout } = useAuth();
+  const { socket } = useSocket();
   const navigate = useNavigate();
   const [reportStats, setReportStats] = useState({ submitted: 0, total: 0, loading: true, error: false });
+  const [standing, setStanding] = useState({ rank: null, points: null, revealed: false, loading: true });
+
+  const loadStanding = useCallback(async () => {
+    try {
+      const res = await apiFetch('/leaderboard');
+      const revealed = Boolean(res?.revealed);
+      setStanding({
+        rank: res?.myRank ?? null,
+        points: res?.myPoints ?? null,
+        revealed,
+        loading: false,
+      });
+    } catch {
+      setStanding(prev => ({ ...prev, loading: false }));
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
-    Promise.all([getMyReports(), getMyReportPermissions()]).then(([reports, permissions]) => {
-      if (!active) return;
-      setReportStats({ submitted: reports.length, total: permissions.length, loading: false, error: false });
-    }).catch(() => {
-      if (active) setReportStats({ submitted: 0, total: 0, loading: false, error: true });
-    });
+    Promise.all([getMyReports(), getMyReportPermissions()])
+      .then(([reports, permissions]) => {
+        if (!active) return;
+        const repList = Array.isArray(reports) ? reports : (reports?.items || reports?.data || []);
+        const permList = Array.isArray(permissions) ? permissions : (permissions?.items || permissions?.data || []);
+        setReportStats({ submitted: repList.length, total: permList.length, loading: false, error: false });
+      })
+      .catch(() => {
+        if (active) setReportStats({ submitted: 0, total: 0, loading: false, error: true });
+      });
+
+    loadStanding();
+
+    if (socket) {
+      const handleLeaderboardUpdate = () => loadStanding();
+      socket.on('leaderboard:update', handleLeaderboardUpdate);
+      socket.on('leaderboard:visibility', handleLeaderboardUpdate);
+      return () => {
+        socket.off('leaderboard:update', handleLeaderboardUpdate);
+        socket.off('leaderboard:visibility', handleLeaderboardUpdate);
+      };
+    }
+
     return () => { active = false; };
-  }, [user?.id]);
+  }, [user?.id, socket, loadStanding]);
 
   const handleLogout = () => {
     logout();
@@ -98,9 +133,6 @@ const Profile = () => {
               <h1 className="text-3xl sm:text-4xl font-black text-white leading-tight">
                 {teamName}
               </h1>
-              {/* The person on this device, collected at first use. Previously this
-                  read user.leaderName, a field the token never carried, so every team
-                  saw the same hardcoded fallback name. */}
               <p className="mt-1.5 text-sm font-bold text-[#a9a3c2]">
                 {user?.deviceName
                   ? <>{user.deviceRole || 'عضو'}: <span className="text-white">{user.deviceName}</span></>
@@ -126,8 +158,19 @@ const Profile = () => {
               whileHover={{ y: -3 }}
               className="flex flex-col items-center justify-center rounded-2xl border border-[rgba(245,158,11,0.35)] bg-[rgba(245,158,11,0.08)] p-4 text-center shadow-[0_0_20px_rgba(245,158,11,0.15)]"
             >
-              <Lock size={20} className="text-[#fcd34d] mb-1" />
-              <span className="text-xl sm:text-2xl font-black text-[#fcd34d]">محجوب</span>
+              {standing.revealed && standing.rank ? (
+                <>
+                  <Trophy size={20} className="text-amber-400 mb-1" />
+                  <span className="text-xl sm:text-2xl font-black text-[#fcd34d] font-mono">
+                    #{standing.rank}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Lock size={20} className="text-[#fcd34d] mb-1" />
+                  <span className="text-xl sm:text-2xl font-black text-[#fcd34d]">محجوب</span>
+                </>
+              )}
               <span className="text-[10px] font-bold text-[#a9a3c2] mt-1">المركز</span>
             </motion.div>
 
@@ -136,8 +179,19 @@ const Profile = () => {
               whileHover={{ y: -3 }}
               className="flex flex-col items-center justify-center rounded-2xl border border-[rgba(139,92,246,0.35)] bg-[rgba(139,92,246,0.08)] p-4 text-center shadow-[0_0_20px_rgba(139,92,246,0.15)]"
             >
-              <Lock size={20} className="text-[#c4b5fd] mb-1" />
-              <span className="font-mono text-xl sm:text-2xl font-black text-white">محجوبة</span>
+              {standing.revealed && standing.points !== null ? (
+                <>
+                  <Flame size={20} className="text-purple-400 mb-1" />
+                  <span className="font-mono text-xl sm:text-2xl font-black text-white">
+                    {standing.points}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Lock size={20} className="text-[#c4b5fd] mb-1" />
+                  <span className="font-mono text-xl sm:text-2xl font-black text-white">محجوبة</span>
+                </>
+              )}
               <span className="text-[10px] font-bold text-[#a9a3c2] mt-1">النقاط</span>
             </motion.div>
 
@@ -165,10 +219,12 @@ const Profile = () => {
             </div>
 
             <div className="flex items-center justify-between rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(7,6,12,0.5)] p-4">
-              <span className="badge-violet !text-[11px]">محجوبة حتى الختام 🔥</span>
+              <span className={`!text-[11px] ${standing.revealed ? 'badge-fern text-emerald-300' : 'badge-violet'}`}>
+                {standing.revealed ? 'معلنة للجميع 📢' : 'محجوبة حتى الختام 🔥'}
+              </span>
               <div className="flex items-center gap-2 text-xs font-bold text-[#a9a3c2]">
                 خصوصية الترتيب
-                <Lock size={16} className="text-[#a78bfa]" />
+                {standing.revealed ? <Eye size={16} className="text-emerald-400" /> : <Lock size={16} className="text-[#a78bfa]" />}
               </div>
             </div>
           </div>
