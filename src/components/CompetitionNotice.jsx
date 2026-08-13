@@ -1,38 +1,100 @@
 import { useEffect, useState } from 'react';
-import { BellRing, X } from 'lucide-react';
+import { BellRing, Trophy, Newspaper, X, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 
 const CompetitionNotice = () => {
   const { user } = useAuth();
   const { socket } = useSocket();
-  const [notice, setNotice] = useState(null);
+  const navigate = useNavigate();
+  const [modalNotice, setModalNotice] = useState(null);
 
   useEffect(() => {
     if (!socket || user?.role !== 'team') return undefined;
-    let timer;
-    const handleUpdate = payload => {
-      if (!payload?.opened) return;
-      setNotice({ name: payload.name || 'مسابقة جديدة', competitionId: payload.competitionId });
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => setNotice(null), 9000);
+
+    const handleCompAlert = (payload) => {
+      if (!payload) return;
+      setModalNotice({
+        title: payload.title || '🏁 انطلقت مسابقة جديدة!',
+        message: payload.message || 'تم فتح باب المشاركة في مسابقة جديدة الآن.',
+        type: 'competition',
+        competitionId: payload.competitionId
+      });
     };
-    socket.on('competition:update', handleUpdate);
+
+    const handleNewsAlert = (payload) => {
+      if (!payload) return;
+      setModalNotice({
+        title: payload.title || '📢 خبر جديد من الإدارة',
+        message: payload.message || 'تم نشر خبر جديد يرجى المتابعة.',
+        type: 'news',
+        newsId: payload.newsId
+      });
+    };
+
+    const handleCompUpdate = (payload) => {
+      if (!payload?.opened) return;
+      setModalNotice({
+        title: `🏁 انطلقت المسابقة الآن: ${payload.name || 'مسابقة جديدة'}`,
+        message: 'تم فتح المسابقة رسمياً، يمكنك الدخول والمشاركة فوراً.',
+        type: 'competition',
+        competitionId: payload.competitionId
+      });
+    };
+
+    socket.on('competition:mandatory_alert', handleCompAlert);
+    socket.on('news:mandatory_alert', handleNewsAlert);
+    socket.on('competition:update', handleCompUpdate);
+
     return () => {
-      window.clearTimeout(timer);
-      socket.off('competition:update', handleUpdate);
+      socket.off('competition:mandatory_alert', handleCompAlert);
+      socket.off('news:mandatory_alert', handleNewsAlert);
+      socket.off('competition:update', handleCompUpdate);
     };
   }, [socket, user?.role]);
 
-  if (!notice) return null;
+  if (!modalNotice) return null;
+
+  const isComp = modalNotice.type === 'competition';
+
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-16 z-[999998] flex justify-center px-4" dir="rtl">
-      <div className="pointer-events-auto flex max-w-lg items-center gap-3 rounded-2xl border border-emerald-400/40 bg-[#041a10]/95 px-4 py-3 text-sm font-black text-emerald-100 shadow-[0_0_30px_rgba(16,185,129,0.25)] backdrop-blur-xl">
-        <BellRing size={19} className="shrink-0 text-emerald-300" />
-        <span className="flex-1">بدأت الآن: {notice.name}</span>
-        <button type="button" onClick={() => setNotice(null)} className="rounded-lg p-1 text-slate-400 transition hover:bg-white/10 hover:text-white" aria-label="إغلاق الإشعار">
-          <X size={16} />
-        </button>
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 dir-rtl animate-fade-in">
+      <div className="relative w-full max-w-md rounded-3xl border border-purple-500/40 bg-slate-950 p-6 shadow-[0_0_50px_rgba(168,85,247,0.3)] text-right">
+        
+        {/* Header Icon */}
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-purple-400/30 bg-purple-500/10 text-purple-300 shadow-inner">
+          {isComp ? <Trophy size={28} className="animate-bounce" /> : <Newspaper size={28} className="animate-pulse" />}
+        </div>
+
+        {/* Title & Message */}
+        <h2 className="text-xl font-black text-white text-center mb-2">{modalNotice.title}</h2>
+        <p className="text-xs leading-6 text-slate-300 text-center mb-6">{modalNotice.message}</p>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              const compId = modalNotice.competitionId;
+              setModalNotice(null);
+              if (isComp && compId) navigate(`/competitions`);
+              else navigate('/news');
+            }}
+            className="flex-1 btn-primary py-3 flex items-center justify-center gap-2 text-xs font-black"
+          >
+            <ExternalLink size={15} />
+            {isComp ? 'الانتقال للمسابقات' : 'عرض الأخبار'}
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => setModalNotice(null)}
+            className="px-4 py-3 rounded-xl border border-slate-800 bg-slate-900 text-slate-400 text-xs font-bold hover:text-white transition"
+          >
+            إغلاق
+          </button>
+        </div>
       </div>
     </div>
   );

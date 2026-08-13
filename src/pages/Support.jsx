@@ -51,14 +51,13 @@ const Support = () => {
             </div>
             <ExternalLink size={18} className="text-cyan-300/60" />
           </div>
-          <h2 className="text-xl font-black text-white">تواصل مع الدعم الفني</h2>
-          <p className="mt-2 text-sm leading-7 text-slate-400">للمشاكل العاجلة في تسجيل الدخول أو المسابقات أو الحساب، افتح محادثة مباشرة مع فريق الدعم.</p>
+          <h2 className="text-xl font-black text-white">مجتمع الدعم والمساعدة - واتساب</h2>
+          <p className="mt-2 text-sm leading-7 text-slate-400">انضم لمجتمع الدعم على واتساب للاستفسارات السريعة والتواصل المباشر مع لجنة التنظيم.</p>
           <div className="mt-4 space-y-1 rounded-xl border border-cyan-300/15 bg-cyan-300/5 p-3 text-xs">
             <p className="font-black text-cyan-200">{SUPPORT_NAME}</p>
             <p dir="ltr" className="text-right text-slate-300">{SUPPORT_DISPLAY_PHONE}</p>
-            <p dir="ltr" className="text-right text-cyan-300/80">{SUPPORT_USERNAME}</p>
           </div>
-          <span className="mt-5 inline-flex items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs font-black text-cyan-200">فتح محادثة واتساب <ArrowRight size={14} /></span>
+          <span className="mt-5 inline-flex items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs font-black text-cyan-200">الانضمام لمجتمع الواتساب مباشرة <ArrowRight size={14} /></span>
         </button>
 
         <article className="glass-sheen glass-fern min-w-0 p-6 text-right">

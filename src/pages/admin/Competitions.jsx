@@ -219,9 +219,9 @@ const AdminCompetitions = () => {
                                 </div>
                                 <label className="block text-xs font-black text-slate-400">كود الـ QR الخاص بالمسابقة<input className="ai-input mt-1 w-full font-mono text-sm" value={draft.qrCode || ''} placeholder={`افتراضي: scout-qr-${competition.slug}`} onChange={event => field(competition.id, 'qrCode', event.target.value)} /></label>
                               </div>
-                              {competition.type !== 'schedule_only' && (
+                              { (competition.type === 'auto_digital' || ['genius', 'two_truths', 'geography', 'easter-egg'].includes(competition.slug)) && (
                                 <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white p-4 text-center text-slate-900">
-                                  <p className="mb-2 text-xs font-black text-slate-800">QR المسابقة</p>
+                                  <p className="mb-2 text-xs font-black text-slate-800">QR المسابقة الرقمية</p>
                                   <QRCodeSVG value={currentQr} size={140} bgColor="#ffffff" fgColor="#0f172a" level="H" />
                                   <p className="mt-2 break-all font-mono text-[10px] font-bold text-slate-600">{currentQr}</p>
                                 </div>

@@ -9,8 +9,8 @@ const router = Router();
 const newsCreateSchema = {
   body: {
     title: zString('العنوان', { min: 1, max: 300 }),
-    body: zString('المحتوى', { min: 1, max: 5000 }),
-    photoUrl: zString('رابط الصورة', { max: 2048 }).optional(),
+    body: zString('المحتوى', { min: 1, max: 10000 }),
+    photoUrl: z.string().optional().nullable(),
     category: zString('التصنيف', { max: 50 }).optional(),
     targetTeamIds: z.array(zString('معرف الفريق', { min: 1, max: 100 })).optional(),
   },
@@ -29,12 +29,19 @@ router.post('/news', validate(newsCreateSchema), async (req, res) => {
         photoUrl: photoUrl || null,
         category: category || 'general',
         targetTeamIds: JSON.stringify(Array.isArray(targetTeamIds) ? targetTeamIds : []),
-        createdByAdminId: req.user.id
+        createdByAdminId: req.user?.id || 'admin'
       }
     });
 
     if (req.io) {
       const targetIds = Array.isArray(targetTeamIds) ? targetTeamIds : [];
+      // Broadcast real-time mandatory alert modal to all online teams
+      req.io.emit('news:mandatory_alert', {
+        title: `📢 خبر جديد: ${title}`,
+        message: body.slice(0, 150) + (body.length > 150 ? '...' : ''),
+        type: 'news',
+        newsId: news.id
+      });
       if (targetIds.length === 0) req.io.emit('news:published', news);
       else {
         targetIds.forEach(teamId => req.io.to(`team:${teamId}`).emit('news:published', news));
@@ -53,8 +60,8 @@ const newsUpdateSchema = {
   params: { id: zId('الخبر') },
   body: {
     title: zString('العنوان', { min: 1, max: 300 }).optional(),
-    body: zString('المحتوى', { min: 1, max: 5000 }).optional(),
-    photoUrl: zString('رابط الصورة', { max: 2048 }).optional().nullable(),
+    body: zString('المحتوى', { min: 1, max: 10000 }).optional(),
+    photoUrl: z.string().optional().nullable(),
     category: zString('التصنيف', { max: 50 }).optional(),
     targetTeamIds: z.array(zString('معرف الفريق', { min: 1, max: 100 })).optional(),
   },

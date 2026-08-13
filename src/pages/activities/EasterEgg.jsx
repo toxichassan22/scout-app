@@ -35,18 +35,18 @@ const EasterEgg = () => {
   useEffect(() => {
     let active = true;
     const restoreOrCreate = async () => {
-      const savedId = window.sessionStorage.getItem(STORAGE_KEY);
+      const savedId = window.localStorage.getItem(STORAGE_KEY);
       try {
         const result = savedId ? await getActivitySession(savedId) : await createActivitySession('easter-egg');
         if (!active) return;
         const current = result.session;
-        if (!savedId) window.sessionStorage.setItem(STORAGE_KEY, current.id);
+        if (!savedId) window.localStorage.setItem(STORAGE_KEY, current.id);
         setSession(current);
         setStage(current.stage || null);
         setProgress(current.easterProgress || { current: 0, total: 10 });
         setReadyToScan(current.stage ? !current.stage.requiresSawaed : !current.easterProgress?.awaitingTask);
       } catch (error) {
-        if (savedId) window.sessionStorage.removeItem(STORAGE_KEY);
+        if (savedId) window.localStorage.removeItem(STORAGE_KEY);
         if (active) setMessage(error.message || 'تعذر بدء رحلة QR');
       }
     };
@@ -80,7 +80,7 @@ const EasterEgg = () => {
       const result = await finishEasterEgg(session.id);
       setSession(result.session);
       setStage(null);
-      window.sessionStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(STORAGE_KEY);
       setMessage('انتهت الرحلة بنجاح. شكرًا على اللعب!');
     } catch (error) {
       setMessage(error.message || 'أكملوا المهمة الأخيرة أولًا');

@@ -100,8 +100,55 @@ async function ensureGeographyQuestions(tx, competitionId) {
   logger.info({ competitionId, count: questions.length }, 'auto-generated geography questions from GeographyCountry table');
 }
 
+async function ensureDigitalQuestions(tx, competitionId) {
+  const comp = await tx.competition.findFirst({ where: { OR: [{ id: competitionId }, { slug: competitionId }] } });
+  if (!comp) return;
+  const targetId = comp.id;
+
+  if (targetId === GEOGRAPHY_COMPETITION_ID || comp.slug === 'geography') {
+    await ensureGeographyQuestions(tx, targetId);
+    return;
+  }
+
+  const existingCount = await tx.question.count({ where: { competitionId: targetId } });
+  if (existingCount > 0) return;
+
+  const GENIUS_FALLBACK = [
+    { text: 'ما هو التأسيس الرسمي للحركة الكشفية في العالم على يد بادن باول؟', options: ['1907', '1911', '1920', '1899'], correctOption: 0, points: 10 },
+    { text: 'ما اسم المكان الذي أقيم فيه أول مخيم كشفي تجريبي عام 1907؟', options: ['جزيرة براونسي', 'لندن', 'جنيف', 'أكسفورد'], correctOption: 0, points: 10 },
+    { text: 'كم عدد البنود الأساسية للقانون الكشفي العالمي؟', options: ['10 بنود', '7 بنود', '12 بنداً', '5 بنود'], correctOption: 0, points: 10 },
+    { text: 'ما رمز التحية الكشفية الأصابع الثلاثة؟', options: ['واجب نحو الله ثم الوطن ثم الآخرين والقانون', 'القوة والسرعة للشجاعة', 'البراعم والكشافة والجوالة', 'الماء والهواء والأرض'], correctOption: 0, points: 10 },
+    { text: 'ما فائدة عقدة المربع في الكشافة؟', options: ['ربط حبلين من نفس السمك', 'ربط حبلين مختلفي السمك', 'جر الأخشاب الثقيلة', 'عمل مشنقة'], correctOption: 0, points: 10 },
+  ];
+
+  const TWO_TRUTHS_FALLBACK = [
+    { text: 'حدد الكذبة بين الحقائق الكشفية التالية:', options: ['تأسست الكشافة المصرية عام 1914', 'بادن باول كان ضابطاً في الجيش البريطاني', 'الزهرة الثلاثية ترمز إلى القارات الخمس فقط'], correctOption: 2, points: 10 },
+    { text: 'حدد الكذبة بين العبارات الكشفية التالية:', options: ['الوعد الكشفي يُقال مرة واحدة في التجميع الرسمي', 'التحية الكشفية باليد اليسرى تعني السلام القريب من القلب', 'الشفرة الكشفية تُستخدم فقط في الحروب الرسمية'], correctOption: 2, points: 10 },
+    { text: 'حدد الكذبة في العقد والربطات الكشفية:', options: ['ربطة الوتد تُستخدم لبدء الدورة المربعة', 'عقدة التخليف تُستخدم لتقصير الحبل دون قطعه', 'عقدة الأفقية تستخدم لربط الأخشاب الكبيرة عمودياً'], correctOption: 2, points: 10 },
+  ];
+
+  const pool = comp.slug === 'genius' || targetId === 'comp-digital-1' ? GENIUS_FALLBACK : (comp.slug === 'two_truths' || targetId === 'comp-digital-2' ? TWO_TRUTHS_FALLBACK : []);
+  for (let i = 0; i < pool.length; i++) {
+    const q = pool[i];
+    await tx.question.create({
+      data: {
+        id: `${targetId}-q-${i + 1}`,
+        competitionId: targetId,
+        text: q.text,
+        category: 'كشفي',
+        options: JSON.stringify(q.options),
+        correctOption: q.correctOption,
+        points: q.points,
+        questionType: 'multiple_choice',
+        sortOrder: i + 1,
+      }
+    });
+  }
+  logger.info({ competitionId: targetId, count: pool.length }, 'auto-seeded digital quiz questions');
+}
+
 async function createQuestionOrder(tx, competitionId, questionCount) {
-  await ensureGeographyQuestions(tx, competitionId);
+  await ensureDigitalQuestions(tx, competitionId);
   const questions = await tx.question.findMany({ where: { competitionId }, select: { id: true }, orderBy: { sortOrder: 'asc' } });
   const selected = shuffle(questions.map(question => question.id)).slice(0, Math.min(questionCount, questions.length));
   if (selected.length === 0) throw Object.assign(new Error('لا توجد أسئلة منشورة لهذه المسابقة'), { status: 503 });

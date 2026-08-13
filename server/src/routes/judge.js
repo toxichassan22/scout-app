@@ -97,9 +97,9 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
   try {
     const { competitionId } = req.params;
     const competition = await prisma.competition.findFirst({
-      where: { id: competitionId, judgeAssignments: { some: { judgeId: req.user.id } } }
+      where: { id: competitionId, isOpen: true, judgeAssignments: { some: { judgeId: req.user.id } } }
     });
-    if (!competition) return res.status(403).json({ success: false, error: 'المحكم غير مكلف بهذه المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
+    if (!competition) return res.status(403).json({ success: false, error: 'المسابقة مغلقة أو غير متاحة للتحكيم حالياً', requestId: req.requestId, timestamp: new Date().toISOString() });
 
     const { page, limit, skip } = parsePagination(req.query);
     const [teams, total] = await Promise.all([

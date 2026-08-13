@@ -49,8 +49,21 @@ prisma.$transaction = async function withRetry(arg, options) {
   }
 };
 
+async function ensureTeamColumns(client) {
+  try {
+    const columns = await client.$queryRawUnsafe('PRAGMA table_info(Team);');
+    const columnNames = new Set(columns.map(c => c.name));
+    if (!columnNames.has('logoUrl')) {
+      await client.$queryRawUnsafe('ALTER TABLE Team ADD COLUMN logoUrl TEXT;');
+    }
+  } catch (err) {
+    logger.warn({ err }, 'failed to auto-migrate Team columns');
+  }
+}
+
 async function ensureCompetitionColumns(client) {
   try {
+    await ensureTeamColumns(client);
     const columns = await client.$queryRawUnsafe('PRAGMA table_info(Competition);');
     const columnNames = new Set(columns.map(c => c.name));
 

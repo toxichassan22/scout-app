@@ -156,6 +156,14 @@ router.patch('/competitions/:id', validate(competitionUpdateSchema), async (req,
 
     if (req.io) {
       req.io.emit('competition:update', { action: 'updated', competitionId: comp.id, name: comp.name, isOpen: comp.isOpen, opened: justOpened });
+      if (justOpened) {
+        req.io.emit('competition:mandatory_alert', {
+          title: `🏁 انطلقت المسابقة الآن: ${comp.name}`,
+          message: `تم فتح باب المشاركة في مسابقة (${comp.name}) رسمياً. حظاً موفقاً لجميع الفرق!`,
+          type: 'competition',
+          competitionId: comp.id
+        });
+      }
       if (isOpen === false) req.io.emit('judge:session:closed', { competitionId: comp.id });
     }
 

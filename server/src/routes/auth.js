@@ -47,18 +47,26 @@ router.post('/team/login', validate(loginSchema), async (req, res) => {
     const deviceId = typeof rawDeviceId === 'string' ? rawDeviceId.trim() : '';
     if (!deviceId) return res.status(400).json({ error: 'معرف الجهاز مطلوب' });
     const userAgent = String(req.body.userAgent || req.headers['user-agent'] || 'Unknown Device').slice(0, 500);
-    const team = await prisma.team.findUnique({ where: { username }, select: { ...accountSelect, label: true, maxDevices: true } });
+    const team = await prisma.team.findUnique({ where: { username }, select: { ...accountSelect, label: true, maxDevices: true, logoUrl: true } });
     if (!team || !(await bcrypt.compare(password, team.passwordHash))) return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
+
+    // Check device count for logo requirement logic
+    const activeCount = await prisma.teamDevice.count({ where: { teamId: team.id, revokedAt: null } });
+    const existingDevice = await prisma.teamDevice.findUnique({ where: { teamId_deviceId: { teamId: team.id, deviceId } } });
+
+    // If logo is missing and this is a NEW secondary device, block login until team leader uploads logo
+    if (!team.logoUrl && activeCount > 0 && !existingDevice) {
+      return res.status(403).json({
+        error: 'يجب على قائد الفريق أولاً تسجيل الدخول ورفع لوجو الفريق قبل إمكانية تسجيل دخول بقية الأعضاء.',
+        requiresLogoFirst: true
+      });
+    }
 
     let created = false;
     let reactivated = false;
     const device = await prisma.$transaction(async tx => {
       const current = await tx.teamDevice.findUnique({ where: { teamId_deviceId: { teamId: team.id, deviceId } } });
       if (current?.revokedAt) {
-        // Revocation frees a slot but does not permanently blacklist the browser. If
-        // the same device returns and a slot is available, reactivate it as a fresh
-        // registration and ask for the person's identity again.
-        const activeCount = await tx.teamDevice.count({ where: { teamId: team.id, revokedAt: null } });
         if (activeCount >= team.maxDevices) throw Object.assign(new Error('limit'), { status: 403 });
         reactivated = true;
         return tx.teamDevice.update({
@@ -74,23 +82,52 @@ router.post('/team/login', validate(loginSchema), async (req, res) => {
         });
       }
       if (current) return tx.teamDevice.update({ where: { id: current.id }, data: { lastLoginAt: new Date(), userAgent } });
-      // A device seen for the first time has no person attached to it yet; the client
-      // blocks on the identity form until deviceName and deviceRole come back filled.
-      const count = await tx.teamDevice.count({ where: { teamId: team.id, revokedAt: null } });
-      if (count >= team.maxDevices) throw Object.assign(new Error('limit'), { status: 403 });
+      if (activeCount >= team.maxDevices) throw Object.assign(new Error('limit'), { status: 403 });
       created = true;
       return tx.teamDevice.create({ data: { teamId: team.id, deviceId, userAgent } });
     });
 
     if (created || reactivated) req.io?.emit('device:registered', { teamId: team.id, username: team.username, deviceId, reactivated });
     const token = signToken({ id: team.id, username: team.username, role: 'team', label: team.label, deviceId, deviceName: device.displayName || '', deviceRole: device.role || '', deviceVersion: device.tokenVersion, authVersion: team.authVersion });
-    res.json({ token, user: { id: team.id, username: team.username, role: 'team', label: team.label, deviceName: device.displayName || '', deviceRole: device.role || '' } });
+    res.json({
+      token,
+      user: {
+        id: team.id,
+        username: team.username,
+        role: 'team',
+        label: team.label,
+        deviceName: device.displayName || '',
+        deviceRole: device.role || '',
+        logoUrl: team.logoUrl || null,
+        requiresLogoUpload: !team.logoUrl
+      }
+    });
   } catch (err) {
     if (err.message === 'limit') return res.status(403).json({ error: 'وصل الفريق للحد الأقصى للأجهزة المسموح بها', maxDevicesReached: true });
     if (err.message === 'revoked') return res.status(401).json({ error: 'تم إلغاء اعتماد هذا الجهاز', forceLogout: true, deviceRevoked: true });
     if (err.statusCode === 400 || err.status === 400) return res.status(400).json({ error: err.message });
     req.log.error({ err }, 'team login failed');
     res.status(500).json({ error: 'خطأ في السيرفر عند تسجيل الدخول' });
+  }
+});
+
+// Upload/Update Team Logo
+router.patch('/team/logo', authenticateToken, requireRole(['team']), async (req, res) => {
+  try {
+    const { logoUrl } = req.body || {};
+    if (!logoUrl || typeof logoUrl !== 'string') return res.status(400).json({ error: 'صورة اللوجو مطلوبة' });
+
+    const updated = await prisma.team.update({
+      where: { id: req.user.id },
+      data: { logoUrl },
+      select: { id: true, label: true, logoUrl: true }
+    });
+
+    if (req.io) req.io.emit('team:logo_updated', { teamId: req.user.id, logoUrl: updated.logoUrl });
+    res.json({ success: true, logoUrl: updated.logoUrl });
+  } catch (err) {
+    req.log.error({ err }, 'failed to update team logo');
+    res.status(500).json({ error: 'فشل في حفظ لوجو الفريق' });
   }
 });
 
