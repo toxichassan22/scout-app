@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const STATIC_CACHE = `digital-scout-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `digital-scout-runtime-${CACHE_VERSION}`;
 
