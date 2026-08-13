@@ -10,9 +10,9 @@ const schemaPath = path.join(prismaDir, 'schema.prisma');
 const pgSchemaPath = path.join(prismaDir, 'schema.pg.prisma');
 
 async function syncToSupabase() {
-  const dbUrl = process.env.DATABASE_URL || '';
-  if (!dbUrl.startsWith('postgres://') && !dbUrl.startsWith('postgresql://')) {
-    console.log('[Supabase Sync] Skipping: DATABASE_URL is not PostgreSQL.');
+  const targetUrl = process.env.SUPABASE_DATABASE_URL || process.env.DIRECT_URL || (process.env.DATABASE_URL?.startsWith('postgres') ? process.env.DATABASE_URL : '');
+  if (!targetUrl || (!targetUrl.startsWith('postgres://') && !targetUrl.startsWith('postgresql://'))) {
+    console.log('[Supabase Sync] Skipping: No valid PostgreSQL connection string found in SUPABASE_DATABASE_URL or DIRECT_URL.');
     return;
   }
 
@@ -20,7 +20,7 @@ async function syncToSupabase() {
   let content = await readFile(schemaPath, 'utf8');
   content = content.replace('provider = "sqlite"', 'provider = "postgresql"');
   
-  // Replace env("DATABASE_URL") with direct URL if available
+  const envForPrisma = { ...process.env, DATABASE_URL: targetUrl };
   if (process.env.DIRECT_URL) {
     content = content.replace(
       'url      = env("DATABASE_URL")',
@@ -34,7 +34,7 @@ async function syncToSupabase() {
     console.log('[Supabase Sync] Pushing schema tables to Supabase PostgreSQL...');
     execSync(`npx prisma db push --schema="${pgSchemaPath}" --skip-generate`, {
       stdio: 'inherit',
-      env: process.env,
+      env: envForPrisma,
     });
     console.log('✅ [Supabase Sync] Successfully created and synced all tables in Supabase!');
   } catch (err) {
