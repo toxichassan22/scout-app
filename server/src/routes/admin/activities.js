@@ -19,10 +19,10 @@ function stageResponse(stages) {
 const stageInput = z.strictObject({
   id: z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/).optional(),
   title: z.string().trim().min(1).max(160),
-  taskType: z.string().trim().min(1).max(80),
-  task: z.string().trim().min(1).max(2000),
+  taskType: z.string().trim().max(80).optional().default('مهمة'),
+  task: z.string().trim().max(2000).optional().default(''),
   requiresSawaed: z.boolean(),
-  clue: z.string().trim().max(500),
+  clue: z.string().trim().max(500).optional().default(''),
 });
 const updateStagesSchema = { body: z.strictObject({ stages: z.array(stageInput).min(1).max(50) }) };
 
@@ -41,9 +41,23 @@ router.put('/activities/easter-egg/stages', validate(updateStagesSchema), async 
   for (const [index, input] of req.body.stages.entries()) {
     const id = input.id || `stage-${crypto.randomUUID()}`;
     if (ids.has(id)) return res.status(400).json({ error: `معرّف المرحلة مكرر: ${id}` });
-    if (!input.requiresSawaed && index < req.body.stages.length - 1 && !input.clue.trim()) return res.status(400).json({ error: `المرحلة ${index + 1} تحتاج clue لأن السواعد غير مطلوبين فيها` });
+    const clueText = (input.clue || '').trim();
+    const taskText = (input.task || '').trim();
+    if (!input.requiresSawaed && index < req.body.stages.length - 1 && !clueText) {
+      return res.status(400).json({ error: `المرحلة ${index + 1} تحتاج تلميح (Clue) لأنها بحث ذاتي بدون سواعد` });
+    }
+    if (input.requiresSawaed && !taskText) {
+      return res.status(400).json({ error: `المرحلة ${index + 1} تحتاج وصف المهمة المطلوب تنفيذها أمام السواعد` });
+    }
     ids.add(id);
-    stages.push({ id, title: input.title, taskType: input.taskType, task: input.task, requiresSawaed: input.requiresSawaed, clue: input.clue.trim() });
+    stages.push({
+      id,
+      title: input.title,
+      taskType: input.taskType || (input.requiresSawaed ? 'مهمة سواعد' : 'بحث واستكشاف'),
+      task: taskText || clueText || 'ابحثوا عن QR المرحلة التالية',
+      requiresSawaed: input.requiresSawaed,
+      clue: clueText,
+    });
   }
   const currentConfig = parseJson(activity.config, {});
   const updated = await prisma.activity.update({ where: { id: activity.id }, data: { config: JSON.stringify({ ...currentConfig, kind: 'easter', stages }) } });
