@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
 import { Calendar, Plus, Trash2, Edit3, Clock, MapPin, Sparkles, CheckCircle2, X, Play, Square } from 'lucide-react';
 import { getAgenda, addAgendaItem, deleteAgendaItem, updateAgendaItem, agendaAction, getAdminCompetitions } from '../../services/api';
+import { formatTimeRange12 } from '../../utils/timeFormat';
 import AdminBackLink from '../../components/AdminBackLink';
 
 const TYPE_OPTIONS = [
@@ -333,7 +333,7 @@ const AdminAgenda = () => {
                   <div className="space-y-1.5 text-right flex-1">
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className="font-mono text-xs font-black text-amber-300 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2.5 py-1">
-                        {item.startTime} — {item.endTime}
+                        {formatTimeRange12(item.startTime, item.endTime)}
                       </span>
                       <h3 className="text-base font-black text-white">{item.title}</h3>
                       {item.status === 'active' ? (

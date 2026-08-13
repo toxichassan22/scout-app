@@ -214,8 +214,19 @@ export async function startServer(port = PORT) {
       where: { name: { contains: 'نصب المرصد' } },
       data: { name: 'نصب المعرض' },
     });
+    // Fix duplicate "الورشة الفنية" at 10:30 (it should be "عقد وربطات" in المخيم الكشفي)
+    await prisma.agendaItem.updateMany({
+      where: {
+        title: { contains: 'الورشة الفنية' },
+        startTime: { contains: '10:30' },
+      },
+      data: {
+        title: 'عقد وربطات',
+        description: 'مسابقة العقد والربطات الكشفية للمجموعات',
+      },
+    });
   } catch (err) {
-    logger.warn({ err }, 'failed to rename نصب المرصد');
+    logger.warn({ err }, 'failed to rename duplicated items');
   }
   try {
     await ensureActivityCatalog();

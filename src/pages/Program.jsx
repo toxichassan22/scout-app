@@ -5,6 +5,7 @@ import { getAgenda } from '../services/api';
 import { useSocket } from '../context/SocketContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EmptyState from '../components/EmptyState';
+import { format12Hour, formatTimeRange12 } from '../utils/timeFormat';
 import mapBgImage from '../../س.jpeg';
 
 const typeMeta = {
@@ -153,8 +154,8 @@ const Program = () => {
   const renderPeriodLabel = period => {
     const label = periodLabels[period];
     if (!label) return period;
-    const timeRange = label.start && label.end ? `\u200E${label.start} - ${label.end}\u200E` : '';
-    return <><span>{label.name}</span>{timeRange && <span dir="ltr" style={{ unicodeBidi: 'isolate' }}> · {timeRange}</span>}</>;
+    const timeRange = label.start && label.end ? formatTimeRange12(label.start, label.end) : '';
+    return <><span>{label.name}</span>{timeRange && <span dir="rtl" className="mr-2 text-cyan-200/90 font-mono text-[11px]">({timeRange})</span>}</>;
   };
   const statusMeta = {
     upcoming: { label: 'قريبًا · مغلق', cls: 'border-slate-600/50 bg-slate-800/60 text-slate-400', icon: Lock },
@@ -380,9 +381,9 @@ const Program = () => {
                             <MapPin size={10} className="shrink-0" />{item.locationLabel || item.zone.name}
                           </span>
                         )}
-                        <span className="flex shrink-0 items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-mono font-black text-amber-300">
+                        <span className="flex shrink-0 items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-mono font-black text-amber-300">
                           <Clock size={10} />
-                          <span dir="ltr">{item.startTime}</span>
+                          <span>{formatTimeRange12(item.startTime, item.endTime)}</span>
                         </span>
                       </div>
                     </div>
@@ -521,9 +522,9 @@ const Program = () => {
                               </span>
                               <h3 className="text-lg font-black text-white">{item.title}</h3>
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-mono font-black text-amber-300">
+                            <div className="flex items-center gap-1.5 shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1 text-xs font-mono font-black text-amber-300">
                               <Clock size={13} />
-                              <span dir="ltr">{item.startTime} — {item.endTime}</span>
+                              <span>{formatTimeRange12(item.startTime, item.endTime)}</span>
                             </div>
                           </div>
                           {item.description && <p className="text-xs leading-6 text-slate-300 mb-3">{item.description}</p>}

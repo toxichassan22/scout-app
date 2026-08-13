@@ -45,12 +45,15 @@ function participantView(participant) {
 
 function sessionView(session, config = {}, viewer = null) {
   const safeSession = { ...session };
-  const participants = safeSession.participants || [];
+  const participants = [...(safeSession.participants || [])].sort((a, b) => new Date(a.joinedAt || 0) - new Date(b.joinedAt || 0));
   const gameState = parseJson(safeSession.gameState, {});
+  const hostParticipant = participants[0] || null;
   const currentPlayerId = config.kind === 'guess' ? gameState.order?.[gameState.currentIndex] || null : null;
   const activeOrder = config.kind === 'guess' ? (gameState.order || []).filter(id => participants.some(item => item.id === id && !item.eliminated)) : [];
   const targetPlayerId = currentPlayerId && activeOrder.length > 1 ? activeOrder[(activeOrder.indexOf(currentPlayerId) + 1) % activeOrder.length] : null;
   const mine = viewer && participants.find(item => item.teamId === (viewer.teamId || viewer.id) && item.deviceId === viewer.deviceId);
+  const isHost = Boolean(mine && hostParticipant && mine.id === hostParticipant.id);
+  const hostName = hostParticipant?.displayName || '';
   const easterStages = config.kind === 'easter'
     ? getEasterEggStages({ ...config, stages: Array.isArray(gameState.easterStages) ? gameState.easterStages : config.stages })
     : [];
@@ -61,6 +64,8 @@ function sessionView(session, config = {}, viewer = null) {
     ...safeSession,
     config: getActivityPublicConfig(config),
     participantId: mine?.id || null,
+    isHost,
+    hostName,
     currentPlayerId,
     targetPlayerId,
     history: config.kind === 'guess' ? gameState.history || [] : [],
@@ -93,12 +98,32 @@ router.post('/:slug/sessions', enforceNotFrozen, validate(sessionBody), async (r
   const catalog = getCatalogEntry(activity.slug);
   const config = getActivityConfig(activity);
   const mode = req.body.mode || 'auto';
-  const displayName = req.body.displayName || req.user.deviceName || req.user.username;
+  const displayName = (req.body.displayName || req.user.deviceName || req.user.name || req.user.username || 'كشاف').trim();
   let session = null;
 
   if (mode === 'code') {
     if (!req.body.roomCode) return res.status(400).json({ error: 'كود الغرفة مطلوب' });
     session = await prisma.activitySession.findFirst({ where: { activityId: activity.id, roomCode: req.body.roomCode.trim().toUpperCase(), status: 'waiting' }, include: { participants: true } });
+    if (!session) return res.status(404).json({ error: 'كود الغرفة غير صحيح أو أن اللعبة بدأت بالفعل' });
+  } else if (mode === 'create_private') {
+    const roomCode = generateRoomCode();
+    const gameState = config.kind === 'guess'
+      ? { secret: null }
+      : config.kind === 'easter'
+        ? { stageIndex: 0, scannedStages: [], awaitingTask: false, easterStages: getEasterEggStages(config) }
+        : '{}';
+    session = await prisma.activitySession.create({
+      data: {
+        activityId: activity.id,
+        roomCode,
+        status: config.kind === 'guess' ? 'waiting' : 'active',
+        minPlayers: 2,
+        maxPlayers: catalog?.maxPlayers || 10,
+        gameState: JSON.stringify(gameState),
+        startedAt: config.kind === 'guess' ? null : new Date(),
+      },
+      include: { participants: true },
+    });
   } else if (config.kind === 'guess') {
     const waiting = await prisma.activitySession.findFirst({ where: { activityId: activity.id, status: 'waiting', roomCode: null }, include: { participants: true }, orderBy: { createdAt: 'asc' } });
     if (waiting && waiting.participants.length < (catalog?.maxPlayers || 10)) session = waiting;
@@ -114,7 +139,11 @@ router.post('/:slug/sessions', enforceNotFrozen, validate(sessionBody), async (r
   }
 
   try {
-    await prisma.activityParticipant.create({ data: { sessionId: session.id, teamId: req.user.id, deviceId: req.user.deviceId, displayName } });
+    await prisma.activityParticipant.upsert({
+      where: { sessionId_deviceId: { sessionId: session.id, deviceId: req.user.deviceId } },
+      create: { sessionId: session.id, teamId: req.user.id, deviceId: req.user.deviceId, displayName },
+      update: { displayName, lastSeenAt: new Date() },
+    });
   } catch (error) {
     if (error.code !== 'P2002') throw error;
   }
@@ -171,11 +200,24 @@ router.get('/sessions/:sessionId', validate({ params: { sessionId: zId('الجل
 
 router.post('/sessions/:sessionId/start', enforceNotFrozen, validate({ params: { sessionId: zId('الجلسة') } }), async (req, res) => {
   const session = await prisma.activitySession.findUnique({ where: { id: req.params.sessionId }, include: { participants: true, activity: true } });
-  if (!session || !session.participants.some(participant => participant.teamId === req.user.id && participant.deviceId === req.user.deviceId)) return res.status(404).json({ error: 'الجلسة غير موجودة' });
+  if (!session) return res.status(404).json({ error: 'الجلسة غير موجودة' });
+  const participants = [...(session.participants || [])].sort((a, b) => new Date(a.joinedAt || 0) - new Date(b.joinedAt || 0));
+  const participant = participants.find(item => item.teamId === req.user.id && item.deviceId === req.user.deviceId);
+  if (!participant) return res.status(403).json({ error: 'غير مصرح بهذه الجلسة' });
   if (session.status !== 'waiting') return res.json({ success: true, session: sessionView(session, getActivityConfig(session.activity), req.user) });
-  if (session.participants.length < session.minPlayers) return res.status(409).json({ error: `نحتاج إلى ${session.minPlayers} لاعبين على الأقل` });
-  if (session.activity.slug === 'guess-number' && session.participants.some(participant => !parseJson(participant.metadata, {}).secretCode)) return res.status(409).json({ error: 'كل لاعب يجب أن يختار كوده السري أولاً' });
-  const order = session.activity.slug === 'guess-number' ? session.participants.map(participant => participant.id).sort(() => Math.random() - 0.5) : [];
+  
+  const hostParticipant = participants[0];
+  if (hostParticipant && participant.id !== hostParticipant.id) {
+    return res.status(403).json({ error: 'ليدر الغرفة فقط هو من يستطيع بدء اللعبة' });
+  }
+
+  if (participants.length < Math.max(session.minPlayers || 2, 2)) {
+    return res.status(409).json({ error: 'نحتاج إلى لاعبين على الأقل لبدء اللعبة' });
+  }
+  if (session.activity.slug === 'guess-number' && participants.some(p => !parseJson(p.metadata, {}).secretCode)) {
+    return res.status(409).json({ error: 'كل لاعب يجب أن يختار كوده السري أولاً' });
+  }
+  const order = session.activity.slug === 'guess-number' ? participants.map(p => p.id).sort(() => Math.random() - 0.5) : [];
   const gameState = session.activity.slug === 'guess-number' ? { order, currentIndex: 0, history: [] } : {};
   const updated = await prisma.activitySession.update({ where: { id: session.id }, data: { status: 'active', startedAt: new Date(), gameState: JSON.stringify(gameState) }, include: { participants: true, activity: true } });
   res.json({ success: true, session: sessionView(updated, getActivityConfig(updated.activity), req.user) });
