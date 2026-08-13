@@ -12,6 +12,7 @@ model Team {
   username     String   @unique
   passwordHash String
   label        String
+  logoUrl      String?
   maxDevices   Int      @default(24)
   authVersion  Int      @default(0)
   createdAt    DateTime @default(now())
