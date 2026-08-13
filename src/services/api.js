@@ -425,8 +425,8 @@ export const deleteQuestion = (id) =>
 
 export const getScoreBreakdown = async () => unwrapList(await apiFetch('/admin/scores/breakdown'));
 
-export const unlockScore = (id, reason) =>
-  apiFetch(`/admin/scores/${id}/unlock`, { method: 'POST', body: JSON.stringify({ reason }) });
+export const unlockScore = (id) =>
+  apiFetch(`/admin/scores/${id}/unlock`, { method: 'POST', body: JSON.stringify({}) });
 
 export const lockScore = (id) =>
   apiFetch(`/admin/scores/${id}/lock`, { method: 'POST' });

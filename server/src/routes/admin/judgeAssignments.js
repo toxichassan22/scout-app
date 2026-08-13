@@ -7,7 +7,7 @@ import { parsePagination, paginatedResponse } from '../../pagination.js';
 
 const safeTeamSelect = { id: true, username: true, label: true, maxDevices: true, authVersion: true, createdAt: true };
 const safeJudgeSelect = { id: true, name: true, username: true, authVersion: true, createdAt: true };
-const safeCompetitionSelect = { id: true, name: true, slug: true, type: true, description: true, isOpen: true, passcode: true, entryCode: true, duration: true, criteria: true, createdAt: true };
+const safeCompetitionSelect = { id: true, name: true, slug: true, type: true, description: true, isOpen: true, passcode: true, entryCode: true, duration: true, questionCount: true, criteria: true, createdAt: true };
 
 const router = Router();
 
@@ -91,14 +91,13 @@ router.patch('/judges/:id', validate(judgeUpdateSchema), async (req, res) => {
 });
 
 // Score finalization controls
-const scoreUnlockSchema = { params: { id: zId('النتيجة') }, body: { reason: zString('السبب', { min: 1, max: 500 }) } };
+const scoreUnlockSchema = { params: { id: zId('النتيجة') }, body: {} };
 router.post('/scores/:id/unlock', validate(scoreUnlockSchema), async (req, res) => {
   try {
-    const { reason } = req.body;
     const score = await prisma.score.findUnique({ where: { id: req.params.id } }); if (!score) return res.status(404).json({ success: false, error: 'النتيجة غير موجودة', requestId: req.requestId, timestamp: new Date().toISOString() });
     await prisma.$transaction(async tx => {
-      await tx.score.update({ where: { id: score.id }, data: { isFinal: false, unlockedAt: new Date(), unlockedByAdminId: req.user.id, unlockReason: reason } });
-      await tx.scoreAudit.create({ data: { scoreId: score.id, competitionId: score.competitionId, teamId: score.teamId, adminId: req.user.id, action: 'unlock', reason, previousData: JSON.stringify(score) } });
+      await tx.score.update({ where: { id: score.id }, data: { isFinal: false, unlockedAt: new Date(), unlockedByAdminId: req.user.id, unlockReason: null } });
+      await tx.scoreAudit.create({ data: { scoreId: score.id, competitionId: score.competitionId, teamId: score.teamId, adminId: req.user.id, action: 'unlock', previousData: JSON.stringify(score) } });
       await recalculateTeamStanding(score.teamId, tx);
     });
     res.json({ success: true });

@@ -1,89 +1,298 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Edit3, Lock, Save, ShieldCheck, Trophy, Unlock, X } from 'lucide-react';
+import { Check, ChevronDown, Edit3, FileText, Lock, Save, ShieldCheck, Trophy, Unlock, X } from 'lucide-react';
 import { getScoreBreakdown, lockScore, unlockScore, updateScoreOverride } from '../../services/api';
 import AdminBackLink from '../../components/AdminBackLink';
 
-const json = value => { try { return typeof value === 'string' ? JSON.parse(value || '{}') : value || {}; } catch { return {}; } };
+const json = value => {
+  try { return typeof value === 'string' ? JSON.parse(value || '{}') : value || {}; } catch { return {}; }
+};
+
 const byArabic = (a, b) => String(a).localeCompare(String(b), 'ar');
 
-const AdminScoring = () => {
-  const [scores, setScores] = useState([]), [loading, setLoading] = useState(true), [editing, setEditing] = useState(null), [total, setTotal] = useState(''), [values, setValues] = useState('{}'), [reason, setReason] = useState('');
-  const [competitionId, setCompetitionId] = useState(''), [teamId, setTeamId] = useState('');
-  const load = async () => { try { setScores(await getScoreBreakdown()) } finally { setLoading(false) } };
-  useEffect(() => { load().catch(console.error) }, []);
+const auditLabels = {
+  unlock: 'فتح التعديل',
+  admin_correction: 'تصحيح إداري',
+  judge_submit: 'تسليم المحكم',
+};
 
-  // The breakdown already embeds team and competition, so the drill-down lists are
-  // derived from it. Teams are scoped to the chosen competition, not the whole set.
+const formatDate = value => new Date(value).toLocaleString('ar-EG', {
+  dateStyle: 'short',
+  timeStyle: 'short',
+});
+
+const getMaxScore = competition => {
+  if (!competition) return 50;
+  try {
+    const criteria = typeof competition.criteria === 'string' ? JSON.parse(competition.criteria) : competition.criteria;
+    if (Array.isArray(criteria) && criteria.length > 0) {
+      const sum = criteria.reduce((acc, item) => acc + Number(item.maxScore || 0), 0);
+      if (sum > 0) return sum;
+    }
+  } catch {}
+  return competition.questionCount || 50;
+};
+
+const StatCard = ({ label, value, hint, tone, icon: Icon }) => (
+  <div className={`rounded-2xl border p-4 ${tone}`}>
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <span className="text-xs font-bold text-slate-300">{label}</span>
+      <Icon size={18} className="opacity-80" />
+    </div>
+    <strong className="block text-3xl font-black tabular-nums text-white">{value}</strong>
+    <span className="mt-1 block text-[11px] font-bold opacity-70">{hint}</span>
+  </div>
+);
+
+const AdminScoring = () => {
+  const [scores, setScores] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [total, setTotal] = useState('');
+  const [values, setValues] = useState('{}');
+  const [competitionId, setCompetitionId] = useState('');
+  const [teamId, setTeamId] = useState('');
+
+  const load = async (showLoading = false) => {
+    if (showLoading) setLoading(true);
+    try { setScores(await getScoreBreakdown()); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(true).catch(console.error); }, []);
+
   const competitions = useMemo(() => {
     const found = new Map();
-    scores.forEach(s => { if (s.competition) found.set(s.competition.id, s.competition); });
+    scores.forEach(score => { if (score.competition) found.set(score.competition.id, score.competition); });
     return [...found.values()].sort((a, b) => byArabic(a.name, b.name));
   }, [scores]);
 
   const teams = useMemo(() => {
     const found = new Map();
-    scores.forEach(s => {
-      if (competitionId && s.competitionId !== competitionId) return;
-      if (s.team) found.set(s.team.id, s.team);
+    scores.forEach(score => {
+      if (competitionId && score.competitionId !== competitionId) return;
+      if (score.team) found.set(score.team.id, score.team);
     });
     return [...found.values()].sort((a, b) => byArabic(a.label, b.label));
   }, [scores, competitionId]);
 
-  const visible = useMemo(() => scores.filter(s => (
-    (!competitionId || s.competitionId === competitionId) && (!teamId || s.teamId === teamId)
+  const visible = useMemo(() => scores.filter(score => (
+    (!competitionId || score.competitionId === competitionId) && (!teamId || score.teamId === teamId)
   )), [scores, competitionId, teamId]);
 
-  const isFiltered = Boolean(competitionId || teamId);
-  const pickCompetition = id => { setCompetitionId(id); setTeamId(''); setEditing(null); };
-  const unlock = async s => { const why = prompt('اكتب سبب فتح القفل (يسجل في سجل التدقيق):', 'تصحيح إداري'); if (!why) return; try { await unlockScore(s.id, why); await load() } catch (e) { alert(e.message) } };
-  const begin = s => { setEditing(s.id); setTotal(s.total); setValues(JSON.stringify(json(s.values), null, 2)); setReason('') };
-  const getMaxScore = comp => {
-    if (!comp) return 50;
-    try {
-      const c = typeof comp.criteria === 'string' ? JSON.parse(comp.criteria) : comp.criteria;
-      if (Array.isArray(c) && c.length > 0) {
-        const sum = c.reduce((acc, item) => acc + Number(item.maxScore || 0), 0);
-        if (sum > 0) return sum;
-      }
-    } catch {}
-    return comp.questionCount || 50;
-  };
-  const save = async s => {
-    if (!reason.trim()) return alert('سبب التصحيح مطلوب');
-    const maxScore = getMaxScore(s.competition);
-    if (Number(total) < 0 || Number(total) > maxScore) return alert(`الدرجة غير صالحة؛ الحد الأقصى لهذه المسابقة هو ${maxScore} نقطة`);
-    let parsed;
-    try { parsed = JSON.parse(values) } catch { return alert('قيم المعايير JSON غير صحيحة') }
-    try { await updateScoreOverride(s.id, { total: Number(total), values: parsed, reason }); setEditing(null); await load() } catch (e) { alert(e.message) }
-  };
-  return <div className="p-6 text-right dir-rtl text-white"><AdminBackLink /><header className="mb-8"><h1 className="text-2xl font-black flex gap-2">الدرجات والقفل وسجل التدقيق <Trophy className="text-amber-400" /></h1><p className="text-xs text-slate-400">لا يمكن التصحيح إلا بعد فتح صريح بسبب، ثم تعاد النتيجة إلى الحالة النهائية تلقائياً</p></header>
-    <section className="card mb-7 rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-black">اختر المسابقة ثم الفريق</h2>
-        {isFiltered && <button onClick={() => pickCompetition('')} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-[11px] font-bold text-slate-300 transition-colors hover:text-white"><X size={13} /> إلغاء التحديد وعرض الكل</button>}
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        <select className="ai-input bg-slate-950" value={competitionId} onChange={e => pickCompetition(e.target.value)}>
-          <option value="">كل المسابقات ({competitions.length})</option>
-          {competitions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select className="ai-input bg-slate-950" value={teamId} onChange={e => { setTeamId(e.target.value); setEditing(null); }} disabled={teams.length === 0}>
-          <option value="">{competitionId ? `كل فرق هذه المسابقة (${teams.length})` : `كل الفرق (${teams.length})`}</option>
-          {teams.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-        </select>
-      </div>
-      {!loading && scores.length > 0 && <p className="mt-4 text-xs font-bold text-slate-400">{isFiltered ? `المعروض: ${visible.length} من ${scores.length} نتيجة` : `إجمالي النتائج: ${scores.length}`}</p>}
-    </section>
+  const summary = useMemo(() => ({
+    total: scores.length,
+    locked: scores.filter(score => score.isFinal).length,
+    open: scores.filter(score => !score.isFinal).length,
+  }), [scores]);
 
-    {loading ? <p className="py-16 text-center text-slate-500">جاري التحميل...</p>
-      : scores.length === 0 ? <p className="py-16 text-center text-slate-500">لا توجد نتائج مسجّلة بعد</p>
-        : visible.length === 0 ? <p className="py-16 text-center text-slate-500">لا توجد نتائج مطابقة لهذا التحديد</p>
-          : <div className="space-y-4">{visible.map(s => <article key={s.id} className="card p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
-      <div className="flex flex-wrap justify-between gap-3 border-b border-slate-800 pb-3"><div className="flex gap-2"><span className={`px-2 py-1 rounded text-xs ${s.isFinal ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'}`}>{s.isFinal ? <><Lock size={12} className="inline" /> نهائي مقفل</> : <><Unlock size={12} className="inline" /> مفتوح للتصحيح</>}</span><b className="text-emerald-400">{s.total} نقطة</b></div><h2 className="font-black">{s.team?.label} • {s.competition?.name}</h2></div>
-      <div className="grid md:grid-cols-2 gap-4 mt-4"><div><h3 className="text-xs text-slate-400 mb-2">المحكم وقيم المعايير</h3>{s.judgeScores?.map(j => <div key={j.id} className="p-3 bg-slate-950 rounded-xl text-xs mb-2"><b className="text-sky-400">{j.judge?.name || 'محكم'} — {j.total}</b><div className="flex flex-wrap gap-2 mt-2">{Object.entries(json(j.values)).map(([k, v]) => <span key={k} className="bg-slate-800 px-2 py-1 rounded">{k}: {v}</span>)}</div></div>)}</div>
-        <div><h3 className="text-xs text-slate-400 mb-2">سجل التدقيق</h3><div className="space-y-1 max-h-32 overflow-auto">{s.audits?.map(a => <div key={a.id} className="text-[10px] bg-slate-950 p-2 rounded"><ShieldCheck size={11} className="inline text-violet-400" /> {a.action} • {a.reason || 'بدون سبب'} • {new Date(a.createdAt).toLocaleString('ar-EG')}</div>)}</div></div></div>
-      {editing === s.id ? <div className="mt-4 p-4 bg-slate-950 rounded-xl space-y-2"><div className="flex justify-between items-center text-xs font-bold text-slate-400"><span>الدرجة الكلية</span><span>الحد الأقصى: {getMaxScore(s.competition)} نقطة</span></div><input type="number" step="0.5" min="0" max={getMaxScore(s.competition)} className="ai-input" value={total} onChange={e => setTotal(e.target.value)} /><textarea dir="ltr" className="ai-input text-left font-mono min-h-28" value={values} onChange={e => setValues(e.target.value)} /><input className="ai-input" placeholder="سبب التصحيح الإلزامي" value={reason} onChange={e => setReason(e.target.value)} /><button onClick={() => save(s)} className="px-4 py-2 rounded bg-emerald-600 font-bold flex gap-2"><Save size={15} /> حفظ وإعادة القفل</button></div> : <div className="mt-4 flex gap-2">{s.isFinal ? <button onClick={() => unlock(s)} className="px-3 py-2 bg-amber-500 text-slate-950 rounded-xl text-xs font-black flex gap-1"><Unlock size={14} /> فتح بسبب</button> : <><button onClick={() => begin(s)} className="px-3 py-2 bg-blue-600 rounded-xl text-xs font-bold flex gap-1"><Edit3 size={14} /> تصحيح</button><button onClick={() => lockScore(s.id).then(load)} className="px-3 py-2 bg-slate-700 rounded-xl text-xs font-bold flex gap-1"><Lock size={14} /> قفل دون تعديل</button></>}</div>}
-    </article>)}</div>}
-  </div>;
+  const begin = score => {
+    setEditing(score.id);
+    setTotal(score.total);
+    setValues(JSON.stringify(json(score.values), null, 2));
+  };
+
+  const unlock = async score => {
+    try {
+      await unlockScore(score.id);
+      begin(score);
+      await load();
+    } catch (error) {
+      alert(error.message || 'فشل في فتح التعديل');
+    }
+  };
+
+  const save = async score => {
+    const numericTotal = Number(total);
+    const maxScore = getMaxScore(score.competition);
+    if (!Number.isFinite(numericTotal) || numericTotal < 0 || numericTotal > maxScore) {
+      alert(`الدرجة غير صالحة؛ الحد الأقصى لهذه المسابقة هو ${maxScore} نقطة`);
+      return;
+    }
+
+    let parsed;
+    try { parsed = JSON.parse(values); } catch { alert('تفاصيل المعايير JSON غير صحيحة'); return; }
+
+    try {
+      setSaving(true);
+      await updateScoreOverride(score.id, { total: numericTotal, values: parsed });
+      setEditing(null);
+      await load();
+    } catch (error) {
+      alert(error.message || 'فشل في حفظ الدرجة');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const lock = async score => {
+    try { await lockScore(score.id); setEditing(null); await load(); }
+    catch (error) { alert(error.message || 'فشل في قفل النتيجة'); }
+  };
+
+  const clearFilters = () => {
+    setCompetitionId('');
+    setTeamId('');
+    setEditing(null);
+  };
+
+  return (
+    <main className="min-h-screen p-4 text-right text-white sm:p-6" dir="rtl">
+      <div className="mx-auto max-w-7xl">
+        <AdminBackLink />
+
+        <header className="mb-7 flex flex-col gap-5 rounded-3xl border border-cyan-400/15 bg-slate-950/35 p-5 shadow-2xl shadow-cyan-950/10 sm:flex-row sm:items-center sm:justify-between sm:p-7">
+          <div>
+            <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-[11px] font-black text-amber-200">
+              <Trophy size={14} /> مركز التحكم في النتائج
+            </span>
+            <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">إدارة الدرجات</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-400">افتح أي نتيجة وعدّلها مباشرة. عند الحفظ تُقفل النتيجة تلقائياً ويُسجَّل التغيير في سجل التدقيق.</p>
+          </div>
+          <div className="hidden h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300 sm:flex">
+            <FileText size={30} />
+          </div>
+        </header>
+
+        <section className="mb-6 grid gap-3 sm:grid-cols-3">
+          <StatCard label="إجمالي النتائج" value={summary.total} hint="كل نتائج المسابقات" tone="border-slate-700 bg-slate-900/70" icon={FileText} />
+          <StatCard label="نتائج مقفلة" value={summary.locked} hint="جاهزة للعرض" tone="border-emerald-400/20 bg-emerald-500/[0.08] text-emerald-100" icon={Lock} />
+          <StatCard label="تحتاج مراجعة" value={summary.open} hint="مفتوحة للتعديل الآن" tone="border-amber-400/25 bg-amber-500/[0.09] text-amber-100" icon={Unlock} />
+        </section>
+
+        <section className="mb-7 rounded-3xl border border-white/10 bg-slate-900/60 p-4 shadow-xl sm:p-5">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-base font-black text-white">اعثر على النتيجة</h2>
+              <p className="mt-1 text-xs text-slate-500">اختَر مسابقة أو فريقاً لتقليل القائمة</p>
+            </div>
+            {(competitionId || teamId) && (
+              <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 transition hover:border-cyan-400/40 hover:text-white">
+                <X size={14} /> عرض الكل
+              </button>
+            )}
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block text-xs font-black text-slate-400">
+              المسابقة
+              <span className="relative mt-1 block">
+                <ChevronDown size={16} className="pointer-events-none absolute left-3 top-3 text-slate-500" />
+                <select className="ai-input w-full appearance-none bg-slate-950 pr-3 pl-9" value={competitionId} onChange={event => { setCompetitionId(event.target.value); setTeamId(''); setEditing(null); }}>
+                  <option value="">كل المسابقات ({competitions.length})</option>
+                  {competitions.map(competition => <option key={competition.id} value={competition.id}>{competition.name}</option>)}
+                </select>
+              </span>
+            </label>
+            <label className="block text-xs font-black text-slate-400">
+              الفريق
+              <span className="relative mt-1 block">
+                <ChevronDown size={16} className="pointer-events-none absolute left-3 top-3 text-slate-500" />
+                <select className="ai-input w-full appearance-none bg-slate-950 pr-3 pl-9" value={teamId} onChange={event => { setTeamId(event.target.value); setEditing(null); }} disabled={teams.length === 0}>
+                  <option value="">{competitionId ? `كل فرق هذه المسابقة (${teams.length})` : `كل الفرق (${teams.length})`}</option>
+                  {teams.map(team => <option key={team.id} value={team.id}>{team.label}</option>)}
+                </select>
+              </span>
+            </label>
+          </div>
+          {!loading && <p className="mt-4 border-t border-white/5 pt-3 text-xs font-bold text-slate-500">المعروض الآن: <span className="text-slate-300">{visible.length}</span> نتيجة</p>}
+        </section>
+
+        {loading ? <div className="rounded-3xl border border-white/10 bg-slate-900/50 py-20 text-center text-sm font-bold text-slate-400">جاري تحميل النتائج...</div>
+          : scores.length === 0 ? <div className="rounded-3xl border border-dashed border-white/10 bg-slate-900/30 py-20 text-center text-sm font-bold text-slate-500">لا توجد نتائج مسجّلة بعد</div>
+            : visible.length === 0 ? <div className="rounded-3xl border border-dashed border-white/10 bg-slate-900/30 py-20 text-center text-sm font-bold text-slate-500">لا توجد نتائج مطابقة لهذا التحديد</div>
+              : <div className="space-y-5">
+                {visible.map(score => {
+                  const maxScore = getMaxScore(score.competition);
+                  const isEditing = editing === score.id;
+                  return (
+                    <article key={score.id} className={`overflow-hidden rounded-3xl border bg-slate-900/70 shadow-xl transition ${isEditing ? 'border-cyan-400/50 shadow-cyan-950/20' : 'border-white/10 hover:border-white/20'}`}>
+                      <div className="flex flex-col gap-4 border-b border-white/10 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
+                        <div className="min-w-0">
+                          <p className="mb-1 text-xs font-bold text-cyan-300/80">{score.competition?.name || 'مسابقة غير محددة'}</p>
+                          <h2 className="truncate text-xl font-black text-white">{score.team?.label || 'فريق غير محدد'}</h2>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 sm:justify-end">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-black ${score.isFinal ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200' : 'border-amber-400/30 bg-amber-400/10 text-amber-200'}`}>
+                            {score.isFinal ? <Lock size={13} /> : <Unlock size={13} />}
+                            {score.isFinal ? 'نهائي مقفل' : 'مفتوح للتعديل'}
+                          </span>
+                          <div className="rounded-xl bg-slate-950 px-3 py-2 text-center">
+                            <strong className="block text-xl font-black leading-none text-emerald-300">{score.total}</strong>
+                            <span className="mt-1 block text-[10px] font-bold text-slate-500">من {maxScore}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 p-5 sm:p-6 lg:grid-cols-[1.1fr_.9fr]">
+                        <section className="rounded-2xl border border-white/5 bg-slate-950/45 p-4">
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <h3 className="text-xs font-black text-slate-300">تفاصيل التحكيم</h3>
+                            <span className="text-[10px] font-bold text-slate-600">{score.judgeScores?.length || 0} محكّم</span>
+                          </div>
+                          {score.judgeScores?.length ? <div className="space-y-2">
+                            {score.judgeScores.map(judgeScore => (
+                              <div key={judgeScore.id} className="rounded-xl border border-white/5 bg-slate-900/75 p-3">
+                                <div className="flex items-center justify-between gap-3 text-xs">
+                                  <span className="font-black text-sky-300">{judgeScore.judge?.name || 'محكّم'}</span>
+                                  <strong className="text-white">{judgeScore.total} نقطة</strong>
+                                </div>
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                  {Object.entries(json(judgeScore.values)).map(([key, value]) => <span key={key} className="rounded-lg bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-400">{key}: {value}</span>)}
+                                </div>
+                              </div>
+                            ))}
+                          </div> : <p className="text-xs text-slate-600">لا توجد تفاصيل محكمين لهذه النتيجة.</p>}
+                        </section>
+
+                        <section className="rounded-2xl border border-white/5 bg-slate-950/45 p-4">
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <h3 className="text-xs font-black text-slate-300">سجل التغييرات</h3>
+                            <ShieldCheck size={16} className="text-violet-300" />
+                          </div>
+                          {score.audits?.length ? <div className="max-h-36 space-y-2 overflow-auto pr-1">
+                            {score.audits.map(audit => (
+                              <div key={audit.id} className="rounded-xl border border-white/5 bg-slate-900/75 p-3 text-[10px]">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-black text-violet-200">{auditLabels[audit.action] || audit.action}</span>
+                                  <span className="text-slate-600">{formatDate(audit.createdAt)}</span>
+                                </div>
+                                {audit.reason && <p className="mt-1 text-slate-500">{audit.reason}</p>}
+                              </div>
+                            ))}
+                          </div> : <p className="text-xs text-slate-600">لا توجد تغييرات مسجّلة.</p>}
+                        </section>
+                      </div>
+
+                      {isEditing ? <form className="mx-5 mb-5 rounded-2xl border border-cyan-400/25 bg-cyan-950/15 p-4 sm:mx-6 sm:mb-6" onSubmit={event => { event.preventDefault(); save(score); }}>
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <h3 className="font-black text-white">تعديل الدرجة</h3>
+                            <p className="mt-1 text-[11px] text-slate-500">الحفظ سيعيد قفل النتيجة تلقائياً.</p>
+                          </div>
+                          <span className="rounded-lg bg-slate-950 px-2.5 py-1 text-[10px] font-bold text-slate-400">الحد الأقصى: {maxScore}</span>
+                        </div>
+                        <label className="block text-xs font-black text-slate-300">الدرجة النهائية
+                          <input type="number" step="0.5" min="0" max={maxScore} className="ai-input mt-1 w-full text-lg font-black" value={total} onChange={event => setTotal(event.target.value)} autoFocus />
+                        </label>
+                        <details className="mt-3 rounded-xl border border-white/10 bg-slate-950/40 p-3">
+                          <summary className="cursor-pointer list-none text-xs font-bold text-slate-400">تعديل تفاصيل المعايير <span className="text-[10px] text-slate-600">(اختياري)</span></summary>
+                          <textarea dir="ltr" className="ai-input mt-3 min-h-28 w-full resize-y text-left font-mono text-xs" value={values} onChange={event => setValues(event.target.value)} aria-label="تفاصيل المعايير بصيغة JSON" />
+                        </details>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-black text-slate-950 transition hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-60"><Save size={15} />{saving ? 'جاري الحفظ...' : 'حفظ وإعادة القفل'}</button>
+                          <button type="button" onClick={() => setEditing(null)} disabled={saving} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-300 transition hover:border-slate-500 hover:text-white"><X size={15} /> إلغاء</button>
+                        </div>
+                      </form> : <div className="flex flex-wrap gap-2 border-t border-white/10 px-5 py-4 sm:px-6">
+                        {score.isFinal ? <button type="button" onClick={() => unlock(score)} className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-xs font-black text-slate-950 transition hover:bg-amber-300"><Unlock size={15} /> فتح التعديل</button>
+                          : <><button type="button" onClick={() => begin(score)} className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-black text-slate-950 transition hover:bg-cyan-400"><Edit3 size={15} /> تعديل الدرجة</button><button type="button" onClick={() => lock(score)} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-300 transition hover:border-emerald-400/40 hover:text-white"><Check size={15} /> قفل بدون تعديل</button></>}
+                      </div>}
+                    </article>
+                  );
+                })}
+              </div>}
+      </div>
+    </main>
+  );
 };
+
 export default AdminScoring;
