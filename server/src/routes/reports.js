@@ -59,7 +59,7 @@ const reportBodySchema = {
     content: zString('محتوى التقرير', { max: 100000 }).optional(),
     competitionId: zString('المسابقة', { min: 1, max: 100 }),
     fileName: zString('اسم الملف', { max: 255 }).optional(),
-    fileBase64: zString('الملف', { max: 10000000 }).optional(),
+    fileBase64: zString('الملف', { max: 100000000 }).optional(),
     mimeType: zString('نوع الملف', { max: 100, optional: true }),
     fileMime: zString('نوع الملف', { max: 100, optional: true }),
   },

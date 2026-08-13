@@ -48,13 +48,13 @@ app.use(pinoHttp({
 }));
 app.use(securityHeaders);
 app.use(cors(corsOptions));
-app.use(express.json({ limit: `${Number(process.env.JSON_BODY_LIMIT_BYTES) || 12 * 1024 * 1024}b`, strict: true }));
-app.use(express.urlencoded({ limit: `${Number(process.env.URLENCODED_BODY_LIMIT_BYTES) || 12 * 1024 * 1024}b`, extended: false, parameterLimit: 1000 }));
+app.use(express.json({ limit: `${Number(process.env.JSON_BODY_LIMIT_BYTES) || 75 * 1024 * 1024}b`, strict: true }));
+app.use(express.urlencoded({ limit: `${Number(process.env.URLENCODED_BODY_LIMIT_BYTES) || 75 * 1024 * 1024}b`, extended: false, parameterLimit: 1000 }));
 
 const io = new Server(server, {
   cors: corsOptions,
   transports: ['websocket', 'polling'],
-  maxHttpBufferSize: Number(process.env.SOCKET_MAX_BUFFER_BYTES) || 12 * 1024 * 1024,
+  maxHttpBufferSize: Number(process.env.SOCKET_MAX_BUFFER_BYTES) || 75 * 1024 * 1024,
 });
 io.use(authenticateSocket);
 

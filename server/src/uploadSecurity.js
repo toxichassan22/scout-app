@@ -1,7 +1,7 @@
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES) || 8 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES) || 50 * 1024 * 1024;
 export const UPLOAD_TYPES = Object.freeze({
     '.pdf': ['application/pdf'],
     '.txt': ['text/plain'],
