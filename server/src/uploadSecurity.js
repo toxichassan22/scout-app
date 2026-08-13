@@ -10,6 +10,9 @@ export const UPLOAD_TYPES = Object.freeze({
     '.png': ['image/png'],
     '.mp4': ['video/mp4'],
     '.zip': ['application/zip', 'application/x-zip-compressed'],
+    '.rar': ['application/x-rar-compressed', 'application/octet-stream'],
+    '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip', 'application/octet-stream'],
+    '.doc': ['application/msword', 'application/octet-stream'],
 });
 
 const MAGIC = {
@@ -18,25 +21,37 @@ const MAGIC = {
     '.jpg': buffer => buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])),
     '.jpeg': buffer => buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])),
     '.zip': buffer => buffer.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])),
+    '.docx': buffer => buffer.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])),
+    '.rar': buffer => buffer.subarray(0, 4).toString('ascii') === 'Rar!',
+    '.doc': () => true,
     '.mp4': buffer => buffer.length >= 12 && buffer.toString('ascii', 4, 8) === 'ftyp',
     '.txt': () => true,
 };
 
+function createValidationError(message) {
+    const err = new Error(message);
+    err.status = 400;
+    err.statusCode = 400;
+    return err;
+}
+
 export function validateBase64Upload(fileBase64, fileName, declaredMime) {
-    if (typeof fileBase64 !== 'string' || fileBase64.length === 0 || fileBase64.length > Math.ceil(MAX_UPLOAD_BYTES * 4 / 3) + 2048) throw new Error('ملف base64 غير صالح أو أكبر من الحد المسموح');
-    const dataUrl = fileBase64.match(/^data:([^;,\s]+);base64,([A-Za-z0-9+/\s]+)$/);
-    const mime = dataUrl?.[1] || declaredMime || '';
-    const raw = dataUrl?.[2] || fileBase64;
-    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(raw) || raw.length % 4 !== 0) throw new Error('ملف base64 تالف');
+    if (typeof fileBase64 !== 'string' || fileBase64.length === 0 || fileBase64.length > Math.ceil(MAX_UPLOAD_BYTES * 4 / 3) + 2048) {
+        throw createValidationError('ملف base64 غير صالح أو أكبر من الحد المسموح');
+    }
+    const dataUrlMatch = fileBase64.match(/^data:([^;,\s]+);base64,(.*)$/s);
+    const mime = dataUrlMatch?.[1] || declaredMime || '';
+    const rawInput = dataUrlMatch?.[2] || fileBase64;
+    const raw = rawInput.replace(/[\r\n\s]/g, '').replace(/-/g, '+').replace(/_/g, '/');
+
+    if (!raw) throw createValidationError('ملف base64 تالف');
 
     const ext = path.extname(String(fileName || '')).toLowerCase();
-    if (!UPLOAD_TYPES[ext]) throw new Error('امتداد الملف غير مسموح');
-    if (mime && UPLOAD_TYPES[ext] && !UPLOAD_TYPES[ext].includes(mime) && mime !== 'application/octet-stream') {
-        // Fallback for generic or custom MIME types emitted by some browsers/OSs
-    }
+    if (!UPLOAD_TYPES[ext]) throw createValidationError(`امتداد الملف (${ext || 'بدون امتداد'}) غير مسموح`);
+
     const buffer = Buffer.from(raw, 'base64');
-    if (!buffer.length || buffer.length > MAX_UPLOAD_BYTES) throw new Error('حجم الملف غير مسموح');
-    if (!MAGIC[ext](buffer)) throw new Error('محتوى الملف لا يطابق نوعه (تأكد من اختيار ملف صحيح)');
+    if (!buffer.length || buffer.length > MAX_UPLOAD_BYTES) throw createValidationError('حجم الملف غير مسموح');
+    if (MAGIC[ext] && !MAGIC[ext](buffer)) throw createValidationError('محتوى الملف لا يطابق نوعه (تأكد من اختيار ملف صحيح)');
     return { buffer, mime: UPLOAD_TYPES[ext]?.[0] || mime, ext };
 }
 
