@@ -11,20 +11,6 @@ const router = Router();
 let lastRun = null;
 let running = false;
 
-async function runFullBackup(log) {
-  running = true;
-  const startedAt = new Date().toISOString();
-  try {
-    const result = await generateFullBackup();
-    lastRun = { ...result, startedAt, finishedAt: new Date().toISOString() };
-  } catch (err) {
-    log?.error({ err }, 'background full backup failed');
-    lastRun = { success: false, error: err.message, startedAt, finishedAt: new Date().toISOString() };
-  } finally {
-    running = false;
-  }
-}
-
 // Admin Backup Trigger Endpoint
 router.post('/backup/github', async (req, res) => {
   try {
