@@ -59,6 +59,7 @@ fi
 # script; the drift check below is still what proves the schema is correct.
 printf '%s\n' 'Applying additive schema columns...'
 npm --prefix server run db:columns
+npm --prefix server run db:push:supabase || true
 
 # One-time official schedule import. The script records a version in SystemSetting
 # and will not overwrite later admin edits on subsequent deployments.

@@ -13,6 +13,7 @@
     "prisma:migrate": "prisma migrate deploy",
     "db:ready": "node scripts/sqlite-readiness.mjs",
     "db:backup": "node scripts/sqlite-backup.mjs",
+    "db:push:supabase": "node scripts/sync-supabase-schema.mjs",
     "backup:github:restore": "node scripts/restore-github-backup.mjs",
     "db:drift": "node scripts/prisma-drift-check.mjs",
     "db:columns": "node scripts/db-apply-safe-columns.mjs",
