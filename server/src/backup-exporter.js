@@ -85,9 +85,12 @@ export async function uploadToGoogleDrive(fileName, mimeType, fileBuffer, folder
     const headers = { 'Content-Type': 'application/json' };
     if (GDRIVE_BEARER) headers.Authorization = `Bearer ${GDRIVE_BEARER}`;
     if (GDRIVE_SIGNING_SECRET) headers['X-Webhook-Signature'] = crypto.createHmac('sha256', GDRIVE_SIGNING_SECRET).update(body).digest('hex');
-    const response = await fetch(GDRIVE_WEBHOOK_URL, { method: 'POST', headers, body });
-    if (!response.ok) throw new Error(`Drive webhook returned HTTP ${response.status}`);
-    return await response.json().catch(() => ({}));
+    const response = await fetch(GDRIVE_WEBHOOK_URL, { method: 'POST', headers, body, redirect: 'follow' });
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      throw new Error(`Drive webhook returned HTTP ${response.status}: ${errText.slice(0, 100)}`);
+    }
+    return await response.json().catch(() => ({ status: 'success' }));
   } catch (err) {
     console.error(`[Google Drive Error] Failed to upload ${fileName}:`, err.message);
     throw err;
