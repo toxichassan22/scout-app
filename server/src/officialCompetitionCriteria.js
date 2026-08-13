@@ -24,6 +24,28 @@ export const OFFICIAL_CRITERIA_BY_SLUG = {
   video_design: c([['participation', 'مشاركة', 5], ['quality', 'جودة', 5], ['editing', 'إخراج', 5], ['timing', 'توقيت', 5], ['likes', 'لايك', 5], ['comments', 'تعليق', 5], ['views', 'مشاهدة', 5]]),
 };
 
+// Older seeded competitions use shorter slugs. Keep them tied to the same
+// official distributions instead of falling back to questionCount (often 100).
+Object.assign(OFFICIAL_CRITERIA_BY_SLUG, {
+  quran: OFFICIAL_CRITERIA_BY_SLUG.report_quran,
+  hadith: OFFICIAL_CRITERIA_BY_SLUG.report_hadith,
+  worksheet: OFFICIAL_CRITERIA_BY_SLUG.report_prophets,
+  campfire: OFFICIAL_CRITERIA_BY_SLUG.report_campfire,
+  music: OFFICIAL_CRITERIA_BY_SLUG.report_campfire,
+  poster: OFFICIAL_CRITERIA_BY_SLUG.report_poster,
+  exhibition: OFFICIAL_CRITERIA_BY_SLUG.report_exhibition,
+  art_workshop: OFFICIAL_CRITERIA_BY_SLUG.report_art_workshop,
+  knots: OFFICIAL_CRITERIA_BY_SLUG.report_knots,
+  scout_model: OFFICIAL_CRITERIA_BY_SLUG.report_scout_model,
+  innovation: OFFICIAL_CRITERIA_BY_SLUG.report_science_ideas,
+  model_presentation: OFFICIAL_CRITERIA_BY_SLUG.report_model_presentation,
+  magazine: OFFICIAL_CRITERIA_BY_SLUG.report_scout_magazine,
+  detector: OFFICIAL_CRITERIA_BY_SLUG.report_smart_detector,
+  carnival: OFFICIAL_CRITERIA_BY_SLUG.report_carnival,
+  comedy: OFFICIAL_CRITERIA_BY_SLUG.report_reels,
+  closing_night: OFFICIAL_CRITERIA_BY_SLUG.report_closing_night,
+});
+
 export function getOfficialCriteria(competition) {
   const slug = String(competition?.slug || '');
   return OFFICIAL_CRITERIA_BY_SLUG[slug]

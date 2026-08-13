@@ -30,6 +30,7 @@ const getMaxScore = competition => {
       }, 0);
     }
   } catch {}
+  if (competition.type === 'manual_judged') return 0;
   const questionCount = Number(competition.questionCount);
   return Number.isFinite(questionCount) && questionCount > 0 ? questionCount : 0;
 };
