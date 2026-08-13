@@ -51,6 +51,16 @@ const ScoreCard = ({ score, editing, total, values, saving, onBegin, onSave, onC
   const maxScore = getMaxScore(score.competition);
   const exceedsLimit = !score.isVirtual && Number(score.total) > maxScore;
 
+  const judgesList = score.judgeScores?.length
+    ? score.judgeScores
+        .map(js => {
+          const name = js.judge?.name || 'محكّم';
+          const username = js.judge?.username ? ` (@${js.judge.username})` : '';
+          return `${name}${username}`;
+        })
+        .join('، ')
+    : null;
+
   if (score.isVirtual) {
     return (
       <article className="rounded-2xl border border-dashed border-slate-700/70 bg-slate-950/35 p-4">
@@ -70,85 +80,53 @@ const ScoreCard = ({ score, editing, total, values, saving, onBegin, onSave, onC
 
   return (
     <article className={`overflow-hidden rounded-2xl border bg-slate-900/70 transition ${isEditing ? 'border-cyan-400/50 shadow-lg shadow-cyan-950/20' : 'border-white/10 hover:border-white/20'}`}>
-      <div className="flex flex-col gap-3 border-b border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="truncate text-sm font-black text-white">{score.competition?.name || 'مسابقة غير محددة'}</p>
-          <span className={`mt-1 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black ${score.isFinal ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200' : 'border-amber-400/30 bg-amber-400/10 text-amber-200'}`}>
-            {score.isFinal ? <Lock size={12} /> : <Unlock size={12} />}
-            {score.isFinal ? 'نهائي مقفل' : 'مفتوح للتعديل'}
-          </span>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-black ${score.isFinal ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200' : 'border-amber-400/30 bg-amber-400/10 text-amber-200'}`}>
+              {score.isFinal ? <Lock size={12} /> : <Unlock size={12} />}
+              {score.isFinal ? 'نهائي مقفل' : 'مفتوح للتعديل'}
+            </span>
+            {judgesList ? (
+              <span className="font-bold text-sky-300">
+                المحكّم: <strong className="text-white">{judgesList}</strong>
+              </span>
+            ) : (
+              <span className="text-[11px] text-slate-500">المحكّم: لم يُسجّل بعد</span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-3 sm:justify-end">
-          <div className="rounded-xl bg-slate-950 px-3 py-2 text-center">
+          <div className="rounded-xl bg-slate-950 px-4 py-2 text-center">
             <strong className={`block text-xl font-black leading-none ${exceedsLimit ? 'text-red-300' : 'text-emerald-300'}`}>{score.total}</strong>
             <span className="mt-1 block text-[10px] font-bold text-slate-500">من {maxScore}</span>
           </div>
-          {exceedsLimit && <span className="rounded-full border border-red-400/30 bg-red-400/10 px-2.5 py-1 text-[10px] font-black text-red-200">تجاوز الحد القديم</span>}
-          <div className="text-[11px] font-bold text-slate-500">{score.judgeScores?.length || 0} محكّم</div>
+          {exceedsLimit && <span className="rounded-full border border-red-400/30 bg-red-400/10 px-2.5 py-1 text-[10px] font-black text-red-200">تجاوز الحد</span>}
         </div>
       </div>
 
-      <div className="grid gap-3 p-4 lg:grid-cols-[1.1fr_.9fr]">
-        <section className="rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-xs font-black text-slate-200">تفاصيل التحكيم</h3>
-            <span className="text-[10px] font-bold text-slate-400">القيم المسجلة</span>
+      {isEditing ? (
+        <form className="mx-4 mb-4 rounded-xl border border-cyan-400/25 bg-cyan-950/15 p-4" onSubmit={event => { event.preventDefault(); onSave(score); }}>
+          <div className="mb-3">
+            <h3 className="font-black text-white">تعديل الدرجة</h3>
+            <p className="mt-1 text-[11px] text-slate-500">الحد الأقصى للمسابقة: {maxScore} نقطة.</p>
           </div>
-          {score.judgeScores?.length ? <div className="max-h-48 space-y-2.5 overflow-y-auto pr-1">
-            {score.judgeScores.map(judgeScore => (
-              <div key={judgeScore.id} className="rounded-xl border border-white/10 bg-slate-900/80 p-3">
-                <div className="flex items-center justify-between gap-3 text-xs">
-                  <span className="font-black text-sky-300">{judgeScore.judge?.name || 'محكّم'}</span>
-                  <strong className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-black text-emerald-300">{judgeScore.total} نقطة</strong>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {Object.entries(json(judgeScore.values)).map(([key, value]) => <span key={key} className="rounded-lg border border-slate-700/60 bg-slate-950/60 px-2.5 py-1 text-[11px] font-bold text-slate-300">{key}: <strong className="text-amber-300">{value}</strong></span>)}
-                </div>
-              </div>
-            ))}
-          </div> : <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/40 p-4 text-center text-xs font-bold text-slate-500">لا توجد تفاصيل محكمين مسجّلة لهذه النتيجة</div>}
-        </section>
-
-        <section className="rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-xs font-black text-slate-200">سجل التغييرات</h3>
-            <ShieldCheck size={16} className="text-violet-400" />
+          <label className="block text-xs font-black text-slate-300">الدرجة النهائية
+            <input type="number" step="0.5" min="0" max={maxScore} className="ai-input mt-1 w-full text-lg font-black" value={total} onChange={event => onTotalChange(event.target.value)} autoFocus />
+          </label>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-black text-slate-950 transition hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-60"><Save size={15} />{saving ? 'جاري الحفظ...' : 'حفظ الدرجة'}</button>
+            <button type="button" onClick={onCancel} disabled={saving} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-300 transition hover:border-slate-500 hover:text-white"><X size={15} /> إلغاء</button>
           </div>
-          {score.audits?.length ? <div className="max-h-48 space-y-2.5 overflow-y-auto pr-1">
-            {score.audits.map(audit => (
-              <div key={audit.id} className="rounded-xl border border-violet-500/20 bg-slate-900/90 p-3 text-xs leading-normal">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-black text-violet-300">{auditLabels[audit.action] || audit.action}</span>
-                  <span className="font-mono text-[11px] font-bold text-slate-400">{formatDate(audit.createdAt)}</span>
-                </div>
-                {audit.reason && <p className="mt-1.5 text-[11px] font-bold text-slate-400">{audit.reason}</p>}
-              </div>
-            ))}
-          </div> : <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/40 p-4 text-center text-xs font-bold text-slate-500">لا توجد تغييرات مسجّلة بعد</div>}
-        </section>
-      </div>
-
-      {isEditing ? <form className="mx-4 mb-4 rounded-xl border border-cyan-400/25 bg-cyan-950/15 p-4" onSubmit={event => { event.preventDefault(); onSave(score); }}>
-        <div className="mb-3">
-          <h3 className="font-black text-white">تعديل الدرجة</h3>
-          <p className="mt-1 text-[11px] text-slate-500">الحد الأقصى ثابت حسب بنود المسابقة: {maxScore} نقطة. القفل والفتح قراران منفصلان.</p>
+        </form>
+      ) : (
+        <div className="flex flex-wrap gap-2 border-t border-white/10 px-4 py-3">
+          <button type="button" onClick={() => onBegin(score)} className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-black text-slate-950 transition hover:bg-cyan-400"><Edit3 size={15} /> تعديل الدرجة</button>
+          {score.isFinal ? <button type="button" onClick={() => onUnlock(score)} className="inline-flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-xs font-black text-amber-200 transition hover:bg-amber-400/20"><Unlock size={15} /> فتح التعديل</button>
+            : <button type="button" onClick={() => onLock(score)} className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2.5 text-xs font-black text-emerald-200 transition hover:bg-emerald-400/20"><Lock size={15} /> قفل التعديل</button>}
         </div>
-        <label className="block text-xs font-black text-slate-300">الدرجة النهائية
-          <input type="number" step="0.5" min="0" max={maxScore} className="ai-input mt-1 w-full text-lg font-black" value={total} onChange={event => onTotalChange(event.target.value)} autoFocus />
-        </label>
-        <details className="mt-3 rounded-xl border border-white/10 bg-slate-950/40 p-3">
-          <summary className="cursor-pointer list-none text-xs font-bold text-slate-400">تعديل تفاصيل المعايير <span className="text-[10px] text-slate-600">(اختياري)</span></summary>
-          <textarea dir="ltr" className="ai-input mt-3 min-h-24 w-full resize-y text-left font-mono text-xs" value={values} onChange={event => onValuesChange(event.target.value)} aria-label="تفاصيل المعايير بصيغة JSON" />
-        </details>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-black text-slate-950 transition hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-60"><Save size={15} />{saving ? 'جاري الحفظ...' : 'حفظ الدرجة'}</button>
-          <button type="button" onClick={onCancel} disabled={saving} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-300 transition hover:border-slate-500 hover:text-white"><X size={15} /> إلغاء</button>
-        </div>
-      </form> : <div className="flex flex-wrap gap-2 border-t border-white/10 px-4 py-3">
-        <button type="button" onClick={() => onBegin(score)} className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-black text-slate-950 transition hover:bg-cyan-400"><Edit3 size={15} /> تعديل الدرجة</button>
-        {score.isFinal ? <button type="button" onClick={() => onUnlock(score)} className="inline-flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-xs font-black text-amber-200 transition hover:bg-amber-400/20"><Unlock size={15} /> فتح التعديل</button>
-          : <button type="button" onClick={() => onLock(score)} className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2.5 text-xs font-black text-emerald-200 transition hover:bg-emerald-400/20"><Lock size={15} /> قفل التعديل</button>}
-      </div>}
+      )}
     </article>
   );
 };
