@@ -5,42 +5,66 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { Navbar } from './components/Navbar';
 import { LoadingFallback } from './components/LoadingFallback';
 
+// Seamlessly reload on stale chunk hashes during new deployments
+function lazyWithRetry(factory) {
+  return lazy(async () => {
+    try {
+      return await factory();
+    } catch (err) {
+      const msg = String(err?.message || '');
+      if (
+        msg.includes('dynamically imported module') ||
+        msg.includes('Failed to fetch') ||
+        msg.includes('Loading chunk')
+      ) {
+        const lastReload = Number(sessionStorage.getItem('dsc_lazy_reload_at') || 0);
+        if (Date.now() - lastReload > 10000) {
+          sessionStorage.setItem('dsc_lazy_reload_at', String(Date.now()));
+          window.location.reload();
+          return new Promise(() => {}); // Wait for reload
+        }
+      }
+      throw err;
+    }
+  });
+}
+
 // Public Pages (lazy)
-const Landing = lazy(() => import('./pages/Landing'));
-const Contact = lazy(() => import('./pages/Contact'));
-const Support = lazy(() => import('./pages/Support'));
+const Landing = lazyWithRetry(() => import('./pages/Landing'));
+const Contact = lazyWithRetry(() => import('./pages/Contact'));
+const Support = lazyWithRetry(() => import('./pages/Support'));
 
 // Team Pages (lazy)
-const Login = lazy(() => import('./pages/Login'));
-const Home = lazy(() => import('./pages/Home'));
-const Activities = lazy(() => import('./pages/Activities'));
-const Program = lazy(() => import('./pages/Program'));
-const UploadReport = lazy(() => import('./pages/UploadReport'));
-const News = lazy(() => import('./pages/News'));
-const Profile = lazy(() => import('./pages/Profile'));
-const CompetitionEntry = lazy(() => import('./pages/CompetitionEntry'));
-const CompetitionPlay = lazy(() => import('./pages/CompetitionPlay'));
-const GuessTheNumber = lazy(() => import('./pages/activities/GuessTheNumber'));
-const EasterEgg = lazy(() => import('./pages/activities/EasterEgg'));
+const Login = lazyWithRetry(() => import('./pages/Login'));
+const Home = lazyWithRetry(() => import('./pages/Home'));
+const Activities = lazyWithRetry(() => import('./pages/Activities'));
+const Program = lazyWithRetry(() => import('./pages/Program'));
+const UploadReport = lazyWithRetry(() => import('./pages/UploadReport'));
+const News = lazyWithRetry(() => import('./pages/News'));
+const Profile = lazyWithRetry(() => import('./pages/Profile'));
+const CompetitionEntry = lazyWithRetry(() => import('./pages/CompetitionEntry'));
+const CompetitionPlay = lazyWithRetry(() => import('./pages/CompetitionPlay'));
+const GuessTheNumber = lazyWithRetry(() => import('./pages/activities/GuessTheNumber'));
+const EasterEgg = lazyWithRetry(() => import('./pages/activities/EasterEgg'));
 
 // Judge Pages (lazy)
-const JudgeLogin = lazy(() => import('./pages/judge/JudgeLogin'));
-const PasscodeGate = lazy(() => import('./pages/judge/PasscodeGate'));
-const JudgingSheet = lazy(() => import('./pages/judge/JudgingSheet'));
+const JudgeLogin = lazyWithRetry(() => import('./pages/judge/JudgeLogin'));
+const PasscodeGate = lazyWithRetry(() => import('./pages/judge/PasscodeGate'));
+const JudgingSheet = lazyWithRetry(() => import('./pages/judge/JudgingSheet'));
 
 // Admin Pages (lazy)
-const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
-const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
-const AdminCompetitions = lazy(() => import('./pages/admin/Competitions'));
-const AdminNews = lazy(() => import('./pages/admin/News'));
-const AdminTeams = lazy(() => import('./pages/admin/Teams'));
-const AdminJudges = lazy(() => import('./pages/admin/AdminJudges'));
-const AdminScoring = lazy(() => import('./pages/admin/AdminScoring'));
-const AdminReports = lazy(() => import('./pages/admin/AdminReports'));
-const AdminAgenda = lazy(() => import('./pages/admin/Agenda'));
-const AdminStressTest = lazy(() => import('./pages/admin/StressTest'));
-const AdminActivitySetup = lazy(() => import('./pages/admin/ActivitySetup'));
-const AdminLeaderboard = lazy(() => import('./pages/admin/Leaderboard'));
+const AdminLogin = lazyWithRetry(() => import('./pages/admin/AdminLogin'));
+const AdminDashboard = lazyWithRetry(() => import('./pages/admin/Dashboard'));
+const AdminCompetitions = lazyWithRetry(() => import('./pages/admin/Competitions'));
+const AdminNews = lazyWithRetry(() => import('./pages/admin/News'));
+const AdminTeams = lazyWithRetry(() => import('./pages/admin/Teams'));
+const AdminJudges = lazyWithRetry(() => import('./pages/admin/AdminJudges'));
+const AdminScoring = lazyWithRetry(() => import('./pages/admin/AdminScoring'));
+const AdminReports = lazyWithRetry(() => import('./pages/admin/AdminReports'));
+const AdminAgenda = lazyWithRetry(() => import('./pages/admin/Agenda'));
+const AdminStressTest = lazyWithRetry(() => import('./pages/admin/StressTest'));
+const AdminActivitySetup = lazyWithRetry(() => import('./pages/admin/ActivitySetup'));
+const AdminLeaderboard = lazyWithRetry(() => import('./pages/admin/Leaderboard'));
 
 import { TopHeader } from './components/TopHeader';
 import { ScoutMascotToy } from './components/ScoutMascotToy';

@@ -13,6 +13,21 @@ export class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     console.error('⚠️ [ErrorBoundary caught exception]:', error, errorInfo);
     this.setState({ errorInfo });
+
+    const msg = String(error?.message || '');
+    if (
+      msg.includes('dynamically imported module') ||
+      msg.includes('Failed to fetch dynamically imported module') ||
+      msg.includes('Importing a module script failed') ||
+      msg.includes('Loading chunk')
+    ) {
+      const lastReload = Number(sessionStorage.getItem('dsc_chunk_reload_at') || 0);
+      if (Date.now() - lastReload > 10000) {
+        console.warn('[ErrorBoundary] Auto-refreshing stale dynamic import chunk...');
+        sessionStorage.setItem('dsc_chunk_reload_at', String(Date.now()));
+        window.location.reload();
+      }
+    }
   }
 
   handleReload = () => {

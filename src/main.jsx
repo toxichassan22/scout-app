@@ -9,6 +9,16 @@ import { ThemeProvider } from './context/ThemeContext';
 import { SocketProvider } from './context/SocketContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
+// Handle Vite dynamic chunk loading errors on new deployments
+window.addEventListener('vite:preloadError', (event) => {
+  console.warn('[Vite] Chunk preload error detected (new deployment), refreshing page...');
+  const lastReload = Number(sessionStorage.getItem('dsc_vite_preload_reload') || 0);
+  if (Date.now() - lastReload > 10000) {
+    sessionStorage.setItem('dsc_vite_preload_reload', String(Date.now()));
+    window.location.reload();
+  }
+});
+
 // Keep the UI bundle current without interrupting an active form edit.
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', async () => {
