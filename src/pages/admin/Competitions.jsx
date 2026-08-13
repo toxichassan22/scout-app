@@ -157,7 +157,7 @@ const AdminCompetitions = () => {
               <button type="button" onClick={() => window.print()} className="btn-primary flex items-center gap-2 !px-4 !py-2 text-xs"><Printer size={16} /> طباعة الآن</button>
             </div>
             <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3">
-              {competitions.filter(c => c.type !== 'schedule_only').map(comp => {
+              {competitions.filter(c => c.requiresQr || ['genius', 'geography', 'two_truths'].includes(c.slug)).map(comp => {
                 const qrValue = comp.qrCode || `scout-qr-${comp.slug || comp.id}`;
                 return (
                   <div key={comp.id} className="flex flex-col items-center justify-between rounded-2xl border border-slate-700 bg-white p-5 text-center text-slate-900 shadow-md print:border-slate-300">
