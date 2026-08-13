@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../../db.js';
-import { boundedString, strongPassword } from '../../validation.js';
+import { boundedString } from '../../validation.js';
 import { validate, zString, zId } from '../../middleware/validate.js';
 import { parsePagination, paginatedResponse } from '../../pagination.js';
 
