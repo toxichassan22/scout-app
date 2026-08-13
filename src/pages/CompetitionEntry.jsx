@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { CheckCircle, Clock3, LockKeyhole, QrCode, ScanLine } from 'lucide-react';
 import { motion } from 'framer-motion';
 import QRScanner from '../components/QRScanner';
-import { scanCompetition, startQuizSession } from '../services/api';
+import { enterCompetition, scanCompetition } from '../services/api';
 import { useSocket } from '../context/SocketContext';
 
 function extractQrValue(rawValue) {
@@ -67,7 +67,7 @@ const CompetitionEntry = () => {
   const start = async () => {
     setError('');
     try {
-      const result = await startQuizSession(competition.slug);
+      const result = await enterCompetition(competition.slug);
       if (result.finalized || result.completed) {
         setCompetition(prev => ({ ...prev, completed: true, scoreHidden: true }));
         return;
