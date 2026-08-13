@@ -113,9 +113,6 @@ async function finalizeDigitalSessionTx(tx, sessionId, teamId, deviceId) {
   if (teamId && session.teamId !== teamId) throw Object.assign(new Error('جلسة المسابقة غير موجودة'), { status: 404 });
   if (deviceId && session.deviceId !== deviceId) throw Object.assign(new Error('الجهاز لا يطابق جلسة المسابقة'), { status: 403 });
 
-  const existing = await tx.score.findUnique({ where: { competitionId_teamId: { competitionId: session.competitionId, teamId: session.teamId } } });
-  if (existing) return { totalScore: existing.total, score: existing, idempotent: true };
-
   const order = parseOrder(session.questionOrder);
   const attemptedCount = session.draftAnswers.length;
   const correctCount = session.draftAnswers.filter(answer => answer.isCorrect).length;
@@ -123,8 +120,19 @@ async function finalizeDigitalSessionTx(tx, sessionId, teamId, deviceId) {
   const completedAll = questionCount > 0 && attemptedCount >= questionCount;
   const completedAt = session.completedAt || new Date();
   const totalScore = session.draftAnswers.reduce((sum, answer) => sum + Number(answer.pointsEarned || 0), 0);
-  const score = await tx.score.create({
-    data: {
+  const score = await tx.score.upsert({
+    where: { competitionId_teamId: { competitionId: session.competitionId, teamId: session.teamId } },
+    update: {
+      total: totalScore,
+      attemptedCount,
+      correctCount,
+      questionCount,
+      completedAll,
+      submittedAt: completedAt,
+      values: JSON.stringify({ mode: 'quiz_session', sessionId, attemptedCount, correctCount, questionCount, completedAll }),
+      isFinal: true,
+    },
+    create: {
       competitionId: session.competitionId,
       teamId: session.teamId,
       total: totalScore,
@@ -171,7 +179,7 @@ export async function startDigitalSession({ teamId, competitionId, deviceId, ent
     if (competition.entryCode && competition.entryCode !== String(entryCode || '').trim()) throw Object.assign(new Error('كود الدخول غير صحيح'), { status: 403 });
 
     const score = await tx.score.findUnique({ where: { competitionId_teamId: { competitionId: competition.id, teamId } } });
-    if (score) return { kind: 'finalized', session: null, score, finalized: true };
+    if (score && score.completedAll) return { kind: 'finalized', session: null, score, finalized: true };
 
     const existing = await tx.quizSession.findUnique({ where: { teamId_competitionId: { teamId, competitionId: competition.id } }, include: { draftAnswers: true } });
     if (existing) {
@@ -225,9 +233,55 @@ export async function saveDigitalAnswer({ sessionId, teamId, deviceId, questionI
 
     const correct = question.correctOption === selectedIndex;
     const now = new Date();
-    const answer = await tx.draftAnswer.create({ data: { sessionId, questionId, selectedIndex, isCorrect: correct, pointsEarned: correct ? question.points : 0, savedAt: now } });
-    await tx.quizSession.update({ where: { id: sessionId }, data: { attemptedCount: { increment: 1 }, correctCount: { increment: correct ? 1 : 0 }, lastAnswerAt: now } });
-    return { ...answer, correct };
+    const pointsEarned = correct ? Number(question.points || 1) : 0;
+    const answer = await tx.draftAnswer.create({ data: { sessionId, questionId, selectedIndex, isCorrect: correct, pointsEarned, savedAt: now } });
+
+    const allAnswers = [...session.draftAnswers, answer];
+    const attemptedCount = allAnswers.length;
+    const correctCount = allAnswers.filter(a => a.isCorrect).length;
+    const totalScore = allAnswers.reduce((sum, a) => sum + Number(a.pointsEarned || 0), 0);
+    const questionCount = order.length;
+    const completedAll = questionCount > 0 && attemptedCount >= questionCount;
+
+    await tx.quizSession.update({
+      where: { id: sessionId },
+      data: {
+        attemptedCount,
+        correctCount,
+        lastAnswerAt: now,
+        ...(completedAll && { isCompleted: true, completedAt: now }),
+      },
+    });
+
+    const score = await tx.score.upsert({
+      where: { competitionId_teamId: { competitionId: session.competitionId, teamId: session.teamId } },
+      update: {
+        total: totalScore,
+        attemptedCount,
+        correctCount,
+        questionCount,
+        completedAll,
+        submittedAt: now,
+        values: JSON.stringify({ mode: 'quiz_session', sessionId, attemptedCount, correctCount, questionCount, completedAll }),
+        isFinal: true,
+      },
+      create: {
+        competitionId: session.competitionId,
+        teamId: session.teamId,
+        total: totalScore,
+        attemptedCount,
+        correctCount,
+        questionCount,
+        completedAll,
+        submittedAt: now,
+        values: JSON.stringify({ mode: 'quiz_session', sessionId, attemptedCount, correctCount, questionCount, completedAll }),
+        isFinal: true,
+      },
+    });
+
+    await recalculateTeamStanding(session.teamId, tx);
+
+    return { ...answer, correct, totalScore, score };
   });
 }
 
