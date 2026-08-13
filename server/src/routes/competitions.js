@@ -113,7 +113,16 @@ router.post('/:idOrSlug/scan', authenticateToken, requireRole(['team']), validat
     const competition = await prisma.competition.findFirst({ where: { OR: [{ id: req.params.idOrSlug }, { slug: req.params.idOrSlug }] } });
     if (!competition) return res.status(404).json({ error: 'المسابقة غير موجودة' });
     if (competition.type === 'schedule_only') return res.status(400).json({ error: 'هذه فعالية زمنية وليست مسابقة دخول' });
-    if (competition.requiresQr && String(req.body.qrCode).trim() !== String(competition.qrCode || '').trim()) return res.status(403).json({ error: 'QR غير تابع لهذه المسابقة' });
+    const expectedQr = String(competition.qrCode || `scout-qr-${competition.slug}`).trim();
+    let scannedQr = String(req.body.qrCode || '').trim();
+    try {
+      const parsedUrl = new URL(scannedQr);
+      scannedQr = parsedUrl.searchParams.get('qr') || parsedUrl.searchParams.get('code') || scannedQr;
+    } catch {}
+
+    if (scannedQr !== expectedQr && scannedQr !== competition.slug) {
+      return res.status(403).json({ error: 'رمز الـ QR الممسوح غير تابع لهذه المسابقة' });
+    }
     await prisma.competitionAccess.upsert({
       where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } },
       create: { teamId: req.user.id, competitionId: competition.id },

@@ -49,11 +49,45 @@ prisma.$transaction = async function withRetry(arg, options) {
   }
 };
 
+async function ensureCompetitionColumns(client) {
+  try {
+    const columns = await client.$queryRawUnsafe('PRAGMA table_info(Competition);');
+    const columnNames = new Set(columns.map(c => c.name));
+
+    if (!columnNames.has('requiresQr')) {
+      await client.$queryRawUnsafe('ALTER TABLE Competition ADD COLUMN requiresQr BOOLEAN NOT NULL DEFAULT 1;');
+    }
+    if (!columnNames.has('qrCode')) {
+      await client.$queryRawUnsafe('ALTER TABLE Competition ADD COLUMN qrCode TEXT;');
+    }
+    if (!columnNames.has('startsAt')) {
+      await client.$queryRawUnsafe('ALTER TABLE Competition ADD COLUMN startsAt DATETIME;');
+    }
+    if (!columnNames.has('endsAt')) {
+      await client.$queryRawUnsafe('ALTER TABLE Competition ADD COLUMN endsAt DATETIME;');
+    }
+    if (!columnNames.has('passcode')) {
+      await client.$queryRawUnsafe('ALTER TABLE Competition ADD COLUMN passcode TEXT;');
+    }
+    if (!columnNames.has('entryCode')) {
+      await client.$queryRawUnsafe('ALTER TABLE Competition ADD COLUMN entryCode TEXT;');
+    }
+
+    await client.$queryRawUnsafe("UPDATE Competition SET requiresQr = 1 WHERE type = 'auto_digital';");
+    await client.$queryRawUnsafe("UPDATE Competition SET qrCode = 'scout-qr-geography' WHERE slug = 'geography' AND (qrCode IS NULL OR qrCode = '');");
+    await client.$queryRawUnsafe("UPDATE Competition SET qrCode = 'scout-qr-genius' WHERE slug = 'genius' AND (qrCode IS NULL OR qrCode = '');");
+    await client.$queryRawUnsafe("UPDATE Competition SET qrCode = 'scout-qr-two-truths' WHERE slug = 'two_truths' AND (qrCode IS NULL OR qrCode = '');");
+  } catch (err) {
+    logger.warn({ err }, 'failed to auto-migrate Competition columns');
+  }
+}
+
 export async function initDatabase(client = prisma) {
   await client.$queryRawUnsafe('PRAGMA journal_mode=WAL;');
   await client.$queryRawUnsafe('PRAGMA foreign_keys=ON;');
   await client.$queryRawUnsafe('PRAGMA busy_timeout=30000;');
   await client.$queryRawUnsafe('PRAGMA synchronous=NORMAL;');
+  await ensureCompetitionColumns(client);
   await client.$queryRaw`SELECT 1`;
   await client.team.findFirst({ select: { id: true } });
   logger.info('SQLite connected and validated (WAL, foreign keys, busy timeout, synchronous=NORMAL)');
