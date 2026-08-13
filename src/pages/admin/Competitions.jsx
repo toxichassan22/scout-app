@@ -111,11 +111,14 @@ const AdminCompetitions = () => {
 
   const toggle = async id => {
     const draft = drafts[id];
+    const newIsOpen = !draft.isOpen;
+    field(id, 'isOpen', newIsOpen);
     setBusy(`${id}:toggle`);
     try {
-      await updateCompetition(id, { isOpen: !draft.isOpen });
+      await updateCompetition(id, { isOpen: newIsOpen });
       await load();
     } catch (toggleError) {
+      field(id, 'isOpen', draft.isOpen);
       alert(toggleError.message || 'تعذر تغيير حالة المسابقة');
     } finally {
       setBusy('');
