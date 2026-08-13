@@ -35,7 +35,7 @@ const Countdown = ({ targetDate }) => {
   if (time.done) {
     return (
       <div className="inline-flex items-center gap-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 px-6 py-3 text-base font-black text-amber-400 shadow-glow-amber animate-pulse">
-        ⚡ انطلقت المسابقات الكشفية رسميًا بالأرض!
+        انطلفت المسابقه الكشفيه رسميا في الارض ⚡!
       </div>
     );
   }

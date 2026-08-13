@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>توزيع درجات مسابقات المهرجان</title>
+  <style>
+    :root { color-scheme: light; font-family: Tahoma, Arial, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f1f5f9; color: #172033; }
+    .page { width: min(1120px, calc(100% - 32px)); margin: 28px auto 60px; }
+    header { background: #102d2a; color: #fff; padding: 28px; border-radius: 18px; }
+    h1 { margin: 0; font-size: clamp(24px, 4vw, 34px); }
+    header p { margin: 10px 0 0; color: #d6eee6; line-height: 1.7; }
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0; }
+    button { border: 0; cursor: pointer; border-radius: 9px; padding: 11px 16px; font: inherit; font-weight: 700; }
+    .print { background: #0f766e; color: #fff; }
+    .clear { background: #fff; border: 1px solid #cbd5e1; color: #334155; }
+    .field { margin-top: 24px; page-break-inside: avoid; }
+    .field-title { margin: 0; padding: 12px 16px; background: #d9f2ea; border: 1px solid #94d4c2; color: #075e54; font-size: 21px; border-radius: 12px 12px 0 0; }
+    .competition { background: #fff; border: 1px solid #d7e0ea; border-top: 0; padding: 18px; break-inside: avoid; }
+    .competition:last-child { border-radius: 0 0 12px 12px; }
+    .competition + .competition { border-top: 1px solid #d7e0ea; }
+    .competition-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 13px; }
+    h3 { margin: 0; font-size: 18px; }
+    .total { display: flex; align-items: center; gap: 8px; font-weight: 700; white-space: nowrap; }
+    output { min-width: 54px; text-align: center; padding: 7px 10px; border-radius: 8px; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 9px 11px; border: 1px solid #dbe3eb; text-align: right; }
+    th { background: #f8fafc; color: #475569; font-size: 13px; }
+    td:first-child { width: 70px; text-align: center; color: #64748b; }
+    td:last-child { width: 135px; }
+    input { width: 100%; border: 1px solid #94a3b8; border-radius: 7px; padding: 7px; font: inherit; text-align: center; }
+    .note { margin-top: 24px; padding: 16px; background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px; color: #7c2d12; line-height: 1.8; }
+    @media print {
+      @page { size: A4; margin: 12mm; }
+      body { background: #fff; }
+      .page { width: 100%; margin: 0; }
+      .toolbar { display: none; }
+      header { padding: 16px; border-radius: 0; }
+      .field { margin-top: 14px; }
+      .competition { padding: 12px; }
+      input { border-color: #64748b; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>نموذج توزيع درجات مسابقات المهرجان</h1>
+      <p>اكتب درجة كل بند، وسيتم حساب إجمالي كل مسابقة تلقائيًا. بعد الإكمال اختر «حفظ PDF / طباعة» من المتصفح.</p>
+    </header>
+    <div class="toolbar">
+      <button class="print" onclick="window.print()">حفظ PDF / طباعة</button>
+      <button class="clear" onclick="clearScores()">مسح كل الدرجات</button>
+    </div>
+    <section id="content"></section>
+    <p class="note">ملاحظة: لم أضع أي توزيع افتراضي للدرجات. أنت تحدد درجة كل بند، والإجمالي الظاهر هو مجموع البنود فقط.</p>
+  </main>
+  <script>
+    const fields = [
+      ['المجال الديني', [
+        ['سورة الكهف', ['مشاركة', 'تقرير', 'زي', 'توقيت الحضور', 'حفظ', 'تجويد', 'ترتيل', 'صحة القيم']],
+        ['5 أحاديث', ['مشاركة', 'تقرير', 'زي', 'توقيت حضور', 'عدد أحاديث', 'حفظ', 'سند وتوثيق', 'توافق الشروط']],
+        ['ورقة العمل', ['مشاركة', 'تقرير', 'زي', 'توقيت حضور', 'توقيت عرض', 'تحقيق الغرض', 'محتوى', 'شروط الورقة']],
+        ['دولة التلاوة', ['مشاركة', 'تقرير', 'زي', 'توقيت حضور', 'حفظ', 'تجويد', 'ترتيل', 'مدة التلاوة']],
+      ]],
+      ['المجال الفني', [
+        ['السمر', ['مشاركة', 'تقرير', 'زي', 'توقيت', 'تقاليد', 'أداء صوتي جماعي', 'أداء حركي جماعي', 'إمتاع', 'إضافات']],
+        ['الملصق', ['مشاركة', 'تقرير', 'زي', 'توقيت', 'شروط', 'إخراج', 'وضوح الفكرة', 'إضافات']],
+        ['المعرض', ['مشاركة', 'زي', 'تقرير', 'عدد أركان', 'عدد القطع', 'ركني الفني والبيئي', 'تميز العارض', 'الشكل العام', 'جودة القطع', 'إضافات']],
+        ['الورشة الفنية', ['مشاركة', 'عدد (2 فرد)', 'زي', 'تقرير', 'توقيت حضور', 'توقيت الورشة', 'استخدام', 'شرط الابتكار', 'إخراج وجودة', 'إضافات']],
+        ['القطعة الفنية', ['توقيت التسليم', 'شرط إنتاج', 'جودة وإخراج', 'استخدام', 'إضافات وتميز']],
+      ]],
+      ['المجال الثقافي', [
+        ['المحقق الذكي', ['صحة إجابة', 'مشاركة', 'توقيت']],
+        ['الفيديو', ['مشاركة', 'زي', 'تقرير', 'توقيت حضور', 'توقيت الفيديو', 'إخراج', 'وضوح الفكرة']],
+        ['من سيربح الكود', ['مشاركة', 'توقيت', 'صحة إجابات']],
+        ['مسابقة رحال العالم الذكي', ['مشاركة', 'توقيت', 'صحة إجابات']],
+        ['الكرنفال', ['مشاركة', 'تقرير', 'توقيت', 'شرط المحافظة', 'أكلة مشهورة', 'صحة التراث', 'زي المحافظة', 'أغنية المهرجان', 'أداء جماعي', 'إمتاع', 'إضافات']],
+      ]],
+      ['المجال الكشفي', [
+        ['المجلة الأرضية', ['مشاركة', 'عدد', 'زي', 'تقرير', 'توقيت الحضور', 'توقيت التنفيذ', 'مساحة وشروط', 'صحة المهارة', 'الإخراج', 'مهارة العرض', 'الإضافات']],
+        ['كينج الشفرات', ['مشاركة', 'زي', 'توقيت حضور', 'صحة وسرعة الشفرة الأولى', 'صحة وسرعة الشفرة الثانية', 'صحة وسرعة الشفرة الثالثة', 'درجة تميز', 'حل الأربع شفرات', 'الشفرات المستخدمة']],
+        ['النموذج', ['مشاركة', 'عدد', 'زي', 'تقرير', 'توقيت حضور', 'توقيت تنفيذ', 'استخدام النموذج', 'صحة الدورات', 'تنوع الدورات', 'متانة', 'تعدد', 'الالتزام بعدد الوحدات', 'تشوين ونظافة', 'إضافات']],
+        ['ريلز', ['مشاركة', 'عدد', 'زي', 'تقرير', 'توقيت حضور', 'توقيت عرض', 'تحقيق الهدف', 'مهارة العرض الكوميدي', 'الإضافات']],
+        ['العقد', ['مشاركة', 'زي', 'توقيت حضور', 'صحة المهارة', 'السرعة']],
+      ]],
+      ['المجال العلمي', [
+        ['البحث العلمي', ['مشاركة', 'زي', 'توقيت تسليم', 'تقرير', 'عدد', 'توقيت عرض', 'شروط وأسلوب البحث العلمي', 'محتوى ومادة علمية', 'صياغة وإخراج', 'المراجع', 'الوسيلة', 'مهارة العرض', 'واقعية وقابلية التنفيذ', 'إضافات']],
+        ['موديلات الذكاء الاصطناعي', ['مشاركة', 'عدد', 'زي', 'تقرير', 'توقيت', 'توقيت عرض', 'جودة وإخراج', 'محتوى وشروط', 'مهارة العرض', 'إضافة']],
+        ['فيديو التحضيرات', ['مشاركة', 'جودة', 'إخراج', 'توقيت', 'لايك', 'تعليق', 'مشاهدة']],
+        ['الكاشف الذكي', ['مشاركة', 'عدد', 'زي', 'تقرير', 'توقيت المشاركة', 'الابتكار', 'المادة العلمية']],
+      ]],
+      ['مجال الخدمة العامة', [
+        ['التحاق المسعف', ['مشاركة', 'زي', 'حقيبة إسعافات']],
+        ['مشروع الخدمة العامة', ['مشاركة', 'زي', 'توقيت حضور', 'أداء وتميز']],
+        ['مشروع تصور مجتمعي', ['توقيت تسليم', 'محتوى', 'توثيق بالصور', 'خطابات', 'شروط', 'كيفية الاستفادة']],
+      ]],
+    ];
+
+    const content = document.querySelector('#content');
+    fields.forEach(([field, competitions]) => {
+      const section = document.createElement('section');
+      section.className = 'field';
+      section.innerHTML = `<h2 class="field-title">${field}</h2>`;
+      competitions.forEach(([name, criteria]) => {
+        const id = `${field}-${name}`.replace(/\s/g, '-');
+        const rows = criteria.map((criterion, index) => `<tr><td>${index + 1}</td><td>${criterion}</td><td><input type="number" min="0" step="0.5" inputmode="decimal" aria-label="درجة ${criterion} في ${name}" data-score="${id}"></td></tr>`).join('');
+        section.insertAdjacentHTML('beforeend', `<article class="competition"><div class="competition-head"><h3>${name}</h3><div class="total">إجمالي المسابقة: <output id="total-${id}">0</output></div></div><table><thead><tr><th>#</th><th>البند</th><th>الدرجة</th></tr></thead><tbody>${rows}</tbody></table></article>`);
+      });
+      content.append(section);
+    });
+
+    document.addEventListener('input', event => {
+      const id = event.target.dataset.score;
+      if (!id) return;
+      const total = [...document.querySelectorAll(`[data-score="${id}"]`)].reduce((sum, input) => sum + (Number(input.value) || 0), 0);
+      document.querySelector(`#total-${CSS.escape(id)}`).value = Number.isInteger(total) ? total : total.toFixed(1);
+    });
+    function clearScores() {
+      if (!confirm('مسح جميع الدرجات المكتوبة؟')) return;
+      document.querySelectorAll('input[data-score]').forEach(input => { input.value = ''; });
+      document.querySelectorAll('output').forEach(output => { output.value = '0'; });
+    }
+  </script>
+</body>
+</html>

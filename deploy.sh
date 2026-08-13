@@ -123,4 +123,4 @@ if command -v sudo >/dev/null 2>&1; then
   sudo systemctl reload nginx
 fi
 
-printf '%s\n' 'Deployment completed successfully and readiness was verified.'
+printf '%s\n' 'deployment has been successfully test it.'
