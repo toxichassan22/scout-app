@@ -12,7 +12,6 @@ const readResponseData = async (response) => {
 
 // ─── Server Health Tracker ───
 let serverDown = false;
-let serverDownCallbacks = [];
 const SERVER_CHECK_INTERVAL = 5000;
 
 export const isServerDown = () => serverDown;
@@ -290,7 +289,19 @@ export const getNews = async () => unwrapList(await apiFetch('/news'));
 export const getAgenda = () =>
   apiFetch('/agenda?limit=100');
 
-export const unwrapList = (payload) => (Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : []);
+export const unwrapList = (payload) => (
+  Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : Array.isArray(payload?.standings)
+          ? payload.standings
+          : Array.isArray(payload?.teams)
+            ? payload.teams
+            : []
+);
 
 export const scanCompetition = (idOrSlug, qrCode) =>
   apiFetch(`/competitions/${encodeURIComponent(idOrSlug)}/scan`, { method: 'POST', body: JSON.stringify({ qrCode }) });
@@ -317,7 +328,6 @@ export const getAdminEasterEggStages = () => apiFetch('/admin/activities/easter-
 export const updateAdminEasterEggStages = stages => apiFetch('/admin/activities/easter-egg/stages', { method: 'PUT', body: JSON.stringify({ stages }) });
 
 export const getLeaderboardVisibility = () => apiFetch('/admin/leaderboard/reveal');
-
 export const setLeaderboardVisibility = (visible) =>
   apiFetch('/admin/leaderboard/reveal', { method: 'POST', body: JSON.stringify({ visible }) });
 
@@ -351,8 +361,8 @@ export const fetchReportFile = async (reportId) => {
 };
 
 // Admin API calls
-export const getAdminLeaderboard = () =>
-  apiFetch('/admin/leaderboard');
+export const getAdminLeaderboard = async () =>
+  unwrapList(await apiFetch('/admin/leaderboard?limit=200'));
 
 export const getAdminTeams = async () => unwrapList(await apiFetch('/admin/teams'));
 

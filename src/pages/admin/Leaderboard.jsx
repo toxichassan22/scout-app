@@ -22,7 +22,7 @@ export default function AdminLeaderboard() {
         getLeaderboardVisibility(),
         getAdminCompetitions()
       ]);
-      setStandings(Array.isArray(standingsRes) ? standingsRes : (standingsRes.teams || standingsRes.standings || []));
+      setStandings(Array.isArray(standingsRes) ? standingsRes : (standingsRes?.data || standingsRes?.items || standingsRes?.teams || standingsRes?.standings || []));
       setVisibility(Boolean(visRes?.visible));
       setCompetitions(Array.isArray(compsRes) ? compsRes : []);
     } catch (err) {
