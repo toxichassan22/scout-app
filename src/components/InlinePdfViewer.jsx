@@ -2,38 +2,34 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { ChevronRight, ChevronLeft, ZoomIn, ZoomOut, RefreshCw, AlertCircle } from 'lucide-react';
 
-// Must match installed pdfjs-dist version
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
 
 export default function InlinePdfViewer({ url }) {
   const canvasRef     = useRef(null);
   const containerRef  = useRef(null);
-  const wrapperRef    = useRef(null);   // div that captures pinch touch events
+  const wrapperRef    = useRef(null);
   const renderTaskRef = useRef(null);
 
-  // Pinch state — kept in refs so event listeners always read fresh values
-  const pinchDistRef   = useRef(null);
-  const pinchZoomRef   = useRef(null);
+  // Touch tracking refs (no re-renders)
+  const pinchDistRef  = useRef(null);
+  const pinchZoomRef  = useRef(null);
+  const lastTouchRef  = useRef(null);  // for single-finger manual scroll
+  const zoomFactorRef = useRef(1.0);
 
-  const [pdfDoc,     setPdfDoc]     = useState(null);
-  const [numPages,   setNumPages]   = useState(0);
-  const [currentPage,setCurrentPage]= useState(1);
-  const [zoomFactor, setZoomFactor] = useState(1.0);   // 1.0 = fit-to-width
-  const zoomFactorRef = useRef(1.0);                   // mirror for event handlers
-  const [loading,    setLoading]    = useState(true);
-  const [rendering,  setRendering]  = useState(false);
-  const [error,      setError]      = useState('');
+  const [pdfDoc,      setPdfDoc]      = useState(null);
+  const [numPages,    setNumPages]    = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [zoomFactor,  setZoomFactor]  = useState(1.0);
+  const [loading,     setLoading]     = useState(true);
+  const [rendering,   setRendering]   = useState(false);
+  const [error,       setError]       = useState('');
 
-  // ── Load PDF ──────────────────────────────────────────────────────────────
+  // ── Load PDF ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!url) return;
     let cancelled = false;
-    setLoading(true);
-    setError('');
-    setPdfDoc(null);
-    setCurrentPage(1);
-    setZoomFactor(1.0);
-    zoomFactorRef.current = 1.0;
+    setLoading(true); setError(''); setPdfDoc(null);
+    setCurrentPage(1); setZoomFactor(1.0); zoomFactorRef.current = 1.0;
 
     (async () => {
       try {
@@ -43,9 +39,7 @@ export default function InlinePdfViewer({ url }) {
         if (cancelled) return;
         const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
         if (cancelled) return;
-        setPdfDoc(doc);
-        setNumPages(doc.numPages);
-        setLoading(false);
+        setPdfDoc(doc); setNumPages(doc.numPages); setLoading(false);
       } catch (err) {
         if (!cancelled) { setError(err.message || 'فشل في فتح الـ PDF'); setLoading(false); }
       }
@@ -53,36 +47,28 @@ export default function InlinePdfViewer({ url }) {
     return () => { cancelled = true; };
   }, [url]);
 
-  // ── Render page to canvas ─────────────────────────────────────────────────
+  // ── Render page ────────────────────────────────────────────────────────────
   const renderPage = useCallback(async () => {
     if (!pdfDoc || !canvasRef.current) return;
-
-    // Cancel any in-flight render
     if (renderTaskRef.current) {
       try { renderTaskRef.current.cancel(); } catch (_) {}
       renderTaskRef.current = null;
     }
-
     setRendering(true);
     try {
-      const page     = await pdfDoc.getPage(currentPage);
-      const canvas   = canvasRef.current;
+      const page       = await pdfDoc.getPage(currentPage);
+      const canvas     = canvasRef.current;
       if (!canvas) return;
 
-      // Base fit-to-container scale, then multiply by user zoom factor
-      const containerW  = containerRef.current?.clientWidth || 340;
-      const unscaled    = page.getViewport({ scale: 1 });
-      const fitScale    = (containerW - 24) / unscaled.width;
-      const effectiveScale = fitScale * zoomFactor;
-      const viewport   = page.getViewport({ scale: effectiveScale });
+      const containerW = containerRef.current?.clientWidth || 340;
+      const unscaled   = page.getViewport({ scale: 1 });
+      const fitScale   = (containerW - 24) / unscaled.width;
+      const viewport   = page.getViewport({ scale: fitScale * zoomFactor });
 
       const dpr = window.devicePixelRatio || 1;
       const ctx = canvas.getContext('2d');
-
-      // Physical canvas pixels (sharp on retina / high-DPI mobile)
       canvas.width  = Math.floor(viewport.width  * dpr);
       canvas.height = Math.floor(viewport.height * dpr);
-      // CSS display size — no maxWidth constraint so canvas can be wider than container
       canvas.style.width  = `${Math.floor(viewport.width)}px`;
       canvas.style.height = `${Math.floor(viewport.height)}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -100,35 +86,50 @@ export default function InlinePdfViewer({ url }) {
 
   useEffect(() => { renderPage(); }, [renderPage]);
 
-  // ── Pinch-to-zoom via native (non-passive) touch events ──────────────────
-  // We attach native events so we can call preventDefault() only for pinch,
-  // letting single-finger scroll pass through untouched.
-  const getPinchDist = (touches) => {
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
-
+  // ── Touch handlers: touchAction:'none' → full JS control ──────────────────
+  // Single finger  → manual scroll (mirrors native scroll feel)
+  // Two fingers    → pinch-to-zoom (re-renders PDF at new scale, stays sharp)
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
 
+    const dist = (t) => {
+      const dx = t[0].clientX - t[1].clientX;
+      const dy = t[0].clientY - t[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+
     const onStart = (e) => {
       if (e.touches.length === 2) {
-        pinchDistRef.current  = getPinchDist(e.touches);
-        pinchZoomRef.current  = zoomFactorRef.current;
+        // Begin pinch
+        pinchDistRef.current = dist(e.touches);
+        pinchZoomRef.current = zoomFactorRef.current;
+        lastTouchRef.current = null;
+      } else if (e.touches.length === 1) {
+        // Begin single-finger scroll
+        lastTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        pinchDistRef.current = null;
       }
     };
 
     const onMove = (e) => {
+      e.preventDefault(); // safe: touchAction:'none' means no browser handling
+
       if (e.touches.length === 2 && pinchDistRef.current !== null) {
-        e.preventDefault(); // block browser zoom only during pinch
-        const ratio    = getPinchDist(e.touches) / pinchDistRef.current;
-        const newZoom  = Math.min(3.5, Math.max(0.5, pinchZoomRef.current * ratio));
+        // Pinch → update zoom, re-render at full quality
+        const ratio   = dist(e.touches) / pinchDistRef.current;
+        const newZoom = Math.min(3.5, Math.max(0.5, pinchZoomRef.current * ratio));
         zoomFactorRef.current = newZoom;
         setZoomFactor(newZoom);
+
+      } else if (e.touches.length === 1 && lastTouchRef.current) {
+        // Single finger → scroll the wrapper manually
+        const dx = lastTouchRef.current.x - e.touches[0].clientX;
+        const dy = lastTouchRef.current.y - e.touches[0].clientY;
+        el.scrollLeft += dx;
+        el.scrollTop  += dy;
+        lastTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       }
-      // 1-finger touch → do nothing, browser scrolls naturally ✓
     };
 
     const onEnd = (e) => {
@@ -136,21 +137,30 @@ export default function InlinePdfViewer({ url }) {
         pinchDistRef.current = null;
         pinchZoomRef.current = null;
       }
+      if (e.touches.length === 0) {
+        lastTouchRef.current = null;
+      }
     };
 
-    // passive:true for start/end (no scroll blocking needed)
-    // passive:false for move so we can preventDefault during pinch
-    el.addEventListener('touchstart', onStart, { passive: true });
+    // All passive:false so preventDefault() works (touchAction:'none' makes this safe)
+    el.addEventListener('touchstart', onStart, { passive: false });
     el.addEventListener('touchmove',  onMove,  { passive: false });
-    el.addEventListener('touchend',   onEnd,   { passive: true });
+    el.addEventListener('touchend',   onEnd,   { passive: false });
     return () => {
       el.removeEventListener('touchstart', onStart);
       el.removeEventListener('touchmove',  onMove);
       el.removeEventListener('touchend',   onEnd);
     };
-  }, []); // mount once; fresh values read from refs
+  }, []);
 
-  // ── Loading / Error states ────────────────────────────────────────────────
+  // ── Zoom helpers ───────────────────────────────────────────────────────────
+  const changeZoom = (delta) => {
+    const z = Math.min(3.5, Math.max(0.5, zoomFactorRef.current + delta));
+    zoomFactorRef.current = z; setZoomFactor(z);
+  };
+  const resetZoom = () => { zoomFactorRef.current = 1.0; setZoomFactor(1.0); };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="flex flex-col items-center justify-center p-8 bg-slate-950 rounded-2xl border border-slate-800 text-center min-h-[300px]">
       <RefreshCw size={28} className="animate-spin text-purple-400 mb-3" />
@@ -172,54 +182,51 @@ export default function InlinePdfViewer({ url }) {
   return (
     <div ref={containerRef} className="flex flex-col h-full select-none" dir="rtl">
 
-      {/* ── Control Bar ─────────────────────────────────────────────────── */}
+      {/* Control Bar */}
       <div className="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800 mb-3 shrink-0 gap-2">
 
-        {/* Page nav */}
+        {/* Page navigation */}
         <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setCurrentPage(p => Math.min(numPages, p + 1))}
+          <button onClick={() => setCurrentPage(p => Math.min(numPages, p + 1))}
             disabled={currentPage >= numPages}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-30 transition"
-          ><ChevronRight size={18} /></button>
-
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-30 transition">
+            <ChevronRight size={18} />
+          </button>
           <span className="text-xs font-black text-purple-300 bg-purple-500/10 px-3 py-1 rounded-lg border border-purple-500/20 font-mono">
             صفحة {currentPage} من {numPages}
           </span>
-
-          <button
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
             disabled={currentPage <= 1}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-30 transition"
-          ><ChevronLeft size={18} /></button>
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-30 transition">
+            <ChevronLeft size={18} />
+          </button>
         </div>
 
         {/* Zoom buttons */}
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => { const z = Math.min(3.5, zoomFactorRef.current + 0.25); zoomFactorRef.current = z; setZoomFactor(z); }}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
-          ><ZoomIn size={16} /></button>
-          <button
-            onClick={() => { const z = Math.max(0.5, zoomFactorRef.current - 0.25); zoomFactorRef.current = z; setZoomFactor(z); }}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
-          ><ZoomOut size={16} /></button>
+          <button onClick={() => changeZoom(+0.25)}
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
+            <ZoomIn size={16} />
+          </button>
+          <button onClick={() => changeZoom(-0.25)}
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
+            <ZoomOut size={16} />
+          </button>
           {zoomFactor !== 1.0 && (
-            <button
-              onClick={() => { zoomFactorRef.current = 1.0; setZoomFactor(1.0); }}
+            <button onClick={resetZoom}
               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 text-[10px] font-bold transition"
-              title="إعادة ضبط الحجم"
-            >⟳</button>
+              title="إعادة الحجم">⟳</button>
           )}
         </div>
       </div>
 
-      {/* ── Canvas scroll wrapper ────────────────────────────────────────── */}
-      {/* overflow-auto allows both vertical AND horizontal scroll with one finger */}
+      {/* Canvas scroll wrapper
+          touchAction:'none' → JS controls ALL touch (scroll + pinch)
+          overflow:auto      → scrollbars still visible/usable on desktop */}
       <div
         ref={wrapperRef}
         className="flex-1 overflow-auto bg-slate-950 p-2 rounded-2xl border border-slate-800 min-h-[350px]"
-        style={{ touchAction: 'pan-x pan-y' }}   /* allow 1-finger scroll, pinch handled in JS */
+        style={{ touchAction: 'none' }}
       >
         <div className="relative inline-block min-w-full text-center">
           {rendering && (
@@ -227,7 +234,6 @@ export default function InlinePdfViewer({ url }) {
               <RefreshCw size={20} className="animate-spin text-purple-400" />
             </div>
           )}
-          {/* No maxWidth — canvas grows to its real rendered size; wrapper scrolls */}
           <canvas
             ref={canvasRef}
             className="mx-auto rounded-xl shadow-2xl border border-slate-700 bg-white block"
