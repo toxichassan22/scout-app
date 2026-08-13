@@ -30,6 +30,10 @@ Object.assign(OFFICIAL_CRITERIA_BY_SLUG, {
   quran: OFFICIAL_CRITERIA_BY_SLUG.report_quran,
   hadith: OFFICIAL_CRITERIA_BY_SLUG.report_hadith,
   worksheet: OFFICIAL_CRITERIA_BY_SLUG.report_prophets,
+  report_scientific_research: OFFICIAL_CRITERIA_BY_SLUG.report_science_ideas,
+  report_smart_scout: OFFICIAL_CRITERIA_BY_SLUG.report_smart_detector,
+  report_earth_magazine: OFFICIAL_CRITERIA_BY_SLUG.report_scout_magazine,
+  report_tilawa: OFFICIAL_CRITERIA_BY_SLUG.report_tilawa_festival,
   campfire: OFFICIAL_CRITERIA_BY_SLUG.report_campfire,
   music: OFFICIAL_CRITERIA_BY_SLUG.report_campfire,
   poster: OFFICIAL_CRITERIA_BY_SLUG.report_poster,
@@ -44,6 +48,8 @@ Object.assign(OFFICIAL_CRITERIA_BY_SLUG, {
   carnival: OFFICIAL_CRITERIA_BY_SLUG.report_carnival,
   comedy: OFFICIAL_CRITERIA_BY_SLUG.report_reels,
   closing_night: OFFICIAL_CRITERIA_BY_SLUG.report_closing_night,
+  calligraphy: OFFICIAL_CRITERIA_BY_SLUG.report_prophets,
+  planes: OFFICIAL_CRITERIA_BY_SLUG.report_model_presentation,
 });
 
 export function getOfficialCriteria(competition) {

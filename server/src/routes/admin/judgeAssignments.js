@@ -35,13 +35,23 @@ router.get('/scores/breakdown', async (req, res) => {
       prisma.competition.findMany({ orderBy: { name: 'asc' }, select: safeCompetitionSelect }),
     ]);
 
+    // Some older deployments contain the same competition twice under
+    // different records. Keep one visible competition per name, preferring
+    // the record that already has submitted scores.
+    const scoreCountByCompetition = new Map();
+    for (const score of scores) scoreCountByCompetition.set(score.competitionId, (scoreCountByCompetition.get(score.competitionId) || 0) + 1);
+    const uniqueCompetitions = [...competitions].sort((a, b) => {
+      const scoreDelta = (scoreCountByCompetition.get(b.id) || 0) - (scoreCountByCompetition.get(a.id) || 0);
+      return scoreDelta || String(a.createdAt).localeCompare(String(b.createdAt));
+    }).filter((competition, index, list) => list.findIndex(item => item.name === competition.name) === index);
+
     // Return a complete team x competition matrix for the admin screen. Missing
     // combinations are display-only zeroes; no Score row is created, so a judge
     // can still submit the team's first real result normally.
     const scoreByKey = new Map(scores.map(score => [`${score.teamId}:${score.competitionId}`, score]));
     const rows = [];
     for (const team of teams) {
-      for (const competition of competitions) {
+      for (const competition of uniqueCompetitions) {
         const existing = scoreByKey.get(`${team.id}:${competition.id}`);
         if (existing) {
           const officialCriteria = getOfficialCriteria(existing.competition);
