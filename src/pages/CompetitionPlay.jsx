@@ -110,8 +110,29 @@ const CompetitionPlay = () => {
   return (
     <QuizShell title={competition?.name || 'المسابقة'} icon={AlertCircle} tone="ember" currentIndex={currentIndex} total={questions.length} remainingSeconds={remainingSeconds} onTimerEnd={finish} questionKey={currentQuestion.id}>
       <div className="glass-sheen glass-ember mb-6 p-6 text-center sm:p-8">
-        {currentQuestion.category && <p className="section-kicker mb-3">{currentQuestion.category}</p>}
-        {currentQuestion.mediaUrl && (currentQuestion.mediaUrl.startsWith('emoji:') ? <span className="mb-4 block text-7xl">{currentQuestion.mediaUrl.slice(6)}</span> : <img src={currentQuestion.mediaUrl} alt={currentQuestion.mediaAlt || ''} className="mx-auto mb-5 max-h-48 rounded-2xl object-contain" />)}
+        {currentQuestion.category && (
+          <p className="section-kicker mb-3">
+            {
+              {
+                capital: '🏛️ عواصم الدول العربية',
+                currency: '💰 العملات والأنظمة المالية',
+                governance: '⚖️ أنظمة الحكم والإدارة',
+                flag: '🚩 أعلام الوطن العربي',
+                map: '🗺️ خرائط الدول العربية',
+                capital_country: '🏛️ عواصم الدول',
+                currency_country: '💰 العملات العربية',
+                governance_country: '⚖️ أنظمة الحكم',
+              }[currentQuestion.category] || currentQuestion.category
+            }
+          </p>
+        )}
+        {currentQuestion.mediaUrl && (
+          currentQuestion.mediaUrl.startsWith('emoji:') ? (
+            <span className="mb-4 block text-7xl select-none filter drop-shadow-lg">{currentQuestion.mediaUrl.slice(6)}</span>
+          ) : (
+            <img src={currentQuestion.mediaUrl} alt={currentQuestion.mediaAlt || ''} className="mx-auto mb-5 max-h-48 rounded-2xl object-contain drop-shadow-md" />
+          )
+        )}
         <p className="section-kicker mb-3">اختر إجابة واحدة — يتم الحفظ تلقائيًا</p>
         <h2 className="text-xl font-black leading-relaxed text-white sm:text-2xl">{currentQuestion.text}</h2>
       </div>
