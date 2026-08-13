@@ -43,7 +43,19 @@ const GuessTheNumber = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [session, setSession] = useState(null);
-  const [playerName, setPlayerName] = useState(() => localStorage.getItem('dsc_scout_name') || user?.name || user?.username || '');
+
+  const registeredScoutName = useMemo(() => {
+    return user?.deviceName || localStorage.getItem('dsc_scout_name') || user?.name || '';
+  }, [user]);
+
+  const [playerName, setPlayerName] = useState(() => registeredScoutName);
+
+  useEffect(() => {
+    if (registeredScoutName && (!playerName || playerName === user?.username || playerName === user?.label)) {
+      setPlayerName(registeredScoutName);
+    }
+  }, [registeredScoutName, user?.username, user?.label]);
+
   const [code, setCode] = useState('');
   const [secret, setSecret] = useState('');
   const [guessCode, setGuessCode] = useState('');
@@ -65,8 +77,10 @@ const GuessTheNumber = () => {
   };
 
   useEffect(() => {
-    if (playerName) localStorage.setItem('dsc_scout_name', playerName);
-  }, [playerName]);
+    if (playerName && playerName !== user?.username) {
+      localStorage.setItem('dsc_scout_name', playerName);
+    }
+  }, [playerName, user?.username]);
 
   useEffect(() => {
     if (!session?.id || session.status === 'finished') return undefined;
