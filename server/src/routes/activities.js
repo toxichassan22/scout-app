@@ -11,7 +11,7 @@ router.use(requireRole(['team']));
 
 const sessionBody = {
   body: {
-    mode: z.enum(['auto', 'code']).optional(),
+    mode: z.enum(['auto', 'code', 'create_private']).optional(),
     roomCode: zString('كود الغرفة', { min: 4, max: 20 }).optional(),
     displayName: zString('اسم اللاعب', { min: 1, max: 80 }).optional(),
   },
