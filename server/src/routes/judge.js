@@ -59,7 +59,7 @@ router.post('/unlock', validate(unlockSchema), async (req, res) => {
     }
 
     const competition = await prisma.competition.findFirst({
-      where: { passcode, isOpen: true, type: 'manual_judged', judgeAssignments: { some: { judgeId: req.user.id } } }
+      where: { passcode, isOpen: true, type: 'manual_judged' }
     });
 
     if (!competition) {
@@ -70,6 +70,14 @@ router.post('/unlock', validate(unlockSchema), async (req, res) => {
         resetAt: Date.now() + 60000 // 1 minute lockout after 5 failed attempts
       });
       return res.status(404).json({ error: 'كود المسابقة غير صحيح أو المسابقة مغلقة حالياً' });
+    }
+
+    const existingAssignment = await prisma.judgeCompetition.findFirst({ where: { competitionId: competition.id } });
+    if (existingAssignment && existingAssignment.judgeId !== req.user.id) {
+      return res.status(409).json({ error: 'هذه المسابقة مفتوحة لمحكم آخر بالفعل' });
+    }
+    if (!existingAssignment) {
+      await prisma.judgeCompetition.create({ data: { competitionId: competition.id, judgeId: req.user.id } });
     }
 
     // Reset attempts on successful unlock
@@ -201,16 +209,23 @@ router.post('/scores', enforceNotFrozen, validate(scoreSchema), idempotent('judg
       await tx.judgeScore.create({ data: { scoreId: score.id, competitionId, teamId, judgeId, values: serializedValues, total: calculated } });
       await tx.scoreAudit.create({ data: { scoreId: score.id, competitionId, teamId, judgeId, action: 'judge_submit', newData: JSON.stringify({ values: parsedValues, total: calculated }) } });
       await recalculateTeamStanding(teamId, tx);
-      return score;
+      const [teamCount, completedCount] = await Promise.all([
+        tx.team.count(),
+        tx.score.count({ where: { competitionId, isFinal: true } }),
+      ]);
+      const competitionClosed = teamCount > 0 && completedCount >= teamCount;
+      if (competitionClosed) await tx.competition.update({ where: { id: competitionId }, data: { isOpen: false } });
+      return { score, competitionClosed };
     });
 
     clearLeaderboardCache();
     await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
-    req.io?.to('admin').emit('admin:score:new', { scoreRecord, teamId, competitionId });
+    req.io?.to('admin').emit('admin:score:new', { scoreRecord: scoreRecord.score, teamId, competitionId });
+    if (scoreRecord.competitionClosed) req.io?.to(`competition:${competitionId}`).emit('judge:session:closed', { competitionId });
     // Persist the finalised score off-box without blocking the judge's response.
     requestDataBackup({ reason: 'judge-score-finalised' });
 
-    res.json({ success: true, score: scoreRecord });
+    res.json({ success: true, score: scoreRecord.score, competitionClosed: scoreRecord.competitionClosed });
   } catch (err) {
     if (err.code === 'P2002') return res.status(409).json({ success: false, error: 'تم تسجيل تقييم لهذا الفريق بالفعل', requestId: req.requestId, timestamp: new Date().toISOString() });
     req.log.error({ err }, 'judge score submission failed');

@@ -57,6 +57,7 @@ const JudgingSheet = () => {
       if (completedTeamId) {
         const next = data.find(t => !t.isFinal && t.id !== completedTeamId);
         if (next) selectTeam(next);
+        else if (!data.some(t => !t.isFinal)) navigate('/judge/passcode', { replace: true });
         else { setSelectedTeam(null); setScores({}); }
       } else if ((!selectedTeam || selectedTeam.isFinal) && data.length > 0) {
         const firstUnlocked = data.find(t => !t.isFinal);
@@ -178,7 +179,7 @@ const JudgingSheet = () => {
           {loading ? (
             <div className="py-8 text-center text-xs text-slate-500">جاري تحميل الفرق...</div>
           ) : (
-            <div className="space-y-2 max-h-[70vh] overflow-y-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[70vh] overflow-y-auto">
               {pendingTeams.length === 0 ? (
                 <div className="py-8 text-center text-xs text-emerald-400">
                   تم تقييم كل الفرق في هذه المسابقة
@@ -187,7 +188,7 @@ const JudgingSheet = () => {
                 <button
                   key={t.id}
                   onClick={() => selectTeam(t)}
-                  className={`w-full text-right p-3 rounded-xl border text-xs font-bold transition flex items-center justify-between ${selectedTeam?.id === t.id
+                  className={`w-full min-h-16 text-right p-3 rounded-xl border text-xs font-bold transition flex items-center justify-between ${selectedTeam?.id === t.id
                       ? 'border-amber-500/50 bg-amber-500/10 text-amber-300'
                       : 'border-slate-800 bg-slate-900/50 text-slate-300 hover:border-slate-700'
                     }`}

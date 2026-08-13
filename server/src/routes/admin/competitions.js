@@ -134,6 +134,7 @@ router.patch('/competitions/:id', validate(competitionUpdateSchema), async (req,
     const transactionResult = await prisma.$transaction(async tx => {
       const before = await tx.competition.findUnique({ where: { id: req.params.id }, select: { isOpen: true } });
       const updated = await tx.competition.update({ where: { id: req.params.id }, data });
+      if (isOpen === true) await tx.judgeCompetition.deleteMany({ where: { competitionId: req.params.id } });
       const agendaData = {
         ...(data.name !== undefined && { title: updated.name }),
         ...(startTime !== undefined && { startTime: startTime || undefined }),
