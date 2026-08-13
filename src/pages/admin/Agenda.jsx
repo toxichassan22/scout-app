@@ -336,6 +336,19 @@ const AdminAgenda = () => {
                         {item.startTime} — {item.endTime}
                       </span>
                       <h3 className="text-base font-black text-white">{item.title}</h3>
+                      {item.status === 'active' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-0.5 text-[11px] font-black text-emerald-300 animate-pulse">
+                          ● جارية ومفتوحة الآن
+                        </span>
+                      ) : item.status === 'closed' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 border border-red-500/20 px-2.5 py-0.5 text-[11px] font-bold text-red-400">
+                          مغلقة
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 border border-slate-700 px-2.5 py-0.5 text-[11px] font-bold text-slate-400">
+                          مجدولة
+                        </span>
+                      )}
                     </div>
                     {item.description && (
                       <p className="text-xs leading-6 text-slate-400">{item.description}</p>
@@ -355,10 +368,10 @@ const AdminAgenda = () => {
                     <button
                       type="button"
                       onClick={() => handleAction(item.id, item.status === 'active' ? 'close' : 'start')}
-                      className={`rounded-xl border p-2.5 transition ${item.status === 'active' ? 'border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'}`}
-                      title={item.status === 'active' ? 'إغلاق الفعالية' : 'تشغيل الفعالية'}
+                      className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-black transition ${item.status === 'active' ? 'border-red-500/30 bg-red-500/15 text-red-300 hover:bg-red-500/25' : 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'}`}
+                      title={item.status === 'active' ? 'إغلاق الفعالية والمسابقة' : 'تشغيل وفتح الفعالية والمسابقة'}
                     >
-                      {item.status === 'active' ? <Square size={18} /> : <Play size={18} />}
+                      {item.status === 'active' ? <><Square size={15} /> إغلاق</> : <><Play size={15} /> تشغيل</>}
                     </button>
                     <button
                       type="button"

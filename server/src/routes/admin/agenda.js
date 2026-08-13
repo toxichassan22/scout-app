@@ -135,16 +135,50 @@ router.post('/agenda/:id/action', validate(agendaActionSchema), async (req, res)
   try {
     const action = String(req.body.action || '').toLowerCase();
     const now = new Date();
-    const data = action === 'start'
+    const isStarting = action === 'start';
+    const data = isStarting
       ? { isStarted: true, startedAt: now, isClosed: false, closedAt: null }
-      : action === 'stop' || action === 'close'
-        ? { isClosed: true, closedAt: now }
-        : null;
-    if (!data) return res.status(400).json({ error: 'الإجراء يجب أن يكون start أو stop أو close' });
-    const item = await prisma.agendaItem.update({ where: { id: req.params.id }, data });
+      : { isClosed: true, closedAt: now, isStarted: false };
+
+    const item = await prisma.agendaItem.update({
+      where: { id: req.params.id },
+      data,
+    });
+
+    // Find linked competition either by competitionId or matching name
+    let compId = item.competitionId;
+    if (!compId && item.title) {
+      const matchedComp = await prisma.competition.findFirst({
+        where: {
+          OR: [
+            { name: item.title },
+            { name: { contains: item.title } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (matchedComp) compId = matchedComp.id;
+    }
+
+    if (compId) {
+      await prisma.competition.update({
+        where: { id: compId },
+        data: {
+          isOpen: isStarting,
+          startsAt: isStarting ? now : undefined,
+          endsAt: !isStarting ? now : undefined,
+        },
+      }).catch(() => {});
+    }
+
     clearFestivalContextCache();
-    if (req.io) req.io.emit('agenda:update', { action, agendaId: item.id });
-    res.json(item);
+    if (req.io) {
+      req.io.emit('agenda:update', { action, agendaId: item.id });
+      req.io.emit('competitions:update');
+      if (compId) req.io.emit('competition:update', { competitionId: compId, isOpen: isStarting });
+    }
+
+    res.json({ ...item, status: isStarting ? 'active' : 'closed' });
   } catch (err) {
     req.log.error({ err }, 'admin agenda action failed');
     res.status(500).json({ success: false, error: 'فشل في تغيير حالة الفعالية', requestId: req.requestId, timestamp: new Date().toISOString() });

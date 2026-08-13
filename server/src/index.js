@@ -206,6 +206,18 @@ export async function startServer(port = PORT) {
     logger.warn({ err }, 'failed to seed team standings on startup');
   }
   try {
+    await prisma.agendaItem.updateMany({
+      where: { title: { contains: 'نصب المرصد' } },
+      data: { title: 'نصب المعرض' },
+    });
+    await prisma.competition.updateMany({
+      where: { name: { contains: 'نصب المرصد' } },
+      data: { name: 'نصب المعرض' },
+    });
+  } catch (err) {
+    logger.warn({ err }, 'failed to rename نصب المرصد');
+  }
+  try {
     await ensureActivityCatalog();
   } catch (err) {
     logger.warn({ err }, 'failed to seed activity catalog on startup');

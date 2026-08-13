@@ -82,9 +82,15 @@ export const PERIOD_LABELS = {
 };
 
 export function getAgendaStatus(item, now = new Date(), festivalDate = process.env.FESTIVAL_DATE || '2026-08-21') {
-    const start = new Date(`${festivalDate}T${item.startTime}:00+03:00`);
-    const end = new Date(`${festivalDate}T${item.endTime}:00+03:00`);
-    if (item.isClosed || now >= end) return 'finished';
-    if (item.isStarted || now >= start) return 'active';
+    if (item.isClosed) return 'closed';
+    if (item.isStarted) return 'active';
+    try {
+        const start = new Date(`${festivalDate}T${String(item.startTime || '').slice(0, 5)}:00+03:00`);
+        const end = new Date(`${festivalDate}T${String(item.endTime || '').slice(0, 5)}:00+03:00`);
+        if (now >= start && now < end) return 'active';
+        if (now >= end) return 'finished';
+    } catch {
+        // invalid date
+    }
     return 'upcoming';
 }

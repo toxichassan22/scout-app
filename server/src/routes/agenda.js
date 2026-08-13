@@ -40,7 +40,17 @@ router.get('/', authenticateToken, async (req, res) => {
     const agenda = allItems.map((item) => {
       const zoneId = LEGACY_ZONE_ALIASES[item.zoneId] || item.zoneId;
       const linkedCompetition = competitionById.get(item.competitionId) || null;
-      const scheduleStatus = linkedCompetition?.isOpen === false ? 'closed' : getAgendaStatus(item);
+      let scheduleStatus = 'upcoming';
+      if (item.isClosed) {
+        scheduleStatus = 'closed';
+      } else if (item.isStarted || linkedCompetition?.isOpen === true) {
+        scheduleStatus = 'active';
+      } else if (linkedCompetition?.isOpen === false) {
+        scheduleStatus = 'closed';
+      } else {
+        scheduleStatus = getAgendaStatus(item);
+      }
+
       return {
         ...item,
         title: linkedCompetition?.name || item.title,
@@ -49,7 +59,7 @@ router.get('/', authenticateToken, async (req, res) => {
         locationLabel: item.locationNote || zoneById.get(zoneId)?.name || item.zone?.name || '',
         competition: linkedCompetition,
         status: scheduleStatus,
-        canOpen: scheduleStatus === 'active'
+        canOpen: scheduleStatus === 'active',
       };
     });
     const totalPages = Math.ceil(total / limit) || 1;
