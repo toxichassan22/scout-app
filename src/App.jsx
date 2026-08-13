@@ -23,7 +23,6 @@ const CompetitionPlay = lazy(() => import('./pages/CompetitionPlay'));
 const GuessTheNumber = lazy(() => import('./pages/activities/GuessTheNumber'));
 const HackerSandbox = lazy(() => import('./pages/activities/HackerSandbox'));
 const EasterEgg = lazy(() => import('./pages/activities/EasterEgg'));
-const AiChat = lazy(() => import('./pages/AiChat'));
 
 // Judge Pages (lazy)
 const JudgeLogin = lazy(() => import('./pages/judge/JudgeLogin'));
@@ -88,7 +87,6 @@ const App = memo(function App() {
           <Route path="/activities/guess-number" element={<ProtectedRoute allowedRoles={['team']}><GuessTheNumber /></ProtectedRoute>} />
           <Route path="/activities/hacker-sandbox" element={<ProtectedRoute allowedRoles={['team']}><HackerSandbox /></ProtectedRoute>} />
           <Route path="/activities/easter-egg" element={<ProtectedRoute allowedRoles={['team']}><EasterEgg /></ProtectedRoute>} />
-          <Route path="/ai-chat" element={<ProtectedRoute allowedRoles={['team']}><AiChat /></ProtectedRoute>} />
 
           {/* Judge Routes */}
           <Route path="/judge" element={<Navigate to="/judge/passcode" replace />} />

@@ -1,17 +1,15 @@
 import { memo, useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Compass, Sparkles, Newspaper, User, X, MessageCircle, LifeBuoy } from 'lucide-react';
+import { Home, Compass, Sparkles, Newspaper, User, X, LifeBuoy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
   { path: '/home', icon: Home, label: 'الرئيسية', color: '#10b981', angle: -180 },
-  { path: '/program', icon: Compass, label: 'البرنامج', color: '#38bdf8', angle: -150 },
-  { path: '/activities', icon: Sparkles, label: 'الأنشطة', color: '#f59e0b', angle: -120 },
-  { path: '/news', icon: Newspaper, label: 'الأخبار', color: '#a855f7', angle: -90 },
-  { path: '/profile', icon: User, label: 'حسابي', color: '#ec4899', angle: -60 },
-  // Keep the seven items evenly spaced across the upper arc: home at 180° and support at 0°.
-  { path: '/ai-chat', icon: MessageCircle, label: 'شات AI', color: '#22d3ee', angle: -30 },
+  { path: '/program', icon: Compass, label: 'البرنامج', color: '#38bdf8', angle: -144 },
+  { path: '/activities', icon: Sparkles, label: 'الأنشطة', color: '#f59e0b', angle: -108 },
+  { path: '/news', icon: Newspaper, label: 'الأخبار', color: '#a855f7', angle: -72 },
+  { path: '/profile', icon: User, label: 'حسابي', color: '#ec4899', angle: -36 },
   { path: '/support', icon: LifeBuoy, label: 'الدعم الفني', color: '#fb7185', angle: 0 },
 ];
 
