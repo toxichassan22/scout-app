@@ -147,7 +147,8 @@ export const apiFetch = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
-      if (attempt < maxAttempts) {
+      const isClientError = response.status >= 400 && response.status < 500;
+      if (!isClientError && attempt < maxAttempts) {
         await new Promise(r => setTimeout(r, retryDelay));
         continue;
       }
@@ -155,6 +156,8 @@ export const apiFetch = async (endpoint, options = {}) => {
       err.status = response.status;
       err.code = data.code;
       err.requestId = data.requestId;
+      err.sessionRequired = !!data.sessionRequired;
+      err.completed = !!data.completed;
       throw err;
     }
 
