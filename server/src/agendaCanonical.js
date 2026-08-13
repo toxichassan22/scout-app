@@ -54,7 +54,7 @@ export const OFFICIAL_AGENDA = [
     item({ id: 'agenda-official-16', period: 'period-2', order: 17, title: 'صلاة الجمعة', type: 'ceremony', zoneId: zone.mosque, startTime: '12:00', endTime: '13:00' }),
 
     item({ id: 'agenda-official-17', period: 'period-3', order: 18, title: 'عرض تطيير الطائرات', type: 'ceremony', zoneId: zone.field, startTime: '14:00', endTime: '16:00' }),
-    item({ id: 'agenda-official-18', period: 'period-3', order: 19, title: 'نصب المرصد', type: 'ceremony', zoneId: zone.fountain, startTime: '14:00', endTime: '16:00' }),
+    item({ id: 'agenda-official-18', period: 'period-3', order: 19, title: 'نصب المعرض', type: 'ceremony', zoneId: zone.fountain, startTime: '14:00', endTime: '16:00' }),
     item({ id: 'agenda-official-19', period: 'period-3', order: 20, title: 'إقامة حفل الكرنفال', type: 'ceremony', zoneId: zone.fountain, startTime: '14:00', endTime: '16:00', competitionId: 'comp-report-15' }),
     item({ id: 'agenda-official-20', period: 'period-3', order: 21, title: 'حقيقتين وكذبة', type: 'competition', zoneId: zone.secondFloor, startTime: '14:00', endTime: '16:00', competitionId: 'comp-digital-2', locationNote: 'الدور الثاني' }),
     item({ id: 'agenda-official-21-smart-detector', period: 'period-3', order: 22, title: 'الكشاف الذكي', type: 'competition', zoneId: zone.behindMosque, startTime: '14:00', endTime: '16:00', competitionId: 'comp-report-19', locationNote: 'خلف المسجد (مؤقت حتى التأكيد)' }),
