@@ -1,4 +1,5 @@
 import { ArrowRight, CheckCircle, Clock, Lock, RadioTower, Trophy } from 'lucide-react';
+import { getCompetitionBadgeInfo, isCompetitionActive } from '../utils/competitionUtils';
 
 const BADGES = {
   genius: { icon: RadioTower, code: '1001' },
@@ -9,22 +10,18 @@ const BADGES = {
 
 const CompetitionCard = ({ competition, completed, lockedMessage, onScan }) => {
   const duration = competition.duration ? `${Math.round(competition.duration / 60)} دقائق` : 'غير محدد';
-  const isOpen = competition.isOpen && !completed;
+  const active = isCompetitionActive(competition);
+  const badgeInfo = getCompetitionBadgeInfo(competition, completed);
   const badge = BADGES[competition.type] || BADGES.genius;
   const Icon = badge.icon;
 
   return (
-    <article className={`rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-transparent p-5 transition duration-300 ${!competition.isOpen ? 'opacity-60' : 'hover:border-white/10'}`}>
+    <article className={`rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-transparent p-5 transition duration-300 ${!active ? 'opacity-60' : 'hover:border-white/10'}`}>
 
       <div className="mb-4 flex items-start justify-between gap-4">
-        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${
-          completed
-            ? 'border-primary/20 text-primary bg-primary/10'
-            : competition.isOpen
-              ? 'border-primary/20 text-primary bg-primary/10'
-              : 'border-red-500/20 text-red-400 bg-red-500/10'
-        }`}>
-          {completed ? 'مكتملة' : competition.isOpen ? 'مفتوحة' : 'مغلقة'}
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${badgeInfo.badgeClass}`}>
+          <span className={`h-2 w-2 rounded-full ${badgeInfo.dotClass}`} />
+          {badgeInfo.text}
         </span>
         <div className="relative">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-amber-400/15 bg-amber-400/10 text-amber-400">
@@ -50,12 +47,12 @@ const CompetitionCard = ({ competition, completed, lockedMessage, onScan }) => {
 
       <button
         type="button"
-        disabled={!competition.isOpen || completed}
+        disabled={!active || completed}
         onClick={onScan}
         className="command-button flex w-full items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed"
       >
-        {completed ? 'تم تسجيل إجابتك' : competition.isOpen ? 'الدخول للتحدي' : 'التحدي مغلق حالياً'}
-        {competition.isOpen && !completed ? <ArrowRight size={18} /> : completed ? <CheckCircle size={16} /> : <Lock size={16} />}
+        {completed ? 'تم تسجيل إجابتك' : active ? 'الدخول للتحدي' : 'التحدي مغلق حالياً'}
+        {active && !completed ? <ArrowRight size={18} /> : completed ? <CheckCircle size={16} /> : <Lock size={16} />}
       </button>
     </article>
   );

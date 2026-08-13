@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
 import { createActivitySession, finishActivitySession, getColorRound } from '../services/api';
+import { getCompetitionBadgeInfo } from '../utils/competitionUtils';
 
 const competitionMeta = {
   genius: { tone: 'ember', label: 'من سيربح الكود — عبقرينو', description: 'بنك أسئلة معرفي سريع، كل إجابة صحيحة بنقطة.' },
@@ -18,20 +19,14 @@ const toneClasses = {
   violet: 'border-violet-500/30 bg-violet-500/10 text-violet-200',
 };
 
-function statusText(comp) {
-  if (comp.state === 'active') return 'مفتوحة الآن';
-  if (comp.state === 'scheduled') return 'تبدأ في الموعد المحدد';
-  return 'مغلقة من الإدارة';
-}
-
 function CompetitionCard({ competition, onEnter, index }) {
   const meta = competitionMeta[competition.slug] || { tone: 'violet', label: competition.name, description: competition.description };
-  const isReady = competition.state === 'active';
+  const badgeInfo = getCompetitionBadgeInfo(competition, competition.completed);
   return (
     <motion.article initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.08 }} className={`min-w-0 overflow-hidden rounded-[2rem] border backdrop-blur-xl ${toneClasses[meta.tone]}`}>
       <div className="flex min-w-0 items-start justify-between gap-4 p-6">
         <div className="min-w-0 text-right">
-          <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-current/20 px-3 py-1 text-[11px] font-black"><span className={`h-2 w-2 rounded-full ${isReady ? 'animate-pulse bg-emerald-400' : 'bg-slate-500'}`} />{statusText(competition)}</span>
+          <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-current/20 px-3 py-1 text-[11px] font-black"><span className={`h-2 w-2 rounded-full ${badgeInfo.dotClass}`} />{badgeInfo.text}</span>
           <h2 className="break-words text-xl font-black leading-7 text-white">{meta.label}</h2>
           <p className="mt-2 break-words text-sm leading-7 text-slate-300">{meta.description || competition.description}</p>
         </div>
