@@ -4,6 +4,7 @@ import prisma from '../../db.js';
 import { recalculateTeamStanding } from '../../teamStanding.js';
 import { validate, zString, zId } from '../../middleware/validate.js';
 import { parsePagination, paginatedResponse } from '../../pagination.js';
+import { getOfficialCriteria } from '../../officialCompetitionCriteria.js';
 
 const safeTeamSelect = { id: true, username: true, label: true, maxDevices: true, authVersion: true, createdAt: true };
 const safeJudgeSelect = { id: true, name: true, username: true, authVersion: true, createdAt: true };
@@ -42,12 +43,19 @@ router.get('/scores/breakdown', async (req, res) => {
     for (const team of teams) {
       for (const competition of competitions) {
         const existing = scoreByKey.get(`${team.id}:${competition.id}`);
-        rows.push(existing || {
+        if (existing) {
+          const officialCriteria = getOfficialCriteria(existing.competition);
+          if (officialCriteria) existing.competition.criteria = officialCriteria;
+          rows.push(existing);
+          continue;
+        }
+        const displayCompetition = { ...competition, ...(getOfficialCriteria(competition) ? { criteria: getOfficialCriteria(competition) } : {}) };
+        rows.push({
           id: null,
           teamId: team.id,
           competitionId: competition.id,
           team,
-          competition,
+          competition: displayCompetition,
           total: 0,
           isFinal: true,
           isVirtual: true,

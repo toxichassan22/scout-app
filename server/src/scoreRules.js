@@ -1,3 +1,5 @@
+import { getOfficialCriteria } from './officialCompetitionCriteria.js';
+
 export function parseCompetitionCriteria(value) {
   try {
     const parsed = typeof value === 'string' ? JSON.parse(value || '[]') : value;
@@ -13,7 +15,8 @@ export function parseCompetitionCriteria(value) {
  * competitions fall back to their configured question count.
  */
 export function getCompetitionMaxScore(competition) {
-  const criteria = parseCompetitionCriteria(competition?.criteria);
+  const official = getOfficialCriteria(competition);
+  const criteria = parseCompetitionCriteria(official || competition?.criteria);
   if (criteria.length > 0) {
     return criteria.reduce((sum, criterion) => {
       const max = Number(criterion?.maxScore);

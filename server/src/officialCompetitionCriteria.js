@@ -1,0 +1,30 @@
+const c = (items) => JSON.stringify(items.map(([key, label, maxScore]) => ({ key, label, maxScore })));
+
+export const OFFICIAL_CRITERIA_BY_SLUG = {
+  report_quran: c([['participation', 'مشاركة', 1], ['report', 'تقرير', 1], ['uniform', 'زي', 1], ['attendance', 'توقيت الحضور', 1], ['memorization', 'حفظ', 10], ['tajweed', 'تجويد', 3], ['recitation', 'ترتيل', 3], ['values', 'صحة القيم', 10]]),
+  report_hadith: c([['participation', 'مشاركة', 1], ['report', 'تقرير', 1], ['uniform', 'زي', 1], ['attendance', 'توقيت حضور', 1], ['hadithCount', 'عدد أحاديث', 5], ['memorization', 'حفظ', 5], ['documentation', 'سند وتوثيق', 1], ['requirements', 'توافق الشروط', 5]]),
+  report_prophets: c([['participation', 'مشاركة', 1], ['report', 'تقرير', 1], ['uniform', 'زي', 1], ['attendance', 'توقيت حضور', 1], ['presentationTime', 'توقيت عرض', 1], ['purpose', 'تحقيق الغرض', 5], ['content', 'محتوى', 5], ['requirements', 'شروط الورقة', 5]]),
+  report_tilawa_festival: c([['participation', 'مشاركة', 1], ['report', 'تقرير', 1], ['uniform', 'زي', 1], ['attendance', 'توقيت حضور', 1], ['memorization', 'حفظ', 5], ['tajweed', 'تجويد', 5], ['recitation', 'ترتيل', 6], ['duration', 'مدة التلاوة', 5]]),
+  report_campfire: c([['participation', 'مشاركة', 1], ['report', 'تقرير', 1], ['uniform', 'زي', 1], ['timing', 'توقيت', 1], ['traditions', 'تقاليد', 3], ['vocal', 'أداء صوتي جماعي', 10], ['movement', 'أداء حركي جماعي', 10], ['entertainment', 'إمتاع', 5], ['extras', 'إضافات', 3]]),
+  report_poster: c([['participation', 'مشاركة', 1], ['report', 'تقرير', 1], ['uniform', 'زي', 1], ['timing', 'توقيت', 1], ['requirements', 'شروط', 10], ['editing', 'إخراج', 10], ['idea', 'وضوح الفكرة', 25], ['extras', 'إضافات', 1]]),
+  report_exhibition: c([['participation', 'مشاركة', 1], ['uniform', 'زي', 1], ['report', 'تقرير', 1], ['corners', 'عدد أركان', 5], ['pieces', 'عدد القطع', 15], ['artEnvironment', 'ركني الفني والبيئي', 10], ['presenter', 'تميز العارض', 1], ['appearance', 'الشكل العام', 3], ['quality', 'جودة القطع', 1], ['extras', 'إضافات', 2]]),
+  report_art_workshop: c([['participation', 'مشاركة', 1], ['members', 'عدد (1 فرد)', 1], ['uniform', 'زي', 1], ['report', 'تقرير', 1], ['attendance', 'توقيت حضور', 1], ['workshopTime', 'توقيت الورشة', 5], ['usage', 'استخدام', 10], ['innovation', 'شرط الابتكار', 10], ['quality', 'إخراج وجودة', 10], ['extras', 'إضافات', 5]]),
+  report_carnival: c([['participation', 'مشاركة', 1], ['report', 'تقرير', 1], ['timing', 'توقيت', 1], ['governorate', 'شرط المحافظة', 5], ['food', 'أكلة مشهورة', 5], ['heritage', 'صحة التراث', 10], ['uniform', 'زي المحافظة', 10], ['song', 'أغنية المهرجان', 5], ['groupPerformance', 'أداء جماعي', 10], ['entertainment', 'إمتاع', 0], ['extras', 'إضافات', 2]]),
+  report_scout_magazine: c([['participation', 'مشاركة', 1], ['count', 'عدد', 1], ['uniform', 'زي', 1], ['report', 'تقرير', 1], ['attendance', 'توقيت الحضور', 1], ['executionTime', 'توقيت التنفيذ', 5], ['spaceRequirements', 'مساحة وشروط', 5], ['skill', 'صحة المهارة', 10], ['editing', 'الإخراج', 10], ['presentation', 'مهارة العرض', 10], ['extras', 'الإضافات', 5]]),
+  report_knots: c([['participation', 'مشاركة', 1], ['uniform', 'زي', 1], ['attendance', 'توقيت حضور', 1], ['skill', 'صحة المهارة', 40], ['speed', 'السرعة', 7]]),
+  report_scout_model: c([['participation', 'مشاركة', 1], ['count', 'عدد', 1], ['uniform', 'زي', 1], ['report', 'تقرير', 1], ['attendance', 'توقيت حضور', 1], ['executionTime', 'توقيت تنفيذ', 4], ['modelUsage', 'استخدام النموذج', 10], ['cycles', 'صحة الدورات', 10], ['durability', 'متانة', 10], ['multiplicity', 'تعدد', 5], ['units', 'الالتزام بعدد الوحدات', 10], ['storage', 'تشوين ونظافة', 5], ['extras', 'إضافات', 1]]),
+  report_reels: c([['participation', 'مشاركة', 1], ['count', 'عدد', 1], ['uniform', 'زي', 1], ['report', 'تقرير', 1], ['attendance', 'توقيت حضور', 1], ['presentationTime', 'توقيت عرض', 10], ['purpose', 'تحقيق الهدف', 10], ['comedy', 'مهارة العرض الكوميدي', 20], ['extras', 'الإضافات', 5]]),
+  report_science_ideas: c([['participation', 'مشاركة', 1], ['uniform', 'زي', 1], ['delivery', 'توقيت تسليم', 1], ['report', 'تقرير', 1], ['count', 'عدد', 1], ['presentationTime', 'توقيت عرض', 5], ['researchRules', 'شروط وأسلوب البحث العلمي', 10], ['scientificContent', 'محتوى ومادة علمية', 10], ['writing', 'صياغة وإخراج', 10], ['references', 'المراجع', 10], ['tool', 'الوسيلة', 5], ['presentation', 'مهارة العرض', 5], ['feasibility', 'واقعية وقابلية التنفيذ', 5], ['extras', 'إضافات', 5]]),
+  report_model_presentation: c([['participation', 'مشاركة', 1], ['count', 'عدد', 1], ['uniform', 'زي', 1], ['report', 'تقرير', 1], ['timing', 'توقيت', 1], ['presentationTime', 'توقيت عرض', 10], ['quality', 'جودة وإخراج', 10], ['content', 'محتوى وشروط', 15], ['presentation', 'مهارة العرض', 5], ['extras', 'إضافة', 5]]),
+  report_smart_detector: c([['participation', 'مشاركة', 1], ['count', 'عدد', 1], ['uniform', 'زي', 1], ['report', 'تقرير', 1], ['participationTime', 'توقيت المشاركة', 1], ['innovation', 'الابتكار', 30], ['scientificContent', 'المادة العلمية', 25]]),
+  report_video: c([['participation', 'مشاركة', 1], ['uniform', 'زي', 1], ['report', 'تقرير', 1], ['attendance', 'توقيت حضور', 2], ['videoTime', 'توقيت الفيديو', 5], ['editing', 'إخراج', 5], ['idea', 'وضوح الفكرة', 40]]),
+  report_closing_night: c([['participation', 'مشاركة', 1], ['performance', 'جودة الأداء الفني', 1]]),
+  video_design: c([['participation', 'مشاركة', 5], ['quality', 'جودة', 5], ['editing', 'إخراج', 5], ['timing', 'توقيت', 5], ['likes', 'لايك', 5], ['comments', 'تعليق', 5], ['views', 'مشاهدة', 5]]),
+};
+
+export function getOfficialCriteria(competition) {
+  const slug = String(competition?.slug || '');
+  return OFFICIAL_CRITERIA_BY_SLUG[slug]
+    || OFFICIAL_CRITERIA_BY_SLUG[slug.replaceAll('-', '_')]
+    || null;
+}

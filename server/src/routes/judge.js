@@ -7,6 +7,7 @@ import { getAnonymousLeaderboard, clearLeaderboardCache } from './leaderboard.js
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { recalculateTeamStanding } from '../teamStanding.js';
 import { getCompetitionMaxScore } from '../scoreRules.js';
+import { getOfficialCriteria } from '../officialCompetitionCriteria.js';
 import { requestDataBackup } from '../backupScheduler.js';
 import { idempotent } from '../middleware/idempotent.js';
 import { validate, zString, zId, zNumber } from '../middleware/validate.js';
@@ -85,7 +86,7 @@ router.post('/unlock', validate(unlockSchema), async (req, res) => {
 
     let criteria = [];
     try {
-      criteria = JSON.parse(competition.criteria);
+      criteria = JSON.parse(getOfficialCriteria(competition) || competition.criteria);
     } catch (e) {
       criteria = [];
     }
