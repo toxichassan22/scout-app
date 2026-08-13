@@ -351,7 +351,8 @@ export async function generateFullBackup() {
 
     for (const team of teams) {
       // Safe team folder name
-      const safeFolderName = `Team_${team.username}_${team.label.replace(/[/\\?%*:|"<>]/g, '_')}`;
+      const safeTeamName = (team.label || team.username || 'فريق').replace(/[/\\?%*:|"<>]/g, '_');
+      const safeFolderName = `Team_${team.username}_${safeTeamName}`;
       const teamFolderPath = path.join(teamsBackupDir, safeFolderName);
       const teamReportsFolderPath = path.join(teamFolderPath, 'reports');
 
@@ -361,8 +362,8 @@ export async function generateFullBackup() {
       const teamDataBuffer = Buffer.from(JSON.stringify(team, null, 2), 'utf8');
       await writeFile(path.join(teamFolderPath, 'scores_detail.json'), teamDataBuffer);
 
-      // Upload Team Profile JSON to Google Drive folder: 03_TEAMS_DATA/Team_Name
-      await uploadIfChanged(manifest, stats, 'scores_detail.json', 'application/json', teamDataBuffer, `03_TEAMS_DATA/${safeFolderName}`);
+      // Upload Team Profile JSON to Google Drive folder: الفرق_الكشفية/اسم_الفريق
+      await uploadIfChanged(manifest, stats, `بيانات_ودرجات_${safeTeamName}.json`, 'application/json', teamDataBuffer, `الفرق_الكشفية/${safeTeamName}`);
 
       // Copy & Upload Team PDF/Video Reports if exists
       if (team.reports && team.reports.length > 0) {
@@ -372,12 +373,12 @@ export async function generateFullBackup() {
             const sourceFilePath = path.join(uploadsSourceDir, fileNameOnly);
             try {
               await access(sourceFilePath);
-              const safeReportName = `${String(report.title || 'report').replace(/[/\\?%*:|"<>]/g, '_') || 'report'}_${fileNameOnly}`;
+              const safeReportName = `${String(report.title || 'تقرير').replace(/[/\\?%*:|"<>]/g, '_')}_${fileNameOnly}`;
               const reportBuffer = await readFile(sourceFilePath);
               await writeFile(path.join(teamReportsFolderPath, safeReportName), reportBuffer);
 
-              // Upload Team Report to Google Drive folder: 03_TEAMS_DATA/Team_Name/reports
-              await uploadIfChanged(manifest, stats, safeReportName, 'application/pdf', reportBuffer, `03_TEAMS_DATA/${safeFolderName}/reports`);
+              // Upload Team Report to Google Drive folder: الفرق_الكشفية/اسم_الفريق/التقارير_المرفوعة
+              await uploadIfChanged(manifest, stats, safeReportName, 'application/pdf', reportBuffer, `الفرق_الكشفية/${safeTeamName}/التقارير_المرفوعة`);
             } catch (fileError) {
               if (fileError.code !== 'ENOENT') throw fileError;
             }
