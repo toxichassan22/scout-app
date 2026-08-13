@@ -23,7 +23,7 @@ export function enumValue(value, name, allowed) {
 }
 
 export function strongPassword(value, name = 'password') {
-    return boundedString(value, name, { min: 3, max: 256, trim: false });
+    return boundedString(value, name, { min: 6, max: 256, trim: false });
 }
 
 export const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);

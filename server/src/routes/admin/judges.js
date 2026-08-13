@@ -31,13 +31,13 @@ router.get('/judges', async (req, res) => {
   }
 });
 
-const judgeCreateSchema = { body: { name: zString('الاسم', { min: 1, max: 120 }), username: zString('اسم المستخدم', { min: 1, max: 80 }), password: zString('كلمة السر', { min: 3, max: 256 }) } };
+const judgeCreateSchema = { body: { name: zString('الاسم', { min: 1, max: 120 }), username: zString('اسم المستخدم', { min: 1, max: 80 }), password: zString('كلمة السر', { min: 1, max: 256 }) } };
 router.post('/judges', validate(judgeCreateSchema), async (req, res) => {
   try {
     const { name, username, password } = req.body || {};
     const cleanName = boundedString(name, 'name', { min: 1, max: 120 });
     const cleanUsername = boundedString(username, 'username', { min: 1, max: 80 });
-    const cleanPassword = strongPassword(password);
+    const cleanPassword = boundedString(password, 'password', { min: 1, max: 256, trim: false });
 
     const passwordHash = await bcrypt.hash(cleanPassword, 12);
     const judge = await prisma.judge.create({ data: { name: cleanName, username: cleanUsername, passwordHash }, select: safeJudgeSelect });

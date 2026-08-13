@@ -82,7 +82,7 @@ export const PERIOD_LABELS = {
 };
 
 export function getAgendaStatus(item, now = new Date(), festivalDate = process.env.FESTIVAL_DATE || '2026-08-21') {
-    if (item.isClosed) return 'closed';
+    if (item.isClosed) return 'finished';
     if (item.isStarted) return 'active';
     try {
         const start = new Date(`${festivalDate}T${String(item.startTime || '').slice(0, 5)}:00+03:00`);
