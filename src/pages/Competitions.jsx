@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { QrCode, X, Trophy, ArrowLeft } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 import CompetitionCard from '../components/CompetitionCard';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
@@ -11,18 +11,20 @@ const Competitions = () => {
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
 
+  const currentTeamName = user?.name || user?.label || user?.username || 'فريق كشفي';
+
   const enterCompetition = (competition) => {
-    const validation = validateCompetitionEntry(competition.id, user.name);
+    const validation = validateCompetitionEntry(competition.id, currentTeamName);
     if (!validation.ok) {
       setMessage(validation.message);
       return;
     }
-    const lockResult = registerCompetitionEntry(competition.id, user.name);
+    const lockResult = registerCompetitionEntry(competition.id, currentTeamName);
     if (!lockResult.ok) {
       setMessage(lockResult.message);
       return;
     }
-    navigate(`/competition/${competition.id}`);
+    navigate(`/competition/${competition.slug || competition.id}`);
   };
 
   return (
@@ -35,7 +37,7 @@ const Competitions = () => {
           <div className="text-right">
             <p className="section-kicker">بوابة الدخول</p>
             <h1 className="section-title">المسابقات</h1>
-            <p className="mt-1 text-sm text-slate-400">اضغط على المسابقة المفتوحة للدخول مباشرة (اختبار بدون QR).</p>
+            <p className="mt-1 text-sm text-slate-400">اضغط على المسابقة المفتوحة للدخول مباشرة.</p>
           </div>
         </div>
       </div>
@@ -49,7 +51,7 @@ const Competitions = () => {
             <CompetitionCard
               key={competition.id}
               competition={competition}
-              completed={!isVideoComp && isCompleted(competition.id, user.name)}
+              completed={!isVideoComp && currentTeamName ? isCompleted(competition.id, currentTeamName) : false}
               onScan={() => enterCompetition(competition)}
             />
           );

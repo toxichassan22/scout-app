@@ -21,11 +21,12 @@ const VideoDesign = () => {
   const [simulationProgress, setSimulationProgress] = useState(0);
   const [simulationLogs, setSimulationLogs] = useState([]);
 
-  const attempts = getVideoAttempts(user.name);
+  const teamName = user?.name || user?.label || user?.username || 'فريق كشفي';
+  const attempts = getVideoAttempts(teamName);
   const remaining = Math.max(0, MAX_ATTEMPTS - attempts.length);
 
   useEffect(() => {
-    const result = registerCompetitionEntry(4, user.name);
+    const result = registerCompetitionEntry(4, teamName);
     if (!result.ok) {
       alert(result.message);
       navigate('/competitions', { replace: true });
@@ -36,7 +37,7 @@ const VideoDesign = () => {
     event.preventDefault();
     if (remaining <= 0) return;
     try {
-      submitEntry(4, user.name, { prompt, score: 0 });
+      submitEntry(4, teamName, { prompt, score: 0 });
       setPrompt('');
       alert('تم حفظ البرومبت بنجاح! يمكنك الآن الضغط على زر التوليد في الأسفل.');
     } catch (error) {
