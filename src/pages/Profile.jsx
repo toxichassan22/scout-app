@@ -81,9 +81,13 @@ const Profile = () => {
             {/* Glowing Avatar Emblem Box */}
             <motion.div
               whileHover={{ scale: 1.05, rotate: 2 }}
-              className="relative flex h-28 w-28 shrink-0 items-center justify-center rounded-[2rem] border-2 border-[rgba(245,158,11,0.5)] bg-gradient-to-br from-[rgba(245,158,11,0.25)] via-[rgba(139,92,246,0.2)] to-[rgba(7,6,12,0.9)] shadow-[0_0_35px_rgba(245,158,11,0.4)] p-4"
+              className="relative flex h-28 w-28 shrink-0 items-center justify-center rounded-[2rem] border-2 border-[rgba(245,158,11,0.5)] bg-gradient-to-br from-[rgba(245,158,11,0.25)] via-[rgba(139,92,246,0.2)] to-[rgba(7,6,12,0.9)] shadow-[0_0_35px_rgba(245,158,11,0.4)] p-2 overflow-hidden"
             >
-              <Flame size={48} className="animate-flame text-[#fcd34d]" />
+              {user?.logoUrl ? (
+                <img src={user.logoUrl} alt={teamName} className="h-full w-full object-cover rounded-[1.5rem]" />
+              ) : (
+                <Flame size={48} className="animate-flame text-[#fcd34d]" />
+              )}
               <span className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-xl border-2 border-[#0c0a16] bg-[#10b981] text-xs font-black text-[#052e1f] shadow-lg">
                 ✓
               </span>

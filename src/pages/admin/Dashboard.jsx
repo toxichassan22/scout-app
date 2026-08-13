@@ -138,6 +138,7 @@ const Dashboard = () => {
       title: 'التشغيل يوم المهرجان',
       links: [
         { path: '/admin/scoring', label: 'تعديل الدرجات', icon: Award, desc: 'اختر المسابقة ثم الفريق، مع سجل تدقيق', tone: 'rose' },
+        { path: '/admin/leaderboard', label: 'لوحة الصدارة والترتيب', icon: Trophy, desc: 'عرض الترتيب العام، وإظهار/إخفاء النتائج', tone: 'amber' },
         { path: '/admin/reports', label: 'التقارير المرفوعة', icon: FileText, desc: 'استعراض وتحميل وصلاحية التسليم', tone: 'cyan' },
         { path: '/admin/news', label: 'نشر الأخبار', icon: Newspaper, desc: 'إعلانات عامة أو موجهة لفرق بعينها', tone: 'emerald' },
       ],

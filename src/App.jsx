@@ -40,6 +40,7 @@ const AdminReports = lazy(() => import('./pages/admin/AdminReports'));
 const AdminAgenda = lazy(() => import('./pages/admin/Agenda'));
 const AdminStressTest = lazy(() => import('./pages/admin/StressTest'));
 const AdminActivitySetup = lazy(() => import('./pages/admin/ActivitySetup'));
+const AdminLeaderboard = lazy(() => import('./pages/admin/Leaderboard'));
 
 import { TopHeader } from './components/TopHeader';
 import { ScoutMascotToy } from './components/ScoutMascotToy';
@@ -105,6 +106,7 @@ const App = memo(function App() {
           <Route path="/admin/agenda" element={<ProtectedRoute allowedRoles={['admin']}><AdminAgenda /></ProtectedRoute>} />
           <Route path="/admin/stress-test" element={<ProtectedRoute allowedRoles={['admin']}><AdminStressTest /></ProtectedRoute>} />
           <Route path="/admin/activities" element={<ProtectedRoute allowedRoles={['admin']}><AdminActivitySetup /></ProtectedRoute>} />
+          <Route path="/admin/leaderboard" element={<ProtectedRoute allowedRoles={['admin']}><AdminLeaderboard /></ProtectedRoute>} />
 
           {/* Default Redirect */}
           <Route path="*" element={<Navigate to={defaultRoute} replace />} />

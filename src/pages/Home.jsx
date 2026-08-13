@@ -11,6 +11,7 @@ import { getLeaderboard, getNews } from '../services/api';
 import { FESTIVAL_DETAILS, MOCK_TEAMS } from '../data/mockData';
 import NewsCard from '../components/NewsCard';
 import LoadingSpinner from '../components/LoadingSpinner';
+import TeamLogoUploadModal from '../components/TeamLogoUploadModal';
 
 /* ═══════════════════════════════════════════════════════════════
    HOME — لوحة التحكم الكشفية الرقمية (Digital Scout App Dashboard)
@@ -311,6 +312,10 @@ const Home = memo(function Home() {
         </div>
 
       </div>
+      <TeamLogoUploadModal
+        isOpen={Boolean(user?.role === 'team' && (user?.requiresLogoUpload || !user?.logoUrl))}
+        onSuccess={() => window.location.reload()}
+      />
     </main>
   );
 });
