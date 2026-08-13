@@ -35,15 +35,22 @@ router.post('/backup/github', async (req, res) => {
   }
 });
 
-router.post('/backup/trigger', (req, res) => {
+router.post('/backup/trigger', async (req, res) => {
   if (running) {
-    return res.status(409).json({ success: false, error: 'النسخ الاحتياطي يعمل بالفعل', running: true, requestId: req.requestId, timestamp: new Date().toISOString() });
+    return res.status(409).json({ success: false, error: 'النسخ الاحتياطي يعمل بالفعل', running: true });
   }
-  const log = req.log;
-  // Deliberately not awaited: the response returns immediately and the dashboard
-  // polls GET /admin/backup/status for the outcome.
-  runFullBackup(log);
-  res.status(202).json({ success: true, started: true, message: 'بدأ النسخ الاحتياطي في الخلفية' });
+  running = true;
+  const startedAt = new Date().toISOString();
+  try {
+    const result = await generateFullBackup();
+    lastRun = { ...result, startedAt, finishedAt: new Date().toISOString() };
+    res.json({ success: true, ...result });
+  } catch (err) {
+    req.log.error({ err }, 'full backup failed');
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    running = false;
+  }
 });
 
 router.get('/backup/status', (req, res) => {

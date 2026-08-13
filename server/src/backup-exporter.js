@@ -81,7 +81,7 @@ export async function uploadToGoogleDrive(fileName, mimeType, fileBuffer, folder
   if (!GDRIVE_WEBHOOK_URL) return { skipped: true, reason: 'GDRIVE_WEBHOOK_URL is not configured' };
   try {
     const fileData = fileBuffer.toString('base64');
-    const body = JSON.stringify({ fileName, mimeType, fileData, folderPath });
+    const body = JSON.stringify({ fileName, mimeType, fileData, bufferBase64: fileData, folderPath });
     const headers = { 'Content-Type': 'application/json' };
     if (GDRIVE_BEARER) headers.Authorization = `Bearer ${GDRIVE_BEARER}`;
     if (GDRIVE_SIGNING_SECRET) headers['X-Webhook-Signature'] = crypto.createHmac('sha256', GDRIVE_SIGNING_SECRET).update(body).digest('hex');

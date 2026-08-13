@@ -89,9 +89,13 @@ const Dashboard = () => {
     try {
       setBackupLoading(true);
       const res = await apiFetch('/admin/backup/trigger', { method: 'POST' });
-      alert(`✅ تم توليد النسخة الاحتياطية بنجاح!\nالمسار: scout-backups\nعدد الفرق: ${res.totalTeams}`);
+      if (res.success) {
+        alert(`✅ تم توليد وتصدير النسخة الاحتياطية بنجاح!\n• عدد الفرق: ${res.totalTeams || 0}\n• تم الرفع لـ Google Drive: ${res.gdriveSynced ? 'نعم ✅' : 'غير مفعل الرابط ⚠️'}\n• الملفات المرفوعة: ${res.uploaded || 0}`);
+      } else {
+        alert(res.error || 'حدث خطأ أثناء النسخ الاحتياطي');
+      }
     } catch (e) {
-      alert('فشل في تشغيل المزامنة والنسخ الاحتياطي');
+      alert('فشل في تشغيل المزامنة والنسخ الاحتياطي: ' + (e.message || ''));
     } finally {
       setBackupLoading(false);
     }
