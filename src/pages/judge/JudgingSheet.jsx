@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { getJudgeTeams, submitJudgeScore, fetchReportFile } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
+import InlinePdfViewer from '../../components/InlinePdfViewer';
 
 const JudgingSheet = () => {
   const location = useLocation();
@@ -372,13 +373,8 @@ const JudgingSheet = () => {
                     </p>
                   ) : selectedTeam.report.fileUrl.toLowerCase().endsWith('.pdf') ? (
                     <div className="flex-1 flex flex-col min-h-0">
-                      <div className={`border border-purple-500/30 rounded-2xl overflow-hidden bg-slate-950 ${isFullScreenReport ? 'h-[80vh]' : 'h-[55vh] min-h-[380px]'}`}>
-                        <iframe
-                          src={reportFileUrl}
-                          title="معاينة التقرير"
-                          className="w-full h-full border-0"
-                          style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
-                        />
+                      <div className={`border border-purple-500/30 rounded-2xl overflow-hidden bg-slate-950 p-2 ${isFullScreenReport ? 'h-[80vh]' : 'h-[55vh] min-h-[380px]'}`}>
+                        <InlinePdfViewer url={reportFileUrl} fileName={selectedTeam.report.fileName} />
                       </div>
                     </div>
                   ) : (
