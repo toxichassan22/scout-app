@@ -124,7 +124,7 @@ function EntertainmentCard({ activity, onOpen }) {
 }
 
 const entertainmentActivities = [
-  { title: 'Hacker Sandbox', description: 'مهمة آمنة داخل بنك بيكسل الوهمي، بقرارات أمنية وقصة قصيرة.', action: 'بدء مهمة البنك', path: '/activities/hacker-sandbox', icon: ShieldCheck },
+  { title: 'تحدي الحارس الرقمي', description: 'خمسة مواقف واضحة من تطبيق المهرجان؛ اختر التصرف الآمن وتعلّم السبب في دقيقتين.', action: 'ابدأ التحدي', path: '/activities/hacker-sandbox', icon: ShieldCheck },
   { title: 'Guess the Number', description: 'لعبة جماعية من 3 إلى 10 لاعبين، تعتمد على الأدوار وكشف الأكواد.', action: 'فتح غرفة اللعب', path: '/activities/guess-number', icon: Users },
   { title: 'Easter Egg', description: 'رحلة QR طويلة بمهام صوتية وثقافية وحركية، وتتابعها السواعد ميدانيًا.', action: 'بدء رحلة QR', path: '/activities/easter-egg', icon: QrCode },
 ];

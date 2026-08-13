@@ -228,12 +228,12 @@ router.post('/sessions/:sessionId/hacker-answer', enforceNotFrozen, validate(hac
     const session = await tx.activitySession.findUnique({ where: { id: req.params.sessionId }, include: { participants: true, activity: true } });
     const participant = session && session.participants.find(item => item.teamId === req.user.id && item.deviceId === req.user.deviceId);
     const stage = HACKER_STAGES[req.body.challenge];
-    if (!session || !participant || session.activity.slug !== 'hacker-sandbox' || !stage) throw Object.assign(new Error('مرحلة المحاكي غير موجودة'), { status: 404 });
-    if (session.status !== 'active') throw Object.assign(new Error('انتهت جلسة المحاكي'), { status: 409 });
+    if (!session || !participant || session.activity.slug !== 'hacker-sandbox' || !stage) throw Object.assign(new Error('مرحلة التحدي غير موجودة'), { status: 404 });
+    if (session.status !== 'active') throw Object.assign(new Error('انتهت جلسة التحدي'), { status: 409 });
     const metadata = parseJson(participant.metadata, { answers: {}, currentStage: 0 });
     metadata.answers ||= {};
     const currentStage = Number(metadata.currentStage || 0);
-    if (req.body.challenge !== currentStage) throw Object.assign(new Error('يجب حل مراحل البنك بالترتيب'), { status: 409 });
+    if (req.body.challenge !== currentStage) throw Object.assign(new Error('يجب إكمال مواقف التحدي بالترتيب'), { status: 409 });
     const correct = Number(req.body.selectedIndex) === stage.answer;
     metadata.answers[String(currentStage)] = { correct, points: correct ? 1 : 0 };
     metadata.currentStage = currentStage + 1;
@@ -322,7 +322,7 @@ router.post('/sessions/:sessionId/finish', enforceNotFrozen, validate({ params: 
     if (config.kind === 'easter') throw Object.assign(new Error('يجب إنهاء مراحل QR بالترتيب'), { status: 409 });
     const currentMetadata = config.kind === 'color' ? participant.metadata : (req.body.metadata ? JSON.stringify(req.body.metadata) : participant.metadata);
     const metadata = parseJson(currentMetadata, {});
-    if (config.kind === 'hacker' && Number(metadata.currentStage || 0) < HACKER_STAGES.length) throw Object.assign(new Error('يجب حل مراحل البنك بالترتيب'), { status: 409 });
+    if (config.kind === 'hacker' && Number(metadata.currentStage || 0) < HACKER_STAGES.length) throw Object.assign(new Error('يجب إكمال مواقف التحدي بالترتيب'), { status: 409 });
     const calculatedScore = config.kind === 'color'
       ? Object.values(metadata.rounds || {}).reduce((sum, round) => sum + Number(round.score || 0), 0)
       : config.kind === 'hacker'
