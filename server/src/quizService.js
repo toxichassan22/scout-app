@@ -171,7 +171,7 @@ export async function finalizeCompetitionSessions(competitionId) {
 
 export async function finalizeExpiredSessions() {
   const now = new Date();
-  const expired = await prisma.quizSession.findMany({ where: { isCompleted: false, OR: [{ expiresAt: { lt: now } }, { competition: { endsAt: { lte: now } } }] }, select: { id: true } });
+  const expired = await prisma.quizSession.findMany({ where: { isCompleted: false, expiresAt: { lt: now } }, select: { id: true } });
   for (const { id } of expired) {
     try {
       await finalizeDigitalSession(id);
