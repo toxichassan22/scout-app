@@ -89,10 +89,9 @@ const GuessTheNumber = () => {
   }, [session?.id, session?.status]);
 
   const createAuto = async () => {
-    if (!playerName.trim()) return setMessage('يرجى كتابة اسمك أو اسم الكشاف أولاً');
     setBusy(true); setMessage('');
     try {
-      const response = await createActivitySession('guess-number', { mode: 'auto', displayName: playerName.trim() });
+      const response = await createActivitySession('guess-number', { mode: 'auto', displayName: (registeredScoutName || user?.deviceName || user?.username || 'كشاف').trim() });
       setSession(response.session);
     } catch (error) {
       setMessage(error.message || 'تعذر إنشاء الجلسة');
@@ -102,10 +101,9 @@ const GuessTheNumber = () => {
   };
 
   const createPrivateRoom = async () => {
-    if (!playerName.trim()) return setMessage('يرجى كتابة اسمك أو اسم الكشاف أولاً');
     setBusy(true); setMessage('');
     try {
-      const response = await createActivitySession('guess-number', { mode: 'create_private', displayName: playerName.trim() });
+      const response = await createActivitySession('guess-number', { mode: 'create_private', displayName: (registeredScoutName || user?.deviceName || user?.username || 'كشاف').trim() });
       setSession(response.session);
       setMessage(`تم إنشاء الغرفة بنجاح! كود الدعوة: ${response.session.roomCode}`);
     } catch (error) {
@@ -117,11 +115,10 @@ const GuessTheNumber = () => {
 
   const joinByCode = async event => {
     event.preventDefault();
-    if (!playerName.trim()) return setMessage('يرجى كتابة اسمك أو اسم الكشاف أولاً');
     if (!code.trim()) return setMessage('يرجى إدخال كود الغرفة');
     setBusy(true); setMessage('');
     try {
-      const response = await createActivitySession('guess-number', { mode: 'code', roomCode: code.trim(), displayName: playerName.trim() });
+      const response = await createActivitySession('guess-number', { mode: 'code', roomCode: code.trim(), displayName: (registeredScoutName || user?.deviceName || user?.username || 'كشاف').trim() });
       setSession(response.session);
     } catch (error) {
       setMessage(error.message || 'كود الغرفة غير صالح أو اللعبة بدأت بالفعل');
@@ -204,21 +201,26 @@ const GuessTheNumber = () => {
             🎯 كل لاعب يحدد كوداً سرياً مكوناً من 5 أرقام، ثم يتبادل اللاعبون التخمين بالدور في حلقة دائرية. النظام يخبرك بعدد الخانات الصحيحة في مكانها والخانات الصحيحة في أماكن أخرى.
           </div>
 
-          <div className="space-y-2 text-right">
-            <label className="block text-xs font-bold text-slate-300">اسم اللاعب أو الكشاف (ليظهر لأعضاء الغرفة):</label>
-            <input
-              value={playerName}
-              onChange={e => setPlayerName(e.target.value)}
-              className="input-field text-right font-bold text-white placeholder-slate-500"
-              placeholder="مثال: يوسف، أحمد، مريم..."
-              required
-            />
+          {/* Scout Identity Card (Read-only as registered) */}
+          <div className="rounded-2xl border border-cyan-500/30 bg-cyan-950/40 p-4 text-right flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-cyan-400/40 bg-cyan-500/15 text-cyan-300">
+                <Users size={22} />
+              </div>
+              <div>
+                <span className="block text-[11px] font-bold text-slate-400">اسم الكشاف المسجل على الجهاز:</span>
+                <span className="block text-base font-black text-white">{registeredScoutName || user?.deviceName || user?.username || 'كشاف مسجل'}</span>
+              </div>
+            </div>
+            <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+              <Check size={14} /> موثق تلقائياً
+            </span>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 pt-2">
+          <div className="grid gap-3 sm:grid-cols-2 pt-1">
             <button
               type="button"
-              disabled={busy || !playerName.trim()}
+              disabled={busy}
               onClick={createPrivateRoom}
               className="btn-ember flex items-center justify-center gap-2 !py-3.5"
             >
@@ -227,7 +229,7 @@ const GuessTheNumber = () => {
 
             <button
               type="button"
-              disabled={busy || !playerName.trim()}
+              disabled={busy}
               onClick={createAuto}
               className="btn-violet flex items-center justify-center gap-2 !py-3.5"
             >
@@ -245,7 +247,7 @@ const GuessTheNumber = () => {
                 placeholder="أدخل كود الغرفة (مثال: DSC-8921)"
                 required
               />
-              <button className="btn-ghost !px-6" disabled={busy || !playerName.trim()}>
+              <button className="btn-ghost !px-6" disabled={busy}>
                 <DoorOpen size={17} /> دخول
               </button>
             </form>
