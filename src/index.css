@@ -145,6 +145,15 @@
     animation: starTwinkle 6s ease-in-out infinite alternate;
   }
 
+  /* الإدارة تحتاج سطحاً ثابتاً ونظيفاً؛ المشهد التفاعلي محجوب في App.jsx. */
+  .admin-shell {
+    background: #071017;
+  }
+  .admin-shell::before,
+  .admin-shell::after {
+    display: none;
+  }
+
   .page-shell {
     @apply relative z-10 mx-auto max-w-5xl px-4 pb-36 pt-6 sm:px-6 lg:pt-10;
   }

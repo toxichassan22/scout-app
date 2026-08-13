@@ -1,5 +1,5 @@
 import { lazy, Suspense, memo } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Navbar } from './components/Navbar';
@@ -48,6 +48,8 @@ import CompetitionNotice from './components/CompetitionNotice';
 
 const App = memo(function App() {
   const { user } = useAuth();
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
 
   let defaultRoute = '/';
   if (user) {
@@ -57,10 +59,10 @@ const App = memo(function App() {
   }
 
   return (
-    <div dir="rtl" className="app-shell min-h-screen">
+    <div dir="rtl" className={`app-shell min-h-screen ${isAdminRoute ? 'admin-shell' : ''}`}>
       <TopHeader />
-      <CompetitionNotice />
-      <ScoutCampfireScene />
+      {!isAdminRoute && <CompetitionNotice />}
+      {!isAdminRoute && <ScoutCampfireScene />}
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           {/* Public Routes */}
@@ -108,7 +110,7 @@ const App = memo(function App() {
           <Route path="*" element={<Navigate to={defaultRoute} replace />} />
         </Routes>
       </Suspense>
-      <ScoutMascotToy />
+      {!isAdminRoute && <ScoutMascotToy />}
       <Navbar />
     </div>
   );

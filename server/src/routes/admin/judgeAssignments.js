@@ -28,12 +28,37 @@ router.get('/judges/:judgeId/assignments', validate({ params: { judgeId: zId('ا
 });
 router.get('/scores/breakdown', async (req, res) => {
   try {
-    const { page, limit, skip } = parsePagination(req.query);
-    const [rows, total] = await Promise.all([
-      prisma.score.findMany({ include: { team: { select: safeTeamSelect }, competition: { select: safeCompetitionSelect }, judgeScores: { include: { judge: { select: { id: true, name: true, username: true } } } }, audits: { orderBy: { createdAt: 'asc' } } }, skip, take: limit }),
-      prisma.score.count(),
+    const [scores, teams, competitions] = await Promise.all([
+      prisma.score.findMany({ include: { team: { select: safeTeamSelect }, competition: { select: safeCompetitionSelect }, judgeScores: { include: { judge: { select: { id: true, name: true, username: true } } } }, audits: { orderBy: { createdAt: 'asc' } } } }),
+      prisma.team.findMany({ orderBy: { label: 'asc' }, select: safeTeamSelect }),
+      prisma.competition.findMany({ orderBy: { name: 'asc' }, select: safeCompetitionSelect }),
     ]);
-    res.json(paginatedResponse({ data: rows, page, limit, total }));
+
+    // Return a complete team x competition matrix for the admin screen. Missing
+    // combinations are display-only zeroes; no Score row is created, so a judge
+    // can still submit the team's first real result normally.
+    const scoreByKey = new Map(scores.map(score => [`${score.teamId}:${score.competitionId}`, score]));
+    const rows = [];
+    for (const team of teams) {
+      for (const competition of competitions) {
+        const existing = scoreByKey.get(`${team.id}:${competition.id}`);
+        rows.push(existing || {
+          id: null,
+          teamId: team.id,
+          competitionId: competition.id,
+          team,
+          competition,
+          total: 0,
+          isFinal: true,
+          isVirtual: true,
+          values: '{}',
+          judgeScores: [],
+          audits: [],
+        });
+      }
+    }
+
+    res.json(paginatedResponse({ data: rows, page: 1, limit: Math.max(rows.length, 1), total: rows.length }));
   } catch (err) {
     req.log.error({ err }, 'admin scores breakdown failed');
     res.status(500).json({ success: false, error: 'فشل في جلب تفاصيل الدرجات', requestId: req.requestId, timestamp: new Date().toISOString() });
