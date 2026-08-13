@@ -69,11 +69,12 @@ function preprocessBoolean(value) {
   return value;
 }
 
-export const zString = (name, { min = 1, max = 256, optional = false } = {}) => {
+export const zString = (name, { min, max = 256, optional = false } = {}) => {
+  const effectiveMin = min !== undefined ? min : (optional ? 0 : 1);
   let schema = z.string({ message: `${name} يجب أن يكون نصاً` });
-  if (min > 0) schema = schema.min(min, { message: `${name} قصير جداً` });
+  if (effectiveMin > 0) schema = schema.min(effectiveMin, { message: `${name} قصير جداً` });
   if (max < Infinity) schema = schema.max(max, { message: `${name} طويل جداً` });
-  return optional ? schema.optional() : schema;
+  return optional ? schema.optional().nullable() : schema;
 };
 
 export const zId = (name = 'id') => z.string({ message: `${name} يجب أن يكون نصاً` })

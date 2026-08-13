@@ -11,7 +11,7 @@ const router = Router();
 const teamOnly = [authenticateToken, requireRole(['team']), enforceNotFrozen];
 
 const zSessionId = zString('معرف الجلسة', { min: 36, max: 36 });
-const startSchema = { body: { competitionId: zString('المسابقة', { min: 1, max: 100 }), entryCode: zString('كود الدخول', { max: 100 }).optional() } };
+const startSchema = { body: { competitionId: zString('المسابقة', { min: 1, max: 100 }), entryCode: zString('كود الدخول', { min: 0, max: 100, optional: true }) } };
 const answerSchema = { body: { sessionId: zSessionId, questionId: zString('معرف السؤال', { min: 1, max: 100 }), selectedIndex: zNumber('الإجابة المختارة', { min: 0, max: 1000, int: true }) } };
 const submitSchema = { body: { sessionId: zSessionId } };
 

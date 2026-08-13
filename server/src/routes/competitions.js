@@ -29,7 +29,7 @@ const parseJson = (value, fallback) => {
 const isVideoCompetition = (c) => c.slug === 'video' || c.slug === 'video_design';
 
 const zSlug = zString('المسابقة', { min: 1, max: 100 });
-const entryCodeSchema = { params: { idOrSlug: zSlug }, body: { entryCode: zString('كود الدخول', { max: 100 }).optional() } };
+const entryCodeSchema = { params: { idOrSlug: zSlug }, body: { entryCode: zString('كود الدخول', { min: 0, max: 100, optional: true }) } };
 const playSchema = { params: { idOrSlug: zSlug } };
 const submitSchema = {
   params: { idOrSlug: zSlug },

@@ -292,8 +292,8 @@ export const unwrapList = (payload) => (Array.isArray(payload) ? payload : Array
 export const scanCompetition = (idOrSlug, qrCode) =>
   apiFetch(`/competitions/${encodeURIComponent(idOrSlug)}/scan`, { method: 'POST', body: JSON.stringify({ qrCode }) });
 
-export const enterCompetition = (idOrSlug, entryCode = '') =>
-  apiFetch(`/competitions/${encodeURIComponent(idOrSlug)}/enter`, { method: 'POST', body: JSON.stringify({ entryCode }) });
+export const enterCompetition = (idOrSlug, entryCode) =>
+  apiFetch(`/competitions/${encodeURIComponent(idOrSlug)}/enter`, { method: 'POST', body: JSON.stringify(entryCode ? { entryCode } : {}) });
 
 export const getCompetitionPlay = (idOrSlug) =>
   apiFetch(`/competitions/${encodeURIComponent(idOrSlug)}/play`);

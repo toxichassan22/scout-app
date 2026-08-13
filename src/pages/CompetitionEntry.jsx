@@ -93,9 +93,31 @@ const CompetitionEntry = () => {
             <ScanLine className="text-[#a78bfa]" size={22} />
           </div>
           <div className="h-72 overflow-hidden rounded-2xl border border-[rgba(139,92,246,0.35)] bg-black">
-            <QRScanner onScan={scan} onError={() => setError('تعذر تشغيل الكاميرا. يلزم استخدام جهاز يعمل به QR للدخول.')} />
+            <QRScanner onScan={scan} onError={() => setError('تعذر تشغيل الكاميرا. يمكنك استخدام الإدخال اليدوي أسفله للاختبار.')} />
           </div>
           <p className="mt-4 text-center text-xs font-bold text-[#a9a3c2]">{notice}</p>
+
+          <div className="mt-5 border-t border-white/10 pt-4">
+            <label className="mb-2 block text-xs font-bold text-[#a9a3c2]">أو أدخل رمز الـ QR يدوياً (للتجربة من اللابتوب):</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder={`افتراضي: scout-qr-${slug || 'genius'}`}
+                className="ai-input flex-1 font-mono text-sm"
+                value={qrValue}
+                onChange={e => setQrValue(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') scan(qrValue); }}
+              />
+              <button
+                type="button"
+                onClick={() => scan(qrValue)}
+                disabled={!qrValue || scanning}
+                className="btn-primary !px-4 !py-2 text-xs"
+              >
+                {scanning ? 'جاري التحقق...' : 'تأكيد الرمز'}
+              </button>
+            </div>
+          </div>
         </section>
       )}
 
