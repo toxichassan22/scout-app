@@ -82,12 +82,70 @@ async function ensureCompetitionColumns(client) {
   }
 }
 
+async function deduplicateCompetitions(client) {
+  try {
+    const competitions = await client.competition.findMany({ select: { id: true, name: true, slug: true } });
+    if (competitions.length === 0) return;
+
+    const canonicalIdByLegacyId = {
+      'comp-report-5': 'comp-report-catalog-12',
+      'comp-report-6': 'comp-report-catalog-13',
+      'comp-report-8': 'comp-report-catalog-08',
+      'comp-report-9': 'comp-report-catalog-10',
+      'comp-report-10': 'comp-report-catalog-10',
+      'comp-report-11': 'comp-report-catalog-05',
+      'comp-report-12': 'comp-report-catalog-01',
+      'comp-report-13': 'comp-report-catalog-14',
+      'comp-report-15': 'comp-report-catalog-16',
+      'comp-report-17': 'comp-report-catalog-05',
+      'comp-report-18': 'comp-report-catalog-04',
+      'comp-report-19': 'comp-report-catalog-03',
+      'comp-report-21': 'comp-report-catalog-06',
+      'comp-report-23': 'comp-report-catalog-15',
+      'comp-report-24': 'comp-report-catalog-07',
+    };
+
+    const canonicalMap = new Map();
+    for (const comp of competitions) {
+      if (comp.id.startsWith('comp-report-catalog-')) {
+        canonicalMap.set(comp.name, comp.id);
+        canonicalMap.set(comp.slug, comp.id);
+      }
+    }
+
+    for (const comp of competitions) {
+      if (comp.id.startsWith('comp-report-catalog-')) continue;
+      const targetId = canonicalIdByLegacyId[comp.id] || canonicalMap.get(comp.name) || canonicalMap.get(comp.slug);
+      if (!targetId || targetId === comp.id) continue;
+
+      const targetExists = competitions.some(c => c.id === targetId);
+      if (!targetExists) continue;
+
+      try {
+        await client.$executeRawUnsafe(`UPDATE OR IGNORE Score SET competitionId = '${targetId}' WHERE competitionId = '${comp.id}';`);
+        await client.$executeRawUnsafe(`UPDATE OR IGNORE JudgeCompetition SET competitionId = '${targetId}' WHERE competitionId = '${comp.id}';`);
+        await client.$executeRawUnsafe(`UPDATE OR IGNORE JudgeScore SET competitionId = '${targetId}' WHERE competitionId = '${comp.id}';`);
+        await client.$executeRawUnsafe(`UPDATE OR IGNORE ScoreAudit SET competitionId = '${targetId}' WHERE competitionId = '${comp.id}';`);
+        await client.$executeRawUnsafe(`UPDATE OR IGNORE Report SET competitionId = '${targetId}' WHERE competitionId = '${comp.id}';`);
+        await client.$executeRawUnsafe(`UPDATE OR IGNORE ReportPermission SET competitionId = '${targetId}' WHERE competitionId = '${comp.id}';`);
+        await client.$executeRawUnsafe(`UPDATE OR IGNORE AgendaItem SET competitionId = '${targetId}' WHERE competitionId = '${comp.id}';`);
+        await client.$executeRawUnsafe(`DELETE FROM Competition WHERE id = '${comp.id}';`);
+      } catch (err) {
+        logger.warn({ err, compId: comp.id, targetId }, 'deduplication error for competition');
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, 'failed to deduplicate competitions');
+  }
+}
+
 export async function initDatabase(client = prisma) {
   await client.$queryRawUnsafe('PRAGMA journal_mode=WAL;');
   await client.$queryRawUnsafe('PRAGMA foreign_keys=ON;');
   await client.$queryRawUnsafe('PRAGMA busy_timeout=30000;');
   await client.$queryRawUnsafe('PRAGMA synchronous=NORMAL;');
   await ensureCompetitionColumns(client);
+  await deduplicateCompetitions(client);
   await client.$queryRaw`SELECT 1`;
   await client.team.findFirst({ select: { id: true } });
   logger.info('SQLite connected and validated (WAL, foreign keys, busy timeout, synchronous=NORMAL)');

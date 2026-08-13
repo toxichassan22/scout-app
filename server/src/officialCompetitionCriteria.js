@@ -28,12 +28,16 @@ export const OFFICIAL_CRITERIA_BY_SLUG = {
 // official distributions instead of falling back to questionCount (often 100).
 Object.assign(OFFICIAL_CRITERIA_BY_SLUG, {
   quran: OFFICIAL_CRITERIA_BY_SLUG.report_quran,
+  report_surah_al_kahf: OFFICIAL_CRITERIA_BY_SLUG.report_quran,
   hadith: OFFICIAL_CRITERIA_BY_SLUG.report_hadith,
   worksheet: OFFICIAL_CRITERIA_BY_SLUG.report_prophets,
+  report_worksheet: OFFICIAL_CRITERIA_BY_SLUG.report_prophets,
   report_scientific_research: OFFICIAL_CRITERIA_BY_SLUG.report_science_ideas,
+  report_ai_models: OFFICIAL_CRITERIA_BY_SLUG.report_science_ideas,
   report_smart_scout: OFFICIAL_CRITERIA_BY_SLUG.report_smart_detector,
   report_earth_magazine: OFFICIAL_CRITERIA_BY_SLUG.report_scout_magazine,
   report_tilawa: OFFICIAL_CRITERIA_BY_SLUG.report_tilawa_festival,
+  report_comedy_scout: OFFICIAL_CRITERIA_BY_SLUG.report_reels,
   campfire: OFFICIAL_CRITERIA_BY_SLUG.report_campfire,
   music: OFFICIAL_CRITERIA_BY_SLUG.report_campfire,
   poster: OFFICIAL_CRITERIA_BY_SLUG.report_poster,
@@ -53,8 +57,29 @@ Object.assign(OFFICIAL_CRITERIA_BY_SLUG, {
 });
 
 export function getOfficialCriteria(competition) {
-  const slug = String(competition?.slug || '');
-  return OFFICIAL_CRITERIA_BY_SLUG[slug]
-    || OFFICIAL_CRITERIA_BY_SLUG[slug.replaceAll('-', '_')]
-    || null;
+  if (!competition) return null;
+  const slug = String(competition.slug || '').toLowerCase().replaceAll('-', '_');
+  if (OFFICIAL_CRITERIA_BY_SLUG[slug]) return OFFICIAL_CRITERIA_BY_SLUG[slug];
+
+  const name = String(competition.name || '').trim();
+  if (name.includes('القرآن') || name.includes('الكهف')) return OFFICIAL_CRITERIA_BY_SLUG.report_quran;
+  if (name.includes('الأحاديث') || name.includes('حديث')) return OFFICIAL_CRITERIA_BY_SLUG.report_hadith;
+  if (name.includes('الأنبياء') || name.includes('ورقة عمل')) return OFFICIAL_CRITERIA_BY_SLUG.report_prophets;
+  if (name.includes('التلاوة')) return OFFICIAL_CRITERIA_BY_SLUG.report_tilawa_festival;
+  if (name.includes('الكرنفال')) return OFFICIAL_CRITERIA_BY_SLUG.report_carnival;
+  if (name.includes('الختام') || name.includes('السمر')) return OFFICIAL_CRITERIA_BY_SLUG.report_campfire;
+  if (name.includes('الملصق')) return OFFICIAL_CRITERIA_BY_SLUG.report_poster;
+  if (name.includes('المعرض') && !name.includes('مجلة')) return OFFICIAL_CRITERIA_BY_SLUG.report_exhibition;
+  if (name.includes('الورشة')) return OFFICIAL_CRITERIA_BY_SLUG.report_art_workshop;
+  if (name.includes('المجلة')) return OFFICIAL_CRITERIA_BY_SLUG.report_scout_magazine;
+  if (name.includes('العقد') || name.includes('الربطات')) return OFFICIAL_CRITERIA_BY_SLUG.report_knots;
+  if (name.includes('النموذج')) return OFFICIAL_CRITERIA_BY_SLUG.report_scout_model;
+  if (name.includes('ريلز') || name.includes('كوميدي') || name.includes('تحضيرات')) return OFFICIAL_CRITERIA_BY_SLUG.report_reels;
+  if (name.includes('البحث العلمي') || name.includes('ابتكار') || name.includes('أفكار')) return OFFICIAL_CRITERIA_BY_SLUG.report_science_ideas;
+  if (name.includes('عرض') || name.includes('طائرات')) return OFFICIAL_CRITERIA_BY_SLUG.report_model_presentation;
+  if (name.includes('الكاشف') || name.includes('كاشف')) return OFFICIAL_CRITERIA_BY_SLUG.report_smart_detector;
+  if (name.includes('الفيديو')) return OFFICIAL_CRITERIA_BY_SLUG.report_video;
+
+  return null;
 }
+

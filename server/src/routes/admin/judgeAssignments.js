@@ -38,12 +38,13 @@ router.get('/scores/breakdown', async (req, res) => {
     // Some older deployments contain the same competition twice under
     // different records. Keep one visible competition per name, preferring
     // the record that already has submitted scores.
+    const cleanCompName = name => String(name || '').replace(/\s*\(.*?\)\s*/g, '').replace(/المعرض الكشفي/g, '').trim();
     const scoreCountByCompetition = new Map();
     for (const score of scores) scoreCountByCompetition.set(score.competitionId, (scoreCountByCompetition.get(score.competitionId) || 0) + 1);
     const uniqueCompetitions = [...competitions].sort((a, b) => {
       const scoreDelta = (scoreCountByCompetition.get(b.id) || 0) - (scoreCountByCompetition.get(a.id) || 0);
       return scoreDelta || String(a.createdAt).localeCompare(String(b.createdAt));
-    }).filter((competition, index, list) => list.findIndex(item => item.name === competition.name) === index);
+    }).filter((competition, index, list) => list.findIndex(item => cleanCompName(item.name) === cleanCompName(competition.name)) === index);
 
     // Return a complete team x competition matrix for the admin screen. Missing
     // combinations are display-only zeroes; no Score row is created, so a judge
