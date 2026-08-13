@@ -31,7 +31,7 @@ router.get('/judges', async (req, res) => {
   }
 });
 
-const judgeCreateSchema = { body: { name: zString('الاسم', { min: 1, max: 120 }), username: zString('اسم المستخدم', { min: 1, max: 80 }), password: zString('كلمة السر', { min: 6, max: 256 }) } };
+const judgeCreateSchema = { body: { name: zString('الاسم', { min: 1, max: 120 }), username: zString('اسم المستخدم', { min: 1, max: 80 }), password: zString('كلمة السر', { min: 3, max: 256 }) } };
 router.post('/judges', validate(judgeCreateSchema), async (req, res) => {
   try {
     const { name, username, password } = req.body || {};

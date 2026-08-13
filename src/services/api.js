@@ -151,7 +151,14 @@ export const apiFetch = async (endpoint, options = {}) => {
         await new Promise(r => setTimeout(r, retryDelay));
         continue;
       }
-      const err = new Error(data.error || 'حدث خطأ في الاتصال بالسيرفر');
+      let errorMsg = data.error || 'حدث خطأ في الاتصال بالسيرفر';
+      if (data.details && Array.isArray(data.details) && data.details.length > 0) {
+        const detailMsgs = data.details.map(d => d.message).filter(Boolean);
+        if (detailMsgs.length > 0) {
+          errorMsg = detailMsgs.join('، ');
+        }
+      }
+      const err = new Error(errorMsg);
       err.status = response.status;
       err.code = data.code;
       err.requestId = data.requestId;

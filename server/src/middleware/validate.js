@@ -38,7 +38,8 @@ export function validate(schemas, options = {}) {
         }
       }
       if (errors.length > 0) {
-        const err = new Error('Validation failed');
+        const errorMessages = errors.map(e => e.message).filter(Boolean);
+        const err = new Error(errorMessages.join('، ') || 'بيانات غير صالحة');
         err.statusCode = 400;
         err.details = errors;
         return next(err);
