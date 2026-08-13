@@ -126,13 +126,30 @@ const CompetitionPlay = () => {
             }
           </p>
         )}
-        {currentQuestion.mediaUrl && (
-          currentQuestion.mediaUrl.startsWith('emoji:') ? (
-            <span className="mb-4 block text-7xl select-none filter drop-shadow-lg">{currentQuestion.mediaUrl.slice(6)}</span>
-          ) : (
-            <img src={currentQuestion.mediaUrl} alt={currentQuestion.mediaAlt || ''} className="mx-auto mb-5 max-h-48 rounded-2xl object-contain drop-shadow-md" />
-          )
-        )}
+        {currentQuestion.mediaUrl && (() => {
+          let src = currentQuestion.mediaUrl;
+          if (src.startsWith('emoji:')) {
+            const rawEmoji = src.slice(6);
+            const chars = [...rawEmoji];
+            if (chars.length >= 2) {
+              const codePoints = chars.map(c => c.codePointAt(0) - 127397).filter(n => n >= 65 && n <= 90);
+              if (codePoints.length === 2) {
+                const countryCode = String.fromCharCode(...codePoints).toLowerCase();
+                src = `https://flagcdn.com/w320/${countryCode}.png`;
+              }
+            }
+          }
+          if (src.startsWith('emoji:')) {
+            return <span className="mb-4 block text-7xl select-none filter drop-shadow-lg">{src.slice(6)}</span>;
+          }
+          return (
+            <img
+              src={src}
+              alt={currentQuestion.mediaAlt || ''}
+              className="mx-auto mb-5 max-h-40 rounded-2xl border border-white/10 bg-black/20 p-2 object-contain shadow-2xl transition duration-300 hover:scale-105"
+            />
+          );
+        })()}
         <p className="section-kicker mb-3">اختر إجابة واحدة — يتم الحفظ تلقائيًا</p>
         <h2 className="text-xl font-black leading-relaxed text-white sm:text-2xl">{currentQuestion.text}</h2>
       </div>
