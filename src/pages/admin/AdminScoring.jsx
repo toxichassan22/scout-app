@@ -17,6 +17,23 @@ const auditLabels = {
 
 const formatDate = value => new Date(value).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
 
+const getMaxScore = competition => {
+  if (!competition) return 0;
+  try {
+    const criteria = typeof competition.criteria === 'string'
+      ? JSON.parse(competition.criteria || '[]')
+      : competition.criteria;
+    if (Array.isArray(criteria) && criteria.length > 0) {
+      return criteria.reduce((sum, criterion) => {
+        const max = Number(criterion?.maxScore);
+        return sum + (Number.isFinite(max) && max >= 0 ? max : 0);
+      }, 0);
+    }
+  } catch {}
+  const questionCount = Number(competition.questionCount);
+  return Number.isFinite(questionCount) && questionCount > 0 ? questionCount : 0;
+};
+
 const StatCard = ({ label, value, hint, tone, icon: Icon }) => (
   <div className={`rounded-2xl border p-4 ${tone}`}>
     <div className="mb-3 flex items-center justify-between gap-3">
@@ -30,6 +47,8 @@ const StatCard = ({ label, value, hint, tone, icon: Icon }) => (
 
 const ScoreCard = ({ score, editing, total, values, saving, onBegin, onSave, onCancel, onTotalChange, onValuesChange, onUnlock, onLock }) => {
   const isEditing = editing === score.id;
+  const maxScore = getMaxScore(score.competition);
+  const exceedsLimit = !score.isVirtual && Number(score.total) > maxScore;
 
   if (score.isVirtual) {
     return (
@@ -41,7 +60,7 @@ const ScoreCard = ({ score, editing, total, values, saving, onBegin, onSave, onC
           </div>
           <div className="flex items-center gap-3">
             <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-[11px] font-black text-slate-500">صفر افتراضي</span>
-            <strong className="rounded-xl bg-slate-950 px-3 py-2 text-lg font-black text-slate-500">0 نقطة</strong>
+            <strong className="rounded-xl bg-slate-950 px-3 py-2 text-lg font-black text-slate-500">0 / {maxScore}</strong>
           </div>
         </div>
       </article>
@@ -60,9 +79,10 @@ const ScoreCard = ({ score, editing, total, values, saving, onBegin, onSave, onC
         </div>
         <div className="flex items-center gap-3 sm:justify-end">
           <div className="rounded-xl bg-slate-950 px-3 py-2 text-center">
-            <strong className="block text-xl font-black leading-none text-emerald-300">{score.total}</strong>
-            <span className="mt-1 block text-[10px] font-bold text-slate-500">نقطة</span>
+            <strong className={`block text-xl font-black leading-none ${exceedsLimit ? 'text-red-300' : 'text-emerald-300'}`}>{score.total}</strong>
+            <span className="mt-1 block text-[10px] font-bold text-slate-500">من {maxScore}</span>
           </div>
+          {exceedsLimit && <span className="rounded-full border border-red-400/30 bg-red-400/10 px-2.5 py-1 text-[10px] font-black text-red-200">تجاوز الحد القديم</span>}
           <div className="text-[11px] font-bold text-slate-500">{score.judgeScores?.length || 0} محكّم</div>
         </div>
       </div>
@@ -110,10 +130,10 @@ const ScoreCard = ({ score, editing, total, values, saving, onBegin, onSave, onC
       {isEditing ? <form className="mx-4 mb-4 rounded-xl border border-cyan-400/25 bg-cyan-950/15 p-4" onSubmit={event => { event.preventDefault(); onSave(score); }}>
         <div className="mb-3">
           <h3 className="font-black text-white">تعديل الدرجة</h3>
-          <p className="mt-1 text-[11px] text-slate-500">الأدمن يحدد القيمة بنفسه. القفل والفتح قراران منفصلان.</p>
+          <p className="mt-1 text-[11px] text-slate-500">الحد الأقصى ثابت حسب بنود المسابقة: {maxScore} نقطة. القفل والفتح قراران منفصلان.</p>
         </div>
         <label className="block text-xs font-black text-slate-300">الدرجة النهائية
-          <input type="number" step="0.5" min="0" className="ai-input mt-1 w-full text-lg font-black" value={total} onChange={event => onTotalChange(event.target.value)} autoFocus />
+          <input type="number" step="0.5" min="0" max={maxScore} className="ai-input mt-1 w-full text-lg font-black" value={total} onChange={event => onTotalChange(event.target.value)} autoFocus />
         </label>
         <details className="mt-3 rounded-xl border border-white/10 bg-slate-950/40 p-3">
           <summary className="cursor-pointer list-none text-xs font-bold text-slate-400">تعديل تفاصيل المعايير <span className="text-[10px] text-slate-600">(اختياري)</span></summary>
@@ -198,8 +218,10 @@ const AdminScoring = () => {
   };
 
   const save = async score => {
-    if (String(total).trim() === '' || !Number.isFinite(Number(total)) || Number(total) < 0) {
-      alert('اكتب درجة صحيحة تساوي صفراً أو أكثر');
+    const numericTotal = Number(total);
+    const maxScore = getMaxScore(score.competition);
+    if (String(total).trim() === '' || !Number.isFinite(numericTotal) || numericTotal < 0 || numericTotal > maxScore) {
+      alert(`الدرجة يجب أن تكون بين 0 و${maxScore} نقطة`);
       return;
     }
     let parsed;
@@ -207,7 +229,7 @@ const AdminScoring = () => {
 
     try {
       setSaving(true);
-      await updateScoreOverride(score.id, { total: Number(total), values: parsed });
+      await updateScoreOverride(score.id, { total: numericTotal, values: parsed });
       setEditing(null);
       await load();
     } catch (error) {

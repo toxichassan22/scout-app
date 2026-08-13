@@ -6,6 +6,7 @@ import { enforceNotFrozen } from '../freeze.js';
 import { getAnonymousLeaderboard, clearLeaderboardCache } from './leaderboard.js';
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { recalculateTeamStanding } from '../teamStanding.js';
+import { getCompetitionMaxScore } from '../scoreRules.js';
 import { requestDataBackup } from '../backupScheduler.js';
 import { idempotent } from '../middleware/idempotent.js';
 import { validate, zString, zId, zNumber } from '../middleware/validate.js';
@@ -184,6 +185,8 @@ router.post('/scores', enforceNotFrozen, validate(scoreSchema), idempotent('judg
     if (expected.size && (Object.keys(parsedValues).length !== expected.size || Object.keys(parsedValues).some(k => !expected.has(k)))) return res.status(400).json({ error: 'يجب إرسال جميع معايير المسابقة فقط' });
     let calculated = 0;
     for (const criterion of criteria) { const n = Number(parsedValues[criterion.key]); const max = Number(criterion.maxScore); if (!Number.isFinite(n) || n < 0 || !Number.isFinite(max) || n > max) return res.status(400).json({ error: `قيمة المعيار ${criterion.key} غير صالحة` }); calculated += n; }
+    const maxScore = getCompetitionMaxScore(competition);
+    if (calculated > maxScore) return res.status(400).json({ error: `المجموع لا يمكن أن يتجاوز ${maxScore} نقطة` });
     if (Math.abs(calculated - Number(total)) > 0.0001) return res.status(400).json({ error: 'المجموع لا يطابق قيم المعايير' });
 
     const serializedValues = JSON.stringify(parsedValues);

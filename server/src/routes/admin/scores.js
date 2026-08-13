@@ -3,6 +3,7 @@ import { Router } from 'express';
 import prisma from '../../db.js';
 import { getAnonymousLeaderboard, clearLeaderboardCache } from '../leaderboard.js';
 import { recalculateTeamStanding } from '../../teamStanding.js';
+import { validateScoreLimit } from '../../scoreRules.js';
 import { validate, zId, zNumber } from '../../middleware/validate.js';
 import { z } from 'zod';
 
@@ -20,7 +21,8 @@ router.patch('/scores/:id', validate(scoreOverrideSchema), async (req, res) => {
     const existing = await prisma.score.findUnique({ where: { id: req.params.id }, include: { competition: true } });
     if (!existing) return res.status(404).json({ error: 'النتيجة غير موجودة' });
     const numericTotal = Number(total);
-    if (!Number.isFinite(numericTotal)) return res.status(400).json({ error: 'الدرجة مطلوبة ويجب أن تكون رقماً صحيحاً' });
+    const scoreCheck = validateScoreLimit(numericTotal, existing.competition);
+    if (!scoreCheck.valid) return res.status(400).json({ error: scoreCheck.error });
 
     const score = await prisma.$transaction(async tx => {
       const updated = await tx.score.update({ where: { id: existing.id }, data: { total: numericTotal, ...(values !== undefined && { values: typeof values === 'string' ? values : JSON.stringify(values) }), editedByAdminId: adminId, editedAt: new Date() } });

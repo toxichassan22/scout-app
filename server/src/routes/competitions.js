@@ -8,6 +8,7 @@ import { getAnonymousLeaderboard, clearLeaderboardCache } from './leaderboard.js
 import { emitLeaderboardUpdate } from '../realtime.js';
 import { normalizeArabicText } from '../textNormalization.js';
 import { recalculateTeamStanding } from '../teamStanding.js';
+import { getCompetitionMaxScore } from '../scoreRules.js';
 import { idempotent } from '../middleware/idempotent.js';
 import { validate, zString } from '../middleware/validate.js';
 import { z } from 'zod';
@@ -453,10 +454,12 @@ router.post('/:idOrSlug/submit', authenticateToken, requireRole(['team']), enfor
           const country = byId[item.countryId];
           if (!country) continue;
           const correct = normalizeArabicText(item.answer) === normalizeArabicText(country.name);
-          const points = correct ? 10 : 0;
+          const points = correct ? 1 : 0;
           computed += points;
           detail.push({ countryId: item.countryId, correct, points });
         }
+        const maxScore = getCompetitionMaxScore(competition);
+        if (computed > maxScore) throw Object.assign(new Error(`نتيجة المسابقة تجاوزت الحد الأقصى (${maxScore} نقطة)`), { status: 400 });
         const created = await tx.score.create({
           data: { competitionId: competition.id, teamId: req.user.id, total: computed, values: JSON.stringify({ mode: 'geography', sessionId: session.id, detail }), judgeId: null },
         });

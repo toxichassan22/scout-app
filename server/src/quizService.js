@@ -3,6 +3,7 @@ import logger from './logger.js';
 import { getCompetitionState } from './competitionState.js';
 import { recalculateTeamStanding } from './teamStanding.js';
 import { buildGeographyQuestions } from './geographyQuestions.js';
+import { getCompetitionMaxScore } from './scoreRules.js';
 
 const MAX_ATTEMPTS = 3;
 const GEOGRAPHY_COMPETITION_ID = 'comp-digital-3';
@@ -119,7 +120,10 @@ async function finalizeDigitalSessionTx(tx, sessionId, teamId, deviceId) {
   const questionCount = order.length;
   const completedAll = questionCount > 0 && attemptedCount >= questionCount;
   const completedAt = session.completedAt || new Date();
+  const competition = await tx.competition.findUnique({ where: { id: session.competitionId }, select: { criteria: true, questionCount: true } });
   const totalScore = session.draftAnswers.reduce((sum, answer) => sum + Number(answer.pointsEarned || 0), 0);
+  const maxScore = getCompetitionMaxScore(competition);
+  if (totalScore > maxScore) throw Object.assign(new Error(`نتيجة المسابقة تجاوزت الحد الأقصى (${maxScore} نقطة)`), { status: 400 });
   const score = await tx.score.upsert({
     where: { competitionId_teamId: { competitionId: session.competitionId, teamId: session.teamId } },
     update: {
@@ -214,6 +218,7 @@ export async function saveDigitalAnswer({ sessionId, teamId, deviceId, questionI
 
     const competition = await tx.competition.findUnique({ where: { id: session.competitionId } });
     if (getCompetitionState(competition) !== 'active') throw Object.assign(new Error('تم إغلاق المسابقة بواسطة الإدارة'), { status: 423 });
+    const maxScore = getCompetitionMaxScore(competition);
 
     const order = parseOrder(session.questionOrder);
     const existingAnswer = session.draftAnswers.find(answer => answer.questionId === questionId);
@@ -234,6 +239,8 @@ export async function saveDigitalAnswer({ sessionId, teamId, deviceId, questionI
     const correct = question.correctOption === selectedIndex;
     const now = new Date();
     const pointsEarned = correct ? Number(question.points || 1) : 0;
+    const currentTotal = session.draftAnswers.reduce((sum, answer) => sum + Number(answer.pointsEarned || 0), 0);
+    if (currentTotal + pointsEarned > maxScore) throw Object.assign(new Error(`نتيجة المسابقة تجاوزت الحد الأقصى (${maxScore} نقطة)`), { status: 400 });
     const answer = await tx.draftAnswer.create({ data: { sessionId, questionId, selectedIndex, isCorrect: correct, pointsEarned, savedAt: now } });
 
     const allAnswers = [...session.draftAnswers, answer];
