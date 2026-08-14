@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   CheckCircle2, AlertCircle, Save, ArrowRight, ShieldCheck, Award,
-  FileText, ExternalLink, Eye, X, FileCheck, Layers
+  FileText, ExternalLink, Eye, X, FileCheck
 } from 'lucide-react';
 import { getJudgeTeams, submitJudgeScore, fetchReportFile } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
-import InlinePdfViewer from '../../components/InlinePdfViewer';
 
 const JudgingSheet = () => {
   const location = useLocation();
@@ -21,10 +20,7 @@ const JudgingSheet = () => {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [isFullScreenReport, setIsFullScreenReport] = useState(false);
-  const [reportFileUrl, setReportFileUrl] = useState('');
-  const [reportFileError, setReportFileError] = useState('');
+  const [openingReport, setOpeningReport] = useState(false);
 
   // Teams keep their finalised rows in the API response; the sheet only lists
   // the ones still awaiting a score so a judged team disappears from the table.
@@ -72,38 +68,28 @@ const JudgingSheet = () => {
     }
   };
 
-  // Uploaded files are not served statically; fetch them through the authorised
-  // download route and expose the result as a temporary object URL.
-  useEffect(() => {
-    const reportId = showReportModal ? selectedTeam?.report?.id : null;
+  // Open report file directly in a new browser tab
+  const openReport = useCallback(async () => {
+    const reportId = selectedTeam?.report?.id;
     if (!reportId) return;
-
-    let objectUrl = '';
-    let cancelled = false;
-    setReportFileError('');
-
-    fetchReportFile(reportId)
-      .then(blob => {
-        if (cancelled) return;
-        objectUrl = URL.createObjectURL(blob);
-        setReportFileUrl(objectUrl);
-      })
-      .catch(err => {
-        if (!cancelled) setReportFileError(err.message || 'تعذر تحميل ملف التقرير');
-      });
-
-    return () => {
-      cancelled = true;
-      setReportFileUrl('');
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [showReportModal, selectedTeam?.report?.id]);
+    setOpeningReport(true);
+    try {
+      const blob = await fetchReportFile(reportId);
+      const objectUrl = URL.createObjectURL(blob);
+      window.open(objectUrl, '_blank');
+      // Revoke after a delay so the new tab has time to load
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+    } catch (err) {
+      alert(err.message || 'تعذر تحميل ملف التقرير');
+    } finally {
+      setOpeningReport(false);
+    }
+  }, [selectedTeam?.report?.id]);
 
   const selectTeam = (team) => {
     if (team.isFinal) return;
     setSelectedTeam(team);
     setMessage('');
-    setShowReportModal(false);
     // Populate existing or initial scores
     const initialScores = {};
     (competition.criteria || []).forEach(c => {
@@ -227,11 +213,12 @@ const JudgingSheet = () => {
                   {/* 📄 Report View Action Button for Judge */}
                   {selectedTeam.report ? (
                     <button
-                      onClick={() => setShowReportModal(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-bold transition shadow-sm"
+                      onClick={openReport}
+                      disabled={openingReport}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-bold transition shadow-sm"
                     >
-                      <Eye size={14} className="text-purple-400" />
-                      عرض تقرير الفريق
+                      <ExternalLink size={14} className="text-purple-400" />
+                      {openingReport ? 'جاري فتح التقرير...' : '📄 فتح تقرير الفريق ↗'}
                     </button>
                   ) : (
                     <span className="text-[11px] text-slate-500 bg-slate-800/60 px-2.5 py-1 rounded-full border border-slate-700">
@@ -300,129 +287,6 @@ const JudgingSheet = () => {
         </div>
       </div>
 
-      {/* ═══ Team Report Viewer Modal for Judge ═══ */}
-      {showReportModal && selectedTeam?.report && (
-        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md dir-rtl transition-all ${isFullScreenReport ? 'p-1 sm:p-4' : 'p-2 sm:p-5'}`}>
-          <div className={`card bg-slate-900 border border-purple-500/30 text-right shadow-2xl relative flex flex-col transition-all ${isFullScreenReport ? 'w-full h-full rounded-2xl p-3 sm:p-4' : 'max-w-4xl w-full h-[95vh] sm:h-[90vh] rounded-3xl p-4 sm:p-6'}`}>
-
-            {/* Modal Header */}
-            <div className="flex flex-wrap items-center justify-between border-b border-slate-800 pb-3 mb-3 shrink-0 gap-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => {
-                    setShowReportModal(false);
-                    setIsFullScreenReport(false);
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-300 font-black text-xs transition flex items-center gap-1.5"
-                >
-                  <X size={15} />
-                  إغلاق التقرير
-                </button>
-
-                <button
-                  onClick={() => setIsFullScreenReport(!isFullScreenReport)}
-                  className="px-3 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 font-bold text-xs transition inline-flex items-center gap-1"
-                >
-                  {isFullScreenReport ? 'تصغير' : '🔍 ملء الشاشة'}
-                </button>
-
-                {reportFileUrl && (
-                  <a
-                    href={reportFileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs transition inline-flex items-center gap-1"
-                    title="فتح التقرير في نافذة جديدة"
-                  >
-                    <ExternalLink size={14} />
-                    <span>نافذة خارجية ↗</span>
-                  </a>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs px-2.5 py-1 rounded-full font-mono font-bold">
-                  #{selectedTeam.report.id?.slice(-6) || 'RPT'}
-                </span>
-                <h3 className="text-sm sm:text-base font-black text-white">
-                  تقرير: <span className="text-amber-400">{selectedTeam.label}</span>
-                </h3>
-              </div>
-            </div>
-
-            {/* Modal Body */}
-            <div className="space-y-3 overflow-y-auto flex-1 pr-1 text-right flex flex-col min-h-0">
-              {!isFullScreenReport && (
-                <div>
-                  <span className="text-xs text-slate-400 font-bold block mb-1">عنوان التقرير / المسابقة:</span>
-                  <p className="text-sm font-black text-purple-300 bg-purple-500/10 p-2 rounded-xl border border-purple-500/20">
-                    {selectedTeam.report.title}
-                  </p>
-                </div>
-              )}
-
-              {!isFullScreenReport && selectedTeam.report.content && (
-                <div>
-                  <span className="text-xs text-slate-400 font-bold block mb-1">ملخص ومحتوى التقرير:</span>
-                  <div className="text-xs leading-relaxed text-slate-300 bg-slate-950 p-3 rounded-xl border border-slate-800 whitespace-pre-wrap">
-                    {selectedTeam.report.content}
-                  </div>
-                </div>
-              )}
-
-              {/* Embedded Document / File Attachment */}
-              {selectedTeam.report.fileUrl && (
-                <div className="flex-1 flex flex-col min-h-0 mt-1">
-                  {!isFullScreenReport && <span className="text-xs text-slate-400 font-bold block mb-1.5">معاينة الملف المرفق:</span>}
-
-                  {/* PDF or Image Viewer Embed inside the same page */}
-                  {reportFileError ? (
-                    <p className="text-xs font-bold text-red-400 bg-red-500/10 p-3 rounded-xl border border-red-500/20 text-center">
-                      {reportFileError}
-                    </p>
-                  ) : !reportFileUrl ? (
-                    <p className="text-xs text-slate-500 bg-slate-950 p-4 rounded-xl border border-slate-800 text-center">
-                      جاري تحميل الملف المرفق...
-                    </p>
-                  ) : selectedTeam.report.fileUrl.toLowerCase().endsWith('.pdf') ? (
-                    <div className="flex-1 min-h-0">
-                      <div className={`border border-purple-500/30 rounded-2xl overflow-hidden bg-slate-950 p-2 ${isFullScreenReport ? 'h-[80vh]' : 'h-[58vh] min-h-[400px]'}`}>
-                        <InlinePdfViewer url={reportFileUrl} fileName={selectedTeam.report.fileName} />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950 p-2 flex items-center justify-center">
-                      <img
-                        src={reportFileUrl}
-                        alt="مرفق التقرير"
-                        className="max-w-full max-h-[60vh] object-contain rounded-xl"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="pt-2.5 border-t border-slate-800 mt-2 flex justify-between items-center shrink-0">
-              <span className="text-[11px] text-slate-500">
-                تاريخ التسليم: {new Date(selectedTeam.report.createdAt).toLocaleString('ar-EG')}
-              </span>
-              <button
-                onClick={() => {
-                  setShowReportModal(false);
-                  setIsFullScreenReport(false);
-                }}
-                className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs transition shadow-lg flex items-center gap-1"
-              >
-                <X size={15} />
-                إغلاق والعودة للتقييم
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
 
       {/* Confirmation Modal */}
       {showConfirm && (
