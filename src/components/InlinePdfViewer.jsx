@@ -2,37 +2,42 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import {
   ChevronRight, ChevronLeft, ZoomIn, ZoomOut, RefreshCw,
-  RotateCcw, ExternalLink, Globe, Layers, Eye
+  RotateCcw, ExternalLink, Globe, Layers, Smartphone
 } from 'lucide-react';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
 
+// Detect mobile / tablet
+const IS_MOBILE = typeof window !== 'undefined' &&
+  (window.innerWidth < 768 || /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+
 export default function InlinePdfViewer({ url, fileName }) {
   const canvasRef = useRef(null);
-  const scrollContainerRef = useRef(null);
+  const containerRef = useRef(null);
   const renderTaskRef = useRef(null);
 
   const [pdfDoc, setPdfDoc] = useState(null);
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [zoomPercent, setZoomPercent] = useState(100);
+  const [zoomFactor, setZoomFactor] = useState(1.0);
   const [loading, setLoading] = useState(true);
   const [rendering, setRendering] = useState(false);
   const [error, setError] = useState('');
-  const [viewMode, setViewMode] = useState('canvas'); // 'canvas' | 'native'
+  // Mobile defaults to 'native' to avoid broken Arabic glyphs
+  const [viewMode, setViewMode] = useState(IS_MOBILE ? 'native' : 'canvas');
 
-  // Detect mobile
-  const isMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
-
-  // ── Load PDF with Arabic CMaps and Standard Fonts ─────────────────────────
+  // ── Load PDF (only needed for canvas mode) ────────────────────────────────
   useEffect(() => {
-    if (!url) return;
+    if (!url || viewMode !== 'canvas') {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setError('');
     setPdfDoc(null);
     setCurrentPage(1);
-    setZoomPercent(100);
+    setZoomFactor(1.0);
 
     (async () => {
       try {
@@ -56,7 +61,7 @@ export default function InlinePdfViewer({ url, fileName }) {
         setLoading(false);
       } catch (err) {
         if (!cancelled) {
-          console.warn('PDF.js parse error, defaulting to native viewer:', err);
+          console.warn('PDF.js error, falling back to native viewer:', err);
           setError(err.message || 'فشل في فتح الـ PDF');
           setViewMode('native');
           setLoading(false);
@@ -64,9 +69,9 @@ export default function InlinePdfViewer({ url, fileName }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [url]);
+  }, [url, viewMode]);
 
-  // ── Render page to Canvas ──────────────────────────────────────────────────
+  // ── Render current page to canvas ─────────────────────────────────────────
   const renderPage = useCallback(async () => {
     if (!pdfDoc || !canvasRef.current || viewMode !== 'canvas') return;
     if (renderTaskRef.current) {
@@ -79,17 +84,22 @@ export default function InlinePdfViewer({ url, fileName }) {
       const canvas = canvasRef.current;
       if (!canvas) return;
 
-      // Render at sharp 2.0x base scale for crispness
-      const baseViewport = page.getViewport({ scale: 2.0 });
-      const ctx = canvas.getContext('2d', { alpha: false });
+      const containerW = containerRef.current?.clientWidth || 500;
+      const unscaled = page.getViewport({ scale: 1 });
+      const fitScale = Math.max(0.4, (containerW - 24) / unscaled.width);
+      const viewport = page.getViewport({ scale: fitScale * zoomFactor });
 
-      canvas.width = baseViewport.width;
-      canvas.height = baseViewport.height;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const dpr = window.devicePixelRatio || 1;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      canvas.width = Math.floor(viewport.width * dpr);
+      canvas.height = Math.floor(viewport.height * dpr);
+      canvas.style.width = `${Math.floor(viewport.width)}px`;
+      canvas.style.height = `${Math.floor(viewport.height)}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       const task = page.render({
         canvasContext: ctx,
-        viewport: baseViewport,
+        viewport,
         intent: 'display',
       });
       renderTaskRef.current = task;
@@ -102,40 +112,113 @@ export default function InlinePdfViewer({ url, fileName }) {
     } finally {
       setRendering(false);
     }
-  }, [pdfDoc, currentPage, viewMode]);
+  }, [pdfDoc, currentPage, zoomFactor, viewMode]);
 
   useEffect(() => {
-    if (viewMode === 'canvas') {
-      renderPage();
-    }
+    if (viewMode === 'canvas') renderPage();
   }, [renderPage, viewMode]);
 
-  // ── Zoom controls ──────────────────────────────────────────────────────────
-  const zoomIn = () => setZoomPercent(z => Math.min(300, z + 25));
-  const zoomOut = () => setZoomPercent(z => Math.max(50, z - 25));
-  const resetZoom = () => setZoomPercent(100);
+  // ── Zoom helpers ──────────────────────────────────────────────────────────
+  const changeZoom = (delta) => setZoomFactor(z => Math.min(3.5, Math.max(0.5, Number((z + delta).toFixed(2)))));
+  const resetZoom = () => setZoomFactor(1.0);
 
-  // ── Loading indicator ──────────────────────────────────────────────────────
+  // ── Loading state ─────────────────────────────────────────────────────────
   if (loading && viewMode === 'canvas') {
     return (
       <div className="flex flex-col items-center justify-center p-8 bg-slate-950 rounded-2xl border border-slate-800 text-center min-h-[350px]">
         <RefreshCw size={32} className="animate-spin text-purple-400 mb-3" />
-        <p className="text-sm font-black text-slate-200">جاري تحميل وتجهيز خطوط التقرير...</p>
-        <span className="text-xs text-slate-400 mt-1">يتم ضبط الحروف والخطوط العربية بدقة</span>
+        <p className="text-sm font-black text-slate-200">جاري تحميل التقرير...</p>
+        <span className="text-xs text-slate-400 mt-1">يتم تجهيز الملف للعرض</span>
       </div>
     );
   }
 
+  // ── NATIVE VIEW: embed + direct open button (mobile-first) ────────────────
+  if (viewMode === 'native' || error) {
+    return (
+      <div className="flex flex-col h-full select-none" dir="rtl">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800 mb-2 shrink-0 gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Switch to canvas (desktop) */}
+            {!IS_MOBILE && (
+              <button
+                type="button"
+                onClick={() => setViewMode('canvas')}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 border bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300"
+              >
+                <Layers size={14} />
+                <span>العارض المخصص (صفحة بصفحة)</span>
+              </button>
+            )}
+
+            {IS_MOBILE && (
+              <span className="text-xs text-emerald-300 font-bold flex items-center gap-1">
+                <Smartphone size={14} />
+                عارض الجوال الأصلي — الحروف العربية واضحة
+              </span>
+            )}
+          </div>
+
+          {/* Open externally */}
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white transition text-xs font-bold flex items-center gap-1.5 shadow-lg"
+          >
+            <ExternalLink size={14} />
+            فتح التقرير بملء الشاشة ↗
+          </a>
+        </div>
+
+        {/* Embedded viewer */}
+        <div className="flex-1 rounded-2xl overflow-hidden bg-white border border-slate-700 min-h-[400px]">
+          <object
+            data={url}
+            type="application/pdf"
+            className="w-full h-full min-h-[500px]"
+            style={{ minHeight: '60vh' }}
+          >
+            {/* Fallback for browsers that don't support <object> for PDF */}
+            <iframe
+              src={url}
+              title={fileName || 'معاينة التقرير'}
+              className="w-full h-full min-h-[500px] border-0"
+              style={{ minHeight: '60vh' }}
+            />
+          </object>
+        </div>
+
+        {/* Prominent mobile action: Open in external app */}
+        {IS_MOBILE && (
+          <div className="mt-2 shrink-0">
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-sm transition shadow-lg"
+            >
+              <ExternalLink size={18} />
+              📱 افتح التقرير في قارئ PDF الخاص بجهازك
+            </a>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── CANVAS VIEW: PDF.js page-by-page (desktop) ────────────────────────────
   return (
-    <div className="flex flex-col h-full select-none" dir="rtl">
+    <div ref={containerRef} className="flex flex-col h-full select-none" dir="rtl">
 
       {/* Control Bar */}
-      <div className="flex flex-wrap items-center justify-between bg-slate-950 p-2 rounded-xl border border-slate-800 mb-2 shrink-0 gap-2">
+      <div className="flex flex-wrap items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800 mb-2 shrink-0 gap-2">
 
-        {/* Page Nav & View mode toggles */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {viewMode === 'canvas' && numPages > 0 && (
-            <div className="flex items-center gap-1">
+        {/* Page nav & mode toggle */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {numPages > 0 && (
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setCurrentPage(p => Math.min(numPages, p + 1))}
@@ -143,10 +226,10 @@ export default function InlinePdfViewer({ url, fileName }) {
                 className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-30 transition"
                 title="الصفحة التالية"
               >
-                <ChevronRight size={17} />
+                <ChevronRight size={18} />
               </button>
-              <span className="text-xs font-black text-purple-300 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20 font-mono">
-                {currentPage} / {numPages}
+              <span className="text-xs font-black text-purple-300 bg-purple-500/10 px-3 py-1 rounded-lg border border-purple-500/20 font-mono">
+                صفحة {currentPage} من {numPages}
               </span>
               <button
                 type="button"
@@ -155,106 +238,80 @@ export default function InlinePdfViewer({ url, fileName }) {
                 className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-30 transition"
                 title="الصفحة السابقة"
               >
-                <ChevronLeft size={17} />
+                <ChevronLeft size={18} />
               </button>
             </div>
           )}
 
-          {/* View mode toggle */}
-          <button
-            type="button"
-            onClick={() => setViewMode(m => m === 'canvas' ? 'native' : 'canvas')}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 border ${
-              viewMode === 'native'
-                ? 'bg-purple-600 border-purple-400 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]'
-                : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
-            }`}
-            title="التبديل بين عارض الصفحات ومستعرض المتصفح الأصلي"
-          >
-            {viewMode === 'native' ? <Layers size={14} /> : <Globe size={14} />}
-            <span>{viewMode === 'native' ? 'العارض المخصص' : 'العارض الأصلي (توصية للجوال)'}</span>
-          </button>
-
-          {/* Direct external window */}
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 hover:text-white transition text-xs font-bold flex items-center gap-1 border border-slate-700"
-            title="فتح الملف في نافذة مستقلة بملء الشاشة"
-          >
-            <ExternalLink size={13} />
-            <span className="hidden sm:inline">نافذة كاملة</span>
-          </a>
-        </div>
-
-        {/* Zoom Controls */}
-        {viewMode === 'canvas' && (
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={zoomIn}
-              className="p-1.5 px-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white transition font-bold text-xs flex items-center gap-1"
-              title="تكبير"
+              onClick={() => setViewMode('native')}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 border bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300"
+              title="التبديل للعارض الأصلي"
             >
-              <ZoomIn size={15} />
-              <span className="font-mono text-[11px]">{zoomPercent}%</span>
+              <Globe size={14} />
+              <span>العارض الأصلي (لو الحروف مكسرة)</span>
             </button>
+
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 hover:text-white transition text-xs font-bold flex items-center gap-1 border border-slate-700"
+              title="فتح في نافذة جديدة"
+            >
+              <ExternalLink size={14} />
+              <span className="hidden sm:inline">نافذة جديدة</span>
+            </a>
+          </div>
+        </div>
+
+        {/* Zoom controls */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => changeZoom(+0.25)}
+            className="p-1.5 px-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white transition font-bold text-xs flex items-center gap-1"
+            title="تكبير"
+          >
+            <ZoomIn size={16} />
+            <span className="font-mono text-[11px]">{Math.round(zoomFactor * 100)}%</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => changeZoom(-0.25)}
+            className="p-1.5 px-2 rounded-lg bg-orange-700 hover:bg-orange-600 text-white transition font-bold text-xs"
+            title="تصغير"
+          >
+            <ZoomOut size={16} />
+          </button>
+          {zoomFactor !== 1.0 && (
             <button
               type="button"
-              onClick={zoomOut}
-              className="p-1.5 px-2 rounded-lg bg-orange-700 hover:bg-orange-600 text-white transition font-bold text-xs"
-              title="تصغير"
+              onClick={resetZoom}
+              className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition font-bold text-xs"
+              title="إعادة ضبط الحجم"
             >
-              <ZoomOut size={15} />
+              <RotateCcw size={15} />
             </button>
-            {zoomPercent !== 100 && (
-              <button
-                type="button"
-                onClick={resetZoom}
-                className="p-1.5 px-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition font-bold text-xs"
-                title="إعادة ضبط 100%"
-              >
-                <RotateCcw size={14} />
-              </button>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Main Viewport */}
-      <div
-        ref={scrollContainerRef}
-        className="flex-1 overflow-auto bg-slate-950 p-2 rounded-2xl border border-slate-800 min-h-[380px] flex flex-col items-center justify-start touch-pan-x touch-pan-y"
-        style={{ WebkitOverflowScrolling: 'touch' }}
-      >
-        {viewMode === 'native' || error ? (
-          <div className="w-full flex-1 min-h-[420px] h-full rounded-xl overflow-hidden bg-white flex flex-col">
-            <iframe
-              src={url}
-              title={fileName || 'معاينة ملف التقرير'}
-              className="w-full flex-1 min-h-[420px] border-0"
-            />
-          </div>
-        ) : (
-          <div
-            className="transition-transform duration-150 origin-top flex items-center justify-center p-2"
-            style={{
-              width: `${zoomPercent}%`,
-              minWidth: zoomPercent > 100 ? `${zoomPercent}%` : '100%',
-            }}
-          >
-            {rendering && (
-              <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 rounded-xl z-10">
-                <RefreshCw size={24} className="animate-spin text-purple-400" />
-              </div>
-            )}
-            <canvas
-              ref={canvasRef}
-              className="rounded-xl shadow-2xl border border-slate-700 bg-white block w-full max-w-full h-auto"
-            />
-          </div>
-        )}
+      {/* Canvas viewport */}
+      <div className="flex-1 overflow-auto bg-slate-950 p-2 rounded-2xl border border-slate-800 min-h-[380px]">
+        <div className="relative inline-block min-w-full text-center m-auto">
+          {rendering && (
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 rounded-xl z-10">
+              <RefreshCw size={24} className="animate-spin text-purple-400" />
+            </div>
+          )}
+          <canvas
+            ref={canvasRef}
+            className="mx-auto rounded-xl shadow-2xl border border-slate-700 bg-white block max-w-full"
+          />
+        </div>
       </div>
     </div>
   );

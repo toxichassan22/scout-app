@@ -385,8 +385,8 @@ const JudgingSheet = () => {
                       جاري تحميل الملف المرفق...
                     </p>
                   ) : selectedTeam.report.fileUrl.toLowerCase().endsWith('.pdf') ? (
-                    <div className="flex-1 flex flex-col min-h-0 h-full">
-                      <div className="border border-purple-500/30 rounded-2xl overflow-hidden bg-slate-950 p-2 flex-1 flex flex-col min-h-0 h-full">
+                    <div className="flex-1 min-h-0">
+                      <div className={`border border-purple-500/30 rounded-2xl overflow-hidden bg-slate-950 p-2 ${isFullScreenReport ? 'h-[80vh]' : 'h-[58vh] min-h-[400px]'}`}>
                         <InlinePdfViewer url={reportFileUrl} fileName={selectedTeam.report.fileName} />
                       </div>
                     </div>
