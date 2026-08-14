@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, Newspaper, Trophy, Users, UserCheck, Shield, ShieldAlert, FileText, Award, Calendar, RefreshCw, Snowflake, Database, QrCode } from 'lucide-react';
+import { LogOut, Newspaper, Trophy, Users, UserCheck, Shield, ShieldAlert, FileText, Award, Calendar, RefreshCw, Snowflake, Database, QrCode, Sparkles, Cpu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getAdminLeaderboard, getAdminTeams, getAdminJudges, getAdminReports, triggerEmergencyFreeze, triggerCleanSlate, apiFetch, triggerGithubBackup, getLeaderboardVisibility, setLeaderboardVisibility } from '../../services/api';
+import { getAdminLeaderboard, getAdminTeams, getAdminJudges, getAdminReports, triggerEmergencyFreeze, triggerCleanSlate, apiFetch, triggerGithubBackup, getLeaderboardVisibility, setLeaderboardVisibility, getGpuStatus } from '../../services/api';
 
 const Dashboard = () => {
   const { logout, user } = useAuth();
@@ -19,10 +19,12 @@ const Dashboard = () => {
   const [backupLoading, setBackupLoading] = useState(false);
   const [githubBackupLoading, setGithubBackupLoading] = useState(false);
   const [cleanSlateLoading, setCleanSlateLoading] = useState(false);
+  const [gpuState, setGpuState] = useState('unknown');
 
   useEffect(() => {
     fetchQuickStats();
     getLeaderboardVisibility().then(result => setLeaderboardVisible(Boolean(result.visible))).catch(console.error);
+    getGpuStatus().then(res => res?.success && setGpuState(res.state)).catch(() => {});
   }, []);
 
   const fetchQuickStats = async () => {
@@ -143,7 +145,8 @@ const Dashboard = () => {
       links: [
         { path: '/admin/scoring', label: 'تعديل الدرجات', icon: Award, desc: 'اختر المسابقة ثم الفريق، مع سجل تدقيق', tone: 'rose' },
         { path: '/admin/leaderboard', label: 'لوحة الصدارة والترتيب', icon: Trophy, desc: 'عرض الترتيب العام، وإظهار/إخفاء النتائج', tone: 'amber' },
-        { path: '/admin/reports', label: 'التقارير المرفوعة', icon: FileText, desc: 'استعراض وتحميل وصلاحية التسليم', tone: 'cyan' },
+        { path: '/admin/ai-studio', label: 'استوديو الذكاء الاصطناعي (GPU)', icon: Sparkles, desc: 'توليد الصور بـ FLUX.1 وفيديوهات HD بـ LTX-Video', tone: 'cyan' },
+        { path: '/admin/reports', label: 'التقارير المرفوعة', icon: FileText, desc: 'استعراض وتحميل وصلاحية التسليم', tone: 'sky' },
         { path: '/admin/news', label: 'نشر الأخبار', icon: Newspaper, desc: 'إعلانات عامة أو موجهة لفرق بعينها', tone: 'emerald' },
       ],
     },
@@ -192,11 +195,26 @@ const Dashboard = () => {
             <ShieldAlert size={24} className="text-amber-400" />
             <div>
               <h2 className="text-base font-bold text-slate-100">أدوات السيطرة والمزامنة السريعة</h2>
-              <p className="text-xs text-slate-400">تجميد المهرجان في الطوارئ، المزامنة الفورية، وتصفير التجارب</p>
+              <p className="text-xs text-slate-400">تجميد المهرجان في الطوارئ، المزامنة الفورية، استوديو الـ GPU، وتصفير التجارب</p>
             </div>
           </div>
 
           <div className="flex items-center flex-wrap gap-3">
+            <Link
+              to="/admin/ai-studio"
+              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black transition border shadow-sm ${
+                gpuState === 'running'
+                  ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 shadow-emerald-500/20'
+                  : gpuState === 'pending'
+                  ? 'border-amber-500/40 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 animate-pulse'
+                  : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20'
+              }`}
+            >
+              <Sparkles size={16} />
+              <span>استوديو الذكاء الاصطناعي (GPU)</span>
+              <span className={`h-2 w-2 rounded-full ${gpuState === 'running' ? 'bg-emerald-400 animate-ping' : gpuState === 'pending' ? 'bg-amber-400' : 'bg-red-400'}`} />
+            </Link>
+
             <button
               type="button"
               onClick={handleFreezeToggle}

@@ -65,6 +65,7 @@ const AdminAgenda = lazyWithRetry(() => import('./pages/admin/Agenda'));
 const AdminStressTest = lazyWithRetry(() => import('./pages/admin/StressTest'));
 const AdminActivitySetup = lazyWithRetry(() => import('./pages/admin/ActivitySetup'));
 const AdminLeaderboard = lazyWithRetry(() => import('./pages/admin/Leaderboard'));
+const AdminAiStudio = lazyWithRetry(() => import('./pages/admin/AiStudio'));
 
 import { TopHeader } from './components/TopHeader';
 import { ScoutMascotToy } from './components/ScoutMascotToy';
@@ -131,6 +132,7 @@ const App = memo(function App() {
           <Route path="/admin/stress-test" element={<ProtectedRoute allowedRoles={['admin']}><AdminStressTest /></ProtectedRoute>} />
           <Route path="/admin/activities" element={<ProtectedRoute allowedRoles={['admin']}><AdminActivitySetup /></ProtectedRoute>} />
           <Route path="/admin/leaderboard" element={<ProtectedRoute allowedRoles={['admin']}><AdminLeaderboard /></ProtectedRoute>} />
+          <Route path="/admin/ai-studio" element={<ProtectedRoute allowedRoles={['admin']}><AdminAiStudio /></ProtectedRoute>} />
 
           {/* Default Redirect */}
           <Route path="*" element={<Navigate to={defaultRoute} replace />} />

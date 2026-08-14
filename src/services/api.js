@@ -77,13 +77,17 @@ export const apiFetch = async (endpoint, options = {}) => {
   const idempotencyKey = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
     ? (options.headers?.['Idempotency-Key'] || globalThis.crypto?.randomUUID?.())
     : null;
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     ...(deviceId ? { 'X-Device-Id': deviceId } : {}),
     ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
     ...options.headers
   };
+  if (isFormData) {
+    delete headers['Content-Type'];
+  }
 
   const isAuthEndpoint = endpoint.includes('/auth/');
   const isAiEndpoint = endpoint.startsWith('/ai/');
@@ -538,3 +542,27 @@ export const triggerCleanSlate = (confirmPassword) =>
   });
 
 export const triggerGithubBackup = () => apiFetch('/admin/backup/github', { method: 'POST' });
+
+// ─── AWS GPU Studio & AI Generation ───
+export const getGpuStatus = () => apiFetch('/admin/gpu/status', { noRetry: true });
+export const startGpuServer = () => apiFetch('/admin/gpu/start', { method: 'POST', noRetry: true });
+export const stopGpuServer = () => apiFetch('/admin/gpu/stop', { method: 'POST', noRetry: true });
+export const checkGpuHealth = () => apiFetch('/admin/gpu/health', { noRetry: true });
+
+export const getAiHealth = () => apiFetch('/ai/health', { noRetry: true });
+export const generateAiImage = (payload) =>
+  apiFetch('/ai/generate-image', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    noRetry: true,
+  });
+
+export const generateAiVideo = (payloadOrFormData) => {
+  const isFormData = typeof FormData !== 'undefined' && payloadOrFormData instanceof FormData;
+  return apiFetch('/ai/generate-video', {
+    method: 'POST',
+    body: isFormData ? payloadOrFormData : JSON.stringify(payloadOrFormData),
+    noRetry: true,
+  });
+};
+

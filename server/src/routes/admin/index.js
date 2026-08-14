@@ -15,6 +15,7 @@ import seedAgendaRouter from './seedAgenda.js';
 import reportPermissionsRouter from './reportPermissions.js';
 import judgeAssignmentsRouter from './judgeAssignments.js';
 import activitiesRouter from './activities.js';
+import gpuRouter from './gpu.js';
 
 const router = Router();
 router.use(teamsRouter);
@@ -33,5 +34,6 @@ router.use(seedAgendaRouter);
 router.use(reportPermissionsRouter);
 router.use(judgeAssignmentsRouter);
 router.use(activitiesRouter);
+router.use('/gpu', gpuRouter);
 
 export default router;

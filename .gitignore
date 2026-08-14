@@ -65,6 +65,8 @@ config/secret_key.*
 !config/secret_key.example
 *.pem
 *.key
+aws/
+
 
 # Playwright
 .playwright-mcp/
