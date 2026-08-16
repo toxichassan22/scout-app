@@ -2,15 +2,7 @@ import { useState } from 'react';
 import { ArrowRight, Bug, CheckCircle2, ExternalLink, Headphones, Lightbulb, MessageCircle, Send, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const SUPPORT_PHONE = '201022529346';
-const SUPPORT_DISPLAY_PHONE = '+20 10 22529346';
-const SUPPORT_NAME = 'القائدة جني محمد شوقي';
-const SUPPORT_USERNAME = '@jjannaa_mmohammedd__';
 const SUPPORT_COMMUNITY_URL = 'https://chat.whatsapp.com/JEJYciePADA32TZLWB9pq6';
-
-function whatsappUrl(message) {
-  return `https://wa.me/${SUPPORT_PHONE}?text=${encodeURIComponent(message)}`;
-}
 
 const Support = () => {
   const navigate = useNavigate();
@@ -26,7 +18,7 @@ const Support = () => {
     event.preventDefault();
     const content = message.trim();
     if (!content) return;
-    window.open(whatsappUrl(`رسالة من الدعم الفني والمقترحات\n\nالتصنيف: ${category}\n\n${content}`), '_blank', 'noopener,noreferrer');
+    window.open(SUPPORT_COMMUNITY_URL, '_blank', 'noopener,noreferrer');
     setMessage('');
     setSent(true);
   };
@@ -54,10 +46,6 @@ const Support = () => {
           </div>
           <h2 className="text-xl font-black text-white">مجتمع الدعم والمساعدة - واتساب</h2>
           <p className="mt-2 text-sm leading-7 text-slate-400">انضم لمجتمع الدعم على واتساب للاستفسارات السريعة والتواصل المباشر مع لجنة التنظيم.</p>
-          <div className="mt-4 space-y-1 rounded-xl border border-cyan-300/15 bg-cyan-300/5 p-3 text-xs">
-            <p className="font-black text-cyan-200">{SUPPORT_NAME}</p>
-            <p dir="ltr" className="text-right text-slate-300">{SUPPORT_DISPLAY_PHONE}</p>
-          </div>
           <span className="mt-5 inline-flex items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs font-black text-cyan-200">الانضمام لمجتمع الواتساب مباشرة <ArrowRight size={14} /></span>
         </button>
 
