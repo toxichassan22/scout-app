@@ -6,6 +6,7 @@ const SUPPORT_PHONE = '201022529346';
 const SUPPORT_DISPLAY_PHONE = '+20 10 22529346';
 const SUPPORT_NAME = 'القائدة جني محمد شوقي';
 const SUPPORT_USERNAME = '@jjannaa_mmohammedd__';
+const SUPPORT_COMMUNITY_URL = 'https://chat.whatsapp.com/JEJYciePADA32TZLWB9pq6';
 
 function whatsappUrl(message) {
   return `https://wa.me/${SUPPORT_PHONE}?text=${encodeURIComponent(message)}`;
@@ -18,7 +19,7 @@ const Support = () => {
   const [sent, setSent] = useState(false);
 
   const openSupportChat = () => {
-    window.open(whatsappUrl('مرحباً، أحتاج مساعدة فنية في تطبيق المهرجان الرقمي.'), '_blank', 'noopener,noreferrer');
+    window.open(SUPPORT_COMMUNITY_URL, '_blank', 'noopener,noreferrer');
   };
 
   const submitSuggestion = event => {
