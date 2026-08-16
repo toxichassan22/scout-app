@@ -3,7 +3,7 @@ import { ArrowRight, Bug, CheckCircle2, Copy, ExternalLink, Headphones, Lightbul
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const SUPPORT_COMMUNITY_URL = 'https://chat.whatsapp.com/JEJYciePADA32TZLWB9pq6';
+const SUPPORT_COMMUNITY_URL = 'https://chat.whatsapp.com/EvBemStijQ9DGUyDnehl81';
 
 const copyText = async (text) => {
   try {
@@ -30,7 +30,6 @@ const copyText = async (text) => {
 const Support = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [category, setCategory] = useState('مشكلة تقنية');
   const [message, setMessage] = useState('');
   const [sent, setSent] = useState(false);
   const [composed, setComposed] = useState('');
@@ -41,8 +40,7 @@ const Support = () => {
 
   const buildSupportMessage = (content) => (
     `اسم المجموعة: ${teamName}\n` +
-    `اسم الشخص: ${personName}\n` +
-    `التصنيف: ${category}\n\n` +
+    `اسم الشخص: ${personName}\n\n` +
     `محتوى الرسالة:\n${content}`
   );
 
@@ -55,12 +53,12 @@ const Support = () => {
     const content = message.trim();
     if (!content) return;
     const text = buildSupportMessage(content);
+    window.open(SUPPORT_COMMUNITY_URL, '_blank', 'noopener,noreferrer');
     const didCopy = await copyText(text);
     setComposed(text);
     setCopied(didCopy);
     setMessage('');
     setSent(true);
-    window.open(SUPPORT_COMMUNITY_URL, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -84,9 +82,9 @@ const Support = () => {
             </div>
             <ExternalLink size={18} className="text-cyan-300/60" />
           </div>
-          <h2 className="text-xl font-black text-white">مجتمع الدعم والمساعدة - واتساب</h2>
-          <p className="mt-2 text-sm leading-7 text-slate-400">انضم لمجتمع الدعم على واتساب للاستفسارات السريعة والتواصل المباشر مع لجنة التنظيم.</p>
-          <span className="mt-5 inline-flex items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs font-black text-cyan-200">الانضمام لمجتمع الواتساب مباشرة <ArrowRight size={14} /></span>
+          <h2 className="text-xl font-black text-white">جروب الدعم والمساعدة - واتساب</h2>
+          <p className="mt-2 text-sm leading-7 text-slate-400">ادخل جروب الدعم وتواصل مباشرة مع لجنة التنظيم.</p>
+          <span className="mt-5 inline-flex items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs font-black text-cyan-200">فتح جروب الواتساب مباشرة <ArrowRight size={14} /></span>
         </button>
 
         <article className="glass-sheen glass-fern min-w-0 p-6 text-right">
@@ -113,15 +111,6 @@ const Support = () => {
 
         <form onSubmit={submitSuggestion} className="grid gap-4">
           <label className="grid gap-2 text-right text-xs font-black text-slate-300">
-            نوع الرسالة
-            <select value={category} onChange={event => setCategory(event.target.value)} className="input-field">
-              <option>مشكلة تقنية</option>
-              <option>اقتراح تطوير</option>
-              <option>مشكلة في مسابقة</option>
-              <option>استفسار عام</option>
-            </select>
-          </label>
-          <label className="grid gap-2 text-right text-xs font-black text-slate-300">
             التفاصيل
             <textarea value={message} onChange={event => setMessage(event.target.value)} required maxLength={2000} rows={6} className="input-field resize-y leading-7" placeholder="اكتب المشكلة أو الاقتراح بالتفصيل..." />
           </label>
@@ -129,7 +118,7 @@ const Support = () => {
             <div role="status" className="space-y-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3">
               <p className="flex items-center justify-center gap-2 text-center text-xs font-bold text-emerald-200">
                 <CheckCircle2 size={15} />
-                {copied ? 'تم نسخ الرسالة وفتح جروب الدعم. الصقها في المحادثة.' : 'تم تجهيز الرسالة وفتح جروب الدعم. انسخها والصقها في المحادثة.'}
+                {copied ? 'تم نسخ الرسالة وفتح جروب الدعم. الصقها واضغط إرسال.' : 'تم فتح جروب الدعم. انسخ الرسالة والصقها ثم اضغط إرسال.'}
               </p>
               {composed && (
                 <>
