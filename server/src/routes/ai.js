@@ -11,7 +11,6 @@ import { z } from 'zod';
 import { getFestivalContext } from '../aiContext.js';
 import { requestAiProvider, streamAiProvider } from '../aiGateway.js';
 import { checkGpuHealth, AI_GPU_SERVER_URL } from '../gpuService.js';
-import logger from '../logger.js';
 
 const router = Router();
 router.use(requireRole(['team', 'admin']));
