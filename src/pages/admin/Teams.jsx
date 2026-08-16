@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Trash2, Upload, UserCheck, X, UserPlus, ShieldAlert, Pencil, Save } from 'lucide-react';
+import { Users, Plus, Trash2, Upload, UserCheck, X, UserPlus, ShieldAlert, Pencil, Save, Smartphone, UserRound, CircleCheck, Clock3, Monitor, ShieldCheck } from 'lucide-react';
 import {
   getAdminTeams, createTeam, updateTeam, deleteTeam, importTeams,
   getTeamMembers, addTeamMember, deleteTeamMember,
@@ -7,6 +7,48 @@ import {
 } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
 import AdminBackLink from '../../components/AdminBackLink';
+
+const getDevicePlatform = (userAgent = '') => {
+  const browser = /Edg\//.test(userAgent)
+    ? 'Edge'
+    : /OPR\//.test(userAgent)
+      ? 'Opera'
+      : /Chrome\//.test(userAgent)
+        ? 'Chrome'
+        : /Firefox\//.test(userAgent)
+          ? 'Firefox'
+          : /Safari\//.test(userAgent)
+            ? 'Safari'
+            : 'متصفح غير معروف';
+  const platform = /Windows NT/.test(userAgent)
+    ? 'Windows'
+    : /Android/.test(userAgent)
+      ? 'Android'
+      : /iPhone|iPad|iPod/.test(userAgent)
+        ? 'iOS'
+        : /Mac OS X/.test(userAgent)
+          ? 'macOS'
+          : /Linux/.test(userAgent)
+            ? 'Linux'
+            : 'نظام غير معروف';
+  return `${browser} · ${platform}`;
+};
+
+const formatDeviceDate = value => value
+  ? new Date(value).toLocaleString('ar-EG', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+  : 'غير متوفر';
+
+const getIdentityStatus = device => {
+  if (device.displayName && device.role) return { label: 'بيانات مكتملة', className: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20', icon: CircleCheck };
+  if (device.displayName || device.role) return { label: 'بيانات ناقصة', className: 'text-amber-300 bg-amber-500/10 border-amber-500/20', icon: Clock3 };
+  return { label: 'لم يسجل هويته بعد', className: 'text-slate-300 bg-slate-500/10 border-slate-500/20', icon: UserRound };
+};
 
 const AdminTeams = () => {
   const [teams, setTeams] = useState([]);
@@ -518,31 +560,53 @@ const AdminTeams = () => {
           <div className="card p-6 rounded-3xl bg-slate-900 border border-sky-500/30 max-w-xl w-full text-right shadow-2xl relative max-h-[90vh] flex flex-col">
 
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-800 pb-4 mb-4">
               <button
                 onClick={closeDevicesModal}
-                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
+                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition shrink-0"
+                aria-label="إغلاق إدارة الأجهزة"
               >
                 <X size={18} />
               </button>
 
-              <div className="flex items-center gap-2">
-                <span className={`text-xs px-3 py-1 rounded-full font-mono font-bold border ${devices.length >= (selectedTeamDevices.maxDevices || 24)
-                    ? 'bg-red-500/20 text-red-300 border-red-500/30'
-                    : 'bg-sky-500/20 text-sky-300 border-sky-500/30'
-                  }`}>
-                  {devices.length} / {selectedTeamDevices.maxDevices || 24} جهاز مسجل
-                </span>
-                <h3 className="text-base font-black text-white">
-                  أجهزة فريق: <span className="text-amber-400">{selectedTeamDevices.label}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <span className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-bold border ${devices.length >= (selectedTeamDevices.maxDevices || 24)
+                      ? 'bg-red-500/20 text-red-300 border-red-500/30'
+                      : 'bg-sky-500/20 text-sky-300 border-sky-500/30'
+                    }`}>
+                    <Smartphone size={12} />
+                    {devices.length} نشط
+                  </span>
+                  <span className="text-[11px] text-slate-500">الحد: {selectedTeamDevices.maxDevices || 24}</span>
+                </div>
+                <h3 className="mt-2 text-lg font-black text-white">
+                  إدارة أجهزة فريق <span className="text-amber-400">{selectedTeamDevices.label}</span>
                 </h3>
+                <p className="mt-1 text-[11px] text-slate-400">كل بطاقة تمثل جهازًا يستخدم حساب الفريق المشترك.</p>
               </div>
             </div>
 
             {/* Info Banner */}
-            <div className="mb-4 p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-[11px] text-sky-300 leading-5">
-              📱 كل جهاز يسجل دخول الفريق من موبايل يُحسب هنا تلقائياً. الحد الأقصى <strong>{selectedTeamDevices.maxDevices || 24} جهاز</strong> لهذا الفريق.
-              إلغاء اعتماد أي جهاز سيؤدي لتسجيل خروجه فوراً وتفريغ مكان لجهاز جديد.
+            <div className="mb-3 rounded-xl border border-sky-500/20 bg-sky-500/10 p-3 text-[11px] leading-6 text-sky-200">
+              الاسم والصفة يكتبهما الشخص من الجهاز نفسه. لو ظهرت البطاقة بدون اسم أو صفة، فالجهاز دخل الحساب لكنه لم يكمل تسجيل بيانات المستخدم.
+            </div>
+
+            <div className="mb-4 grid grid-cols-3 gap-2">
+              {[
+                { label: 'أجهزة نشطة', value: devices.length, className: 'text-sky-300', icon: Smartphone },
+                { label: 'بيانات مكتملة', value: devices.filter(d => d.displayName && d.role).length, className: 'text-emerald-300', icon: CircleCheck },
+                { label: 'تحتاج متابعة', value: devices.filter(d => !d.displayName || !d.role).length, className: 'text-amber-300', icon: Clock3 },
+              ].map(stat => {
+                const Icon = stat.icon;
+                return (
+                  <div key={stat.label} className="rounded-xl border border-slate-800 bg-slate-950/50 p-2.5 text-center">
+                    <Icon size={15} className={`mx-auto mb-1 ${stat.className}`} />
+                    <p className={`text-base font-black ${stat.className}`}>{stat.value}</p>
+                    <p className="mt-0.5 text-[9px] font-bold text-slate-500">{stat.label}</p>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Devices List */}
@@ -556,42 +620,106 @@ const AdminTeams = () => {
                   لا يوجد أجهزة مسجلة لهذا الفريق بعد. أول ما حد يسجل دخول من موبايل هيظهر هنا.
                 </div>
               ) : (
-                devices.map((d, idx) => (
-                  <div
-                    key={d.id}
-                    className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between text-xs"
-                  >
-                    <button
-                      onClick={() => handleRevokeDevice(d.id)}
-                      className="text-red-400 hover:text-red-300 p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition"
-                      title="إلغاء اعتماد الجهاز — تسجيل خروج فوري"
+                devices.map((d, idx) => {
+                  const identityStatus = getIdentityStatus(d);
+                  const StatusIcon = identityStatus.icon;
+                  const isLeader = d.role === 'قائد/ة';
+                  return (
+                    <div
+                      key={d.id}
+                      className="rounded-2xl bg-slate-950/60 border border-slate-800 p-4 text-xs"
                     >
-                      <Trash2 size={14} />
-                    </button>
+                      <div className="flex items-start gap-3">
+                        <button
+                          onClick={() => handleRevokeDevice(d.id)}
+                          className="order-first inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-2.5 py-2 text-[10px] font-bold text-red-300 transition hover:bg-red-500/20 hover:text-red-200"
+                          title="إلغاء اعتماد الجهاز — تسجيل خروج فوري"
+                          aria-label={`إلغاء اعتماد جهاز ${d.displayName || idx + 1}`}
+                        >
+                          <Trash2 size={13} />
+                          إلغاء الاعتماد
+                        </button>
 
-                    <div className="flex-1 mr-3">
-                      {/* Devices used to be listed as "جهاز 1"; each one now carries the
-                          name and role its owner entered on first use. */}
-                      <p className="flex flex-wrap items-center gap-2 font-black text-[11px] text-white">
-                        {d.displayName || <span className="text-slate-500">لم يُدخل اسمه بعد</span>}
-                        {d.role && <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">{d.role}</span>}
-                      </p>
-                      <p className="font-mono text-[10px] text-sky-300 break-all" dir="ltr">{d.deviceId}</p>
-                      <p className="text-[10px] text-slate-500 mt-1 truncate" dir="ltr">{d.userAgent}</p>
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        آخر دخول: {new Date(d.lastLoginAt).toLocaleString('ar-EG')}
-                      </p>
+                        <div className="min-w-0 flex-1">
+                          {/* Devices used to be listed as "جهاز 1"; each one now carries the
+                              name and role its owner entered on first use. */}
+                          <div className="flex items-start gap-3">
+                            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${isLeader
+                              ? 'border-amber-400/30 bg-amber-500/10 text-amber-300'
+                              : 'border-sky-400/20 bg-sky-500/10 text-sky-300'
+                              }`}>
+                              {isLeader ? <ShieldCheck size={21} /> : d.displayName ? <UserRound size={21} /> : <Smartphone size={21} />}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="truncate text-sm font-black text-white">
+                                  {d.displayName || 'شخص لم يسجل اسمه بعد'}
+                                </h4>
+                                <span className="rounded-full border border-slate-700 bg-slate-800/70 px-2 py-0.5 text-[10px] font-bold text-slate-300">
+                                  جهاز #{idx + 1}
+                                </span>
+                              </div>
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${isLeader
+                                  ? 'bg-amber-500/15 text-amber-300'
+                                  : d.role
+                                    ? 'bg-emerald-500/15 text-emerald-300'
+                                    : 'bg-slate-800 text-slate-500'
+                                  }`}>
+                                  {d.role || 'الصفة غير محددة'}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-[10px] text-slate-400" dir="ltr">
+                                  <Monitor size={12} />
+                                  {getDevicePlatform(d.userAgent)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                            <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-2.5">
+                              <p className="text-[9px] font-bold text-slate-500">حالة التسجيل</p>
+                              <p className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold ${identityStatus.className}`}>
+                                <StatusIcon size={12} />
+                                {identityStatus.label}
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-2.5">
+                              <p className="text-[9px] font-bold text-slate-500">آخر دخول</p>
+                              <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-slate-300">
+                                <Clock3 size={12} className="text-sky-300" />
+                                {formatDeviceDate(d.lastLoginAt)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <details className="mt-3 rounded-xl border border-slate-800/80 bg-slate-900/40 px-3 py-2">
+                            <summary className="cursor-pointer text-[10px] font-bold text-slate-500 hover:text-slate-300">عرض البيانات التقنية</summary>
+                            <div className="mt-2 space-y-2 border-t border-slate-800 pt-2 text-[10px]">
+                              <div>
+                                <p className="text-slate-500">معرف الجهاز</p>
+                                <code className="mt-1 block break-all font-mono text-sky-300" dir="ltr">{d.deviceId || 'غير متوفر'}</code>
+                              </div>
+                              <div>
+                                <p className="text-slate-500">User-Agent</p>
+                                <p className="mt-1 break-all text-slate-400" dir="ltr">{d.userAgent || 'غير متوفر'}</p>
+                              </div>
+                            </div>
+                          </details>
+                        </div>
+                      </div>
                     </div>
-
-                    <span className="text-[10px] font-mono text-slate-500 shrink-0">#{idx + 1}</span>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
             {/* Footer */}
-            <div className="pt-4 border-t border-slate-800 mt-4 flex justify-between items-center text-[11px] text-slate-500">
-              <span>الحد الحالي: {selectedTeamDevices.maxDevices || 24} جهاز</span>
+            <div className="pt-4 border-t border-slate-800 mt-4 flex flex-wrap gap-3 justify-between items-center text-[11px] text-slate-500">
+              <div className="flex flex-wrap items-center gap-3">
+                <span>النشط الآن: <strong className="text-slate-300">{devices.length}</strong></span>
+                <span>المتاح: <strong className="text-emerald-300">{Math.max(0, (selectedTeamDevices.maxDevices || 24) - devices.length)}</strong></span>
+              </div>
               <button
                 onClick={closeDevicesModal}
                 className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition"
