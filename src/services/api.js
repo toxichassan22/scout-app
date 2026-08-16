@@ -487,6 +487,12 @@ export const getReportPermissions = async () => unwrapList(await apiFetch('/admi
 export const updateReportPermission = (teamId, competitionId, data) =>
   apiFetch(`/admin/report-permissions/${teamId}/${competitionId}`, { method: 'PATCH', body: JSON.stringify(data) });
 
+export const updateReportPermissions = (teamId, data) =>
+  apiFetch(`/admin/report-permissions/${teamId}/bulk`, { method: 'PATCH', body: JSON.stringify(data) });
+
+export const revokeAllReportPermissions = () =>
+  apiFetch('/admin/report-permissions/revoke-all', { method: 'PATCH' });
+
 export const getMyReportPermissions = () =>
   apiFetch('/reports/permissions');
 

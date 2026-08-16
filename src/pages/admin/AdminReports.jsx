@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowRight, ChevronLeft, Clock, Download, FileText, Loader2, RefreshCw, Search, Sparkles, Trash2, Users } from 'lucide-react';
+import { ArrowRight, Check, ChevronLeft, Clock, Download, FileText, ListChecks, Loader2, RefreshCw, Search, Sparkles, Trash2, Users, X } from 'lucide-react';
 import {
   deleteAdminReport, fetchReportFile, getAdminCompetitions, getAdminReports, getAdminTeams,
-  getReportPermissions, updateReportPermission
+  getReportPermissions, revokeAllReportPermissions, updateReportPermission, updateReportPermissions
 } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
 import AdminBackLink from '../../components/AdminBackLink';
@@ -29,6 +29,10 @@ const AdminReports = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [downloadingId, setDownloadingId] = useState('');
+  const [grantTeamId, setGrantTeamId] = useState('');
+  const [grantCompetitionIds, setGrantCompetitionIds] = useState([]);
+  const [grantDeadline, setGrantDeadline] = useState('');
+  const [revokingAll, setRevokingAll] = useState(false);
   const { socket } = useSocket();
 
   const fetchData = useCallback(async () => {
@@ -52,10 +56,16 @@ const AdminReports = () => {
     return () => socket.off('admin:report:new', fetchData);
   }, [socket, fetchData]);
 
+  const reportCompetitions = useMemo(
+    () => competitions.filter(competition => String(competition.slug || '').startsWith('report-')),
+    [competitions]
+  );
   const selectedPermission = useMemo(
     () => permissions.find(p => p.teamId === selectedTeamId && p.competitionId === competitionId),
     [permissions, selectedTeamId, competitionId]
   );
+  const grantTeam = useMemo(() => teams.find(team => team.id === grantTeamId) || null, [teams, grantTeamId]);
+  const allGrantCompetitionsSelected = reportCompetitions.length > 0 && grantCompetitionIds.length === reportCompetitions.length;
   useEffect(() => setDeadline(dateInput(selectedPermission?.deadline)), [selectedPermission]);
 
   const reportsByTeam = useMemo(() => {
@@ -94,6 +104,60 @@ const AdminReports = () => {
       alert(err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openGrantModal = (teamId) => {
+    setGrantTeamId(teamId);
+    setGrantCompetitionIds([]);
+    setGrantDeadline('');
+  };
+
+  const closeGrantModal = () => {
+    setGrantTeamId('');
+    setGrantCompetitionIds([]);
+    setGrantDeadline('');
+  };
+
+  const toggleGrantCompetition = (competitionId) => {
+    setGrantCompetitionIds(current => current.includes(competitionId)
+      ? current.filter(id => id !== competitionId)
+      : [...current, competitionId]);
+  };
+
+  const toggleAllGrantCompetitions = () => {
+    setGrantCompetitionIds(allGrantCompetitionsSelected ? [] : reportCompetitions.map(competition => competition.id));
+  };
+
+  const grantPermission = async () => {
+    if (!grantTeamId || grantCompetitionIds.length === 0) return alert('اختر مسابقة واحدة على الأقل');
+    setSaving(true);
+    try {
+      await updateReportPermissions(grantTeamId, {
+        competitionIds: grantCompetitionIds,
+        canSubmit: true,
+        deadline: grantDeadline || null,
+      });
+      closeGrantModal();
+      await fetchData();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const revokeAllPermissions = async () => {
+    if (!window.confirm('سيتم سحب صلاحية رفع التقارير من كل الفرق في كل مسابقات التقارير. هل تريد المتابعة؟')) return;
+    setRevokingAll(true);
+    try {
+      await revokeAllReportPermissions();
+      await fetchData();
+      alert('تم سحب الصلاحية من كل الفرق');
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setRevokingAll(false);
     }
   };
 
@@ -151,11 +215,16 @@ const AdminReports = () => {
   return (
     <div className="p-6 text-right dir-rtl text-white">
       <AdminBackLink />
-      <div className="mb-8 flex items-center justify-between">
-        <button type="button" onClick={fetchData} className="rounded-xl bg-slate-800 p-2 text-sky-400"><RefreshCw size={18} /></button>
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={fetchData} className="rounded-xl bg-slate-800 p-2 text-sky-400" title="تحديث"><RefreshCw size={18} /></button>
+          <button type="button" onClick={revokeAllPermissions} disabled={revokingAll || saving} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-bold disabled:opacity-50">
+            {revokingAll ? 'جاري السحب...' : 'سحب الصلاحية من كل الفرق'}
+          </button>
+        </div>
         <div>
           <h1 className="flex gap-2 text-2xl font-black">إدارة تقارير الفرق <FileText className="text-emerald-400" /></h1>
-          <p className="mt-1 text-xs text-slate-400">اختر الفرقة أولاً، ثم راجع تقاريرها وأدر صلاحية التسليم لمسابقة محددة</p>
+          <p className="mt-1 text-xs text-slate-400">اختر الفرقة ثم اسمح لها برفع مسابقة واحدة أو عدة مسابقات في نفس الوقت</p>
         </div>
       </div>
 
@@ -208,21 +277,21 @@ const AdminReports = () => {
               {visibleTeams.map(team => {
                 const teamFiles = reportsByTeam.get(team.id) || [];
                 return (
-                  <button
-                    key={team.id}
-                    type="button"
-                    onClick={() => openTeam(team.id)}
-                    className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-right transition hover:-translate-y-0.5 hover:border-cyan-400/30"
-                  >
-                    <div className="mb-4 flex items-start justify-between gap-3">
-                      <span className={`rounded-xl px-2.5 py-1 text-[11px] font-black ${teamFiles.length ? 'bg-emerald-500/10 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}>
-                        {teamFiles.length} تقرير
-                      </span>
-                      <ChevronLeft size={18} className="text-slate-500" />
-                    </div>
-                    <h2 className="text-base font-black text-white">{team.label || team.username}</h2>
-                    <p className="mt-1 text-[11px] font-bold text-slate-500" dir="ltr">{team.username}</p>
-                  </button>
+                  <div key={team.id} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-right transition hover:-translate-y-0.5 hover:border-cyan-400/30">
+                    <button type="button" onClick={() => openTeam(team.id)} className="w-full text-right">
+                      <div className="mb-4 flex items-start justify-between gap-3">
+                        <span className={`rounded-xl px-2.5 py-1 text-[11px] font-black ${teamFiles.length ? 'bg-emerald-500/10 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}>
+                          {teamFiles.length} تقرير
+                        </span>
+                        <ChevronLeft size={18} className="text-slate-500" />
+                      </div>
+                      <h2 className="text-base font-black text-white">{team.label || team.username}</h2>
+                      <p className="mt-1 text-[11px] font-bold text-slate-500" dir="ltr">{team.username}</p>
+                    </button>
+                    <button type="button" onClick={() => openGrantModal(team.id)} className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold hover:bg-emerald-500">
+                      <ListChecks size={14} /> السماح بالرفع لهذا الفريق
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -241,25 +310,32 @@ const AdminReports = () => {
           </div>
 
           <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-            <h3 className="mb-1 font-black">صلاحية التسليم لهذه الفرقة</h3>
-            <p className="mb-4 text-xs text-slate-400">اختر المسابقة ثم امنح أو اسحب الصلاحية، أو حدّد موعداً نهائياً، أو أعد فتح التسليم بعد الرفع الأول.</p>
-            <div className="mb-4 grid gap-3 md:grid-cols-2">
-              <select className="ai-input bg-slate-950" value={competitionId} onChange={event => setCompetitionId(event.target.value)}>
-                <option value="">اختر المسابقة</option>
-                {competitions.map(competition => <option key={competition.id} value={competition.id}>{competition.name}</option>)}
-              </select>
-              <input type="datetime-local" className="ai-input" value={deadline} onChange={event => setDeadline(event.target.value)} />
+            <h3 className="mb-1 font-black">صلاحيات الرفع لهذه الفرقة</h3>
+            <p className="mb-4 text-xs text-slate-400">السماح بالرفع يكون لهذه الفرقة فقط. اختر من النافذة أكثر من مسابقة أو حدّد الكل، ثم اضغط تم للتفعيل.</p>
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+              <button type="button" disabled={saving || reportCompetitions.length === 0} onClick={() => openGrantModal(selectedTeamId)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold disabled:opacity-50">
+                <ListChecks size={15} /> السماح بالرفع للفرقة
+              </button>
+              <span className="rounded-xl bg-slate-950 px-3 py-2 text-xs text-slate-400">{reportCompetitions.length} مسابقة متاحة للتقارير</span>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" disabled={saving} onClick={() => changePermission({ canSubmit: true })} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold disabled:opacity-50">منح الصلاحية / حفظ الموعد</button>
-              <button type="button" disabled={saving} onClick={() => changePermission({ canSubmit: false })} className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold disabled:opacity-50">سحب الصلاحية</button>
-              <button type="button" disabled={saving} onClick={() => changePermission({ reopen: true, canSubmit: true })} className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-50">إعادة فتح التسليم</button>
-              {competitionId && (
-                <span className={`rounded-xl px-3 py-2 text-xs ${permissionStatus(selectedPermission).className}`}>
-                  {permissionStatus(selectedPermission).label}
-                  {selectedPermission?.deadline ? ` • حتى ${formatDate(selectedPermission.deadline)}` : ''}
-                </span>
-              )}
+            <div className="border-t border-slate-800 pt-4">
+              <p className="mb-3 text-xs font-bold text-slate-400">إعادة فتح تسليم سابق أو متابعة حالة مسابقة محددة</p>
+              <div className="mb-4 grid gap-3 md:grid-cols-2">
+                <select className="ai-input bg-slate-950" value={competitionId} onChange={event => setCompetitionId(event.target.value)}>
+                  <option value="">اختر المسابقة</option>
+                  {reportCompetitions.map(competition => <option key={competition.id} value={competition.id}>{competition.name}</option>)}
+                </select>
+                <input type="datetime-local" className="ai-input" value={deadline} onChange={event => setDeadline(event.target.value)} />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" disabled={saving || !competitionId} onClick={() => changePermission({ reopen: true, canSubmit: true })} className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-50">إعادة فتح التسليم</button>
+                {competitionId && (
+                  <span className={`rounded-xl px-3 py-2 text-xs ${permissionStatus(selectedPermission).className}`}>
+                    {permissionStatus(selectedPermission).label}
+                    {selectedPermission?.deadline ? ` • حتى ${formatDate(selectedPermission.deadline)}` : ''}
+                  </span>
+                )}
+              </div>
             </div>
           </section>
 
@@ -302,6 +378,60 @@ const AdminReports = () => {
             </div>
           )}
         </>
+      )}
+
+      {grantTeam && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm dir-rtl"
+          onMouseDown={event => { if (event.target === event.currentTarget) closeGrantModal(); }}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="grant-report-permission-title" className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl border border-emerald-500/30 bg-slate-950 p-5 text-right shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <button type="button" onClick={closeGrantModal} disabled={saving} className="rounded-xl bg-slate-800 p-2 text-slate-300 hover:text-white disabled:opacity-50" aria-label="إغلاق">
+                <X size={18} />
+              </button>
+              <div>
+                <h2 id="grant-report-permission-title" className="text-lg font-black text-white">السماح بالرفع للفرقة</h2>
+                <p className="mt-1 text-xs text-emerald-300">{grantTeam.label || grantTeam.username}</p>
+              </div>
+            </div>
+
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-3">
+              <span className="text-xs font-bold text-slate-400">تم اختيار {grantCompetitionIds.length} من {reportCompetitions.length}</span>
+              <button type="button" onClick={toggleAllGrantCompetitions} disabled={reportCompetitions.length === 0 || saving} className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-50">
+                <Check size={14} /> {allGrantCompetitionsSelected ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/40 p-3">
+              {reportCompetitions.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-500">لا توجد مسابقات تقارير متاحة حالياً</p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {reportCompetitions.map(competition => {
+                    const selected = grantCompetitionIds.includes(competition.id);
+                    return (
+                      <label key={competition.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition ${selected ? 'border-emerald-400/50 bg-emerald-500/10' : 'border-slate-800 bg-slate-950/60 hover:border-slate-600'}`}>
+                        <input type="checkbox" checked={selected} onChange={() => toggleGrantCompetition(competition.id)} disabled={saving} className="h-4 w-4 accent-emerald-500" />
+                        <span className="flex-1 text-sm font-bold text-white">{competition.name}</span>
+                        {selected && <Check size={16} className="text-emerald-300" />}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <label className="mt-4 block text-xs font-bold text-slate-400">
+              موعد نهائي موحّد للمسابقات المختارة (اختياري)
+              <input type="datetime-local" value={grantDeadline} onChange={event => setGrantDeadline(event.target.value)} disabled={saving} className="ai-input mt-2 w-full" />
+            </label>
+            <div className="mt-5 flex flex-wrap justify-start gap-2">
+              <button type="button" onClick={closeGrantModal} disabled={saving} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300 hover:text-white disabled:opacity-50">إلغاء</button>
+              <button type="button" onClick={grantPermission} disabled={saving || grantCompetitionIds.length === 0} className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-black disabled:opacity-50">{saving ? 'جاري التفعيل...' : 'تم - تفعيل الصلاحية'}</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

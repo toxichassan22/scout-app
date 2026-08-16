@@ -46,6 +46,22 @@ try {
   const adminToken = login.token;
   let result;
 
+  result = await request(base, 'GET', '/api/admin/competitions?limit=100', adminToken);
+  const reportCompetitions = JSON.parse(result.text).data.filter(competition => competition.id.startsWith('comp-report-catalog-'));
+  assert(reportCompetitions.length >= 2, 'report competitions should be available');
+  const selectedCompetitionIds = reportCompetitions.slice(0, 2).map(competition => competition.id);
+  result = await request(base, 'PATCH', `/api/admin/report-permissions/${team.id}/bulk`, adminToken, { competitionIds: selectedCompetitionIds, canSubmit: true });
+  assert.equal(result.response.status, 200);
+  const grantedPermissions = await prisma.reportPermission.findMany({ where: { teamId: team.id, competitionId: { in: selectedCompetitionIds } } });
+  assert.equal(grantedPermissions.length, selectedCompetitionIds.length);
+  assert(grantedPermissions.every(permission => permission.canSubmit));
+
+  result = await request(base, 'PATCH', '/api/admin/report-permissions/revoke-all', adminToken, {});
+  assert.equal(result.response.status, 200);
+  const revokedPermissions = await prisma.reportPermission.findMany({ where: { teamId: team.id } });
+  assert.equal(revokedPermissions.length, reportCompetitions.length);
+  assert(revokedPermissions.every(permission => permission.canSubmit === false));
+
   const routes = [
     '/api/admin/teams',
     `/api/admin/teams/${team.id}/members`,
