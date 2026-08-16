@@ -5,7 +5,7 @@ import prisma, { databaseReady } from '../src/db.js';
 import { createMemoryRateLimiter, JWT_SECRET, securityHeaders } from '../src/security.js';
 import { verifyAuthenticatedUser } from '../src/middleware/auth.js';
 import { canJoinRoom } from '../src/middleware/socketAuth.js';
-import { MAX_UPLOAD_BYTES, validateBase64Upload } from '../src/uploadSecurity.js';
+import { MAX_UPLOAD_BYTES, safeDriveFileName, validateBase64Upload } from '../src/uploadSecurity.js';
 import { isAllowedVideoUrl } from '../src/routes/competitions.js';
 import { normalizeArabicText } from '../src/textNormalization.js';
 import { emitLeaderboardUpdate, joinPublicRealtimeRooms, LEADERBOARD_ROOM } from '../src/realtime.js';
@@ -55,6 +55,10 @@ assert.throws(() => validateBase64Upload('%%%not-base64%%%', 'image.png', 'image
 assert.throws(() => validateBase64Upload(`data:image/png;base64,${png.toString('base64')}`, '../image.jpg'));
 assert.throws(() => validateBase64Upload(`data:image/jpeg;base64,${png.toString('base64')}`, 'image.jpg'));
 assert(MAX_UPLOAD_BYTES > 0);
+const driveFileName = safeDriveFileName('البحث العلمي / 2026', '../ملف نهائي.pdf', '1786-report-final.pdf');
+assert(driveFileName.startsWith('البحث_العلمي_2026 - ملف_نهائي - 1786-report-final'));
+assert(driveFileName.endsWith('.pdf'));
+assert(!driveFileName.includes('/'));
 
 assert.equal(await canJoinRoom({ user: { role: 'admin', id: 'a' } }, 'admin'), true);
 assert.equal(await canJoinRoom({ user: { role: 'team', id: 't1' } }, 'team:t1'), true);

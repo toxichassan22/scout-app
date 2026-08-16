@@ -7,7 +7,7 @@ import logger from '../logger.js';
 import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { queueUploadToGoogleDrive } from '../backup-exporter.js';
-import { MAX_UPLOAD_BYTES, safeStoredName, validateBase64Upload, validateBufferUpload, UPLOAD_TYPES } from '../uploadSecurity.js';
+import { MAX_UPLOAD_BYTES, safeDriveFileName, safeStoredName, validateBase64Upload, validateBufferUpload, UPLOAD_TYPES } from '../uploadSecurity.js';
 import { isEmergencyFrozen } from '../freeze.js';
 import { validate, zString, zId } from '../middleware/validate.js';
 import { idempotent } from '../middleware/idempotent.js';
@@ -105,6 +105,7 @@ async function finalizeReport(req, res, { title, content, competitionId, storedN
 
   const validCompId = competition.id;
   const displayName = fileName || storedName;
+  const driveFileName = safeDriveFileName(competition.name, displayName, storedName);
 
   const existingReport = await prisma.report.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: validCompId } } });
   let report;
@@ -135,8 +136,8 @@ async function finalizeReport(req, res, { title, content, competitionId, storedN
         else if (ext === '.zip') mimeType = 'application/zip';
         else if (ext === '.txt') mimeType = 'text/plain';
 
-        const uploadRes = await queueUploadToGoogleDrive(storedName, mimeType, diskPath, folderPath);
-        req.log.info({ storedName, folderPath, result: uploadRes?.result }, 'report uploaded to Google Drive');
+        const uploadRes = await queueUploadToGoogleDrive(driveFileName, mimeType, diskPath, folderPath);
+        req.log.info({ storedName, driveFileName, folderPath, result: uploadRes?.result }, 'report uploaded to Google Drive');
       } catch (error) {
         if (error.code !== 'ENOENT') throw error;
       }

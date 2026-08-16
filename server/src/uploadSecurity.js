@@ -62,6 +62,23 @@ export function safeStoredName(fileName, ext) {
     return `${Date.now()}-${crypto.randomUUID()}-${base}${ext}`;
 }
 
+const safeDriveNamePart = (value, fallback) => String(value || fallback)
+    .normalize('NFKC')
+    .replace(/[^\p{L}\p{N}._-]+/gu, '_')
+    .replace(/_+/g, '_')
+    .replace(/^[_\-.]+|[_\-.]+$/g, '')
+    .slice(0, 80) || fallback;
+
+export function safeDriveFileName(competitionName, originalName, storedName) {
+    const stored = path.basename(String(storedName || originalName || 'report.txt'));
+    const original = path.basename(String(originalName || stored));
+    const ext = path.extname(stored).toLowerCase() || path.extname(original).toLowerCase() || '.txt';
+    const originalBase = path.basename(original, path.extname(original));
+    const uniqueBase = path.basename(stored, path.extname(stored));
+    const readableBase = originalBase === uniqueBase ? 'report' : originalBase;
+    return `${safeDriveNamePart(competitionName, 'مسابقة')} - ${safeDriveNamePart(readableBase, 'report')} - ${safeDriveNamePart(uniqueBase, 'report')}${ext}`;
+}
+
 export function validateBufferUpload(buffer, fileName, mimeType) {
     if (!Buffer.isBuffer(buffer) || !buffer.length || buffer.length > MAX_UPLOAD_BYTES) throw new Error('الملف فارغ أو أكبر من الحد المسموح');
     const ext = path.extname(String(fileName || '')).toLowerCase();
