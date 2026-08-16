@@ -2,8 +2,8 @@ import { memo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Trophy, Sparkles, FileText, ChevronLeft, Flame,
-  Radio, Newspaper, Lock, ShieldCheck, CheckCircle
+  Trophy, FileText, ChevronLeft, Flame,
+  Radio, Newspaper, Lock
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -11,7 +11,6 @@ import { getLeaderboard, getNews } from '../services/api';
 import { FESTIVAL_DETAILS, MOCK_TEAMS } from '../data/mockData';
 import NewsCard from '../components/NewsCard';
 import LoadingSpinner from '../components/LoadingSpinner';
-import TeamLogoUploadModal from '../components/TeamLogoUploadModal';
 
 /* ═══════════════════════════════════════════════════════════════
    HOME — لوحة التحكم الكشفية الرقمية (Digital Scout App Dashboard)
@@ -177,7 +176,6 @@ const Home = memo(function Home() {
   const [board, setBoard] = useState([]);
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [logoModalDismissed, setLogoModalDismissed] = useState(false);
 
   // اسم الفريق المسجل ديناميكياً
   const teamName = user?.name || user?.teamName || user?.username || 'الكشاف';
@@ -313,11 +311,6 @@ const Home = memo(function Home() {
         </div>
 
       </div>
-      <TeamLogoUploadModal
-        isOpen={Boolean(!logoModalDismissed && user?.role === 'team' && user?.requiresLogoUpload && !user?.logoUrl)}
-        onClose={() => setLogoModalDismissed(true)}
-        onSuccess={() => window.location.reload()}
-      />
     </main>
   );
 });

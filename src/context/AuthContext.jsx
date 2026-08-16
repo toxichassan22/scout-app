@@ -6,7 +6,8 @@ import {
   getCurrentUser,
   setAuthToken,
   getAuthToken,
-  isServerDown
+  isServerDown,
+  LEADER_ROLE,
 } from '../services/api';
 import { useSocket } from './SocketContext';
 
@@ -102,13 +103,21 @@ export const AuthProvider = ({ children }) => {
 
     const handleForceLogout = (data) => forceLogout(data?.reason || 'socket session revoked');
 
+    const handleLogoUpdated = (data) => {
+      if (data?.teamId === user.id && data.logoUrl) {
+        setUser(previous => (previous ? { ...previous, logoUrl: data.logoUrl, requiresLogoUpload: false } : previous));
+      }
+    };
+
     socket.on('team:deleted', handleTeamDeleted);
     socket.on('device:revoked', handleDeviceRevoked);
     socket.on('force-logout', handleForceLogout);
+    socket.on('team:logo_updated', handleLogoUpdated);
     return () => {
       socket.off('team:deleted', handleTeamDeleted);
       socket.off('device:revoked', handleDeviceRevoked);
       socket.off('force-logout', handleForceLogout);
+      socket.off('team:logo_updated', handleLogoUpdated);
     };
   }, [socket, user]);
 
@@ -213,6 +222,14 @@ export const AuthProvider = ({ children }) => {
   const setDeviceIdentity = (deviceName, deviceRole) =>
     setUser(previous => (previous ? { ...previous, deviceName, deviceRole } : previous));
 
+  const setTeamLogo = (logoUrl) =>
+    setUser(previous => (previous ? { ...previous, logoUrl: logoUrl || previous.logoUrl, requiresLogoUpload: !logoUrl } : previous));
+
+  const isTeam = user?.role === 'team';
+  const hasIdentity = Boolean(user?.deviceName && user?.deviceRole);
+  const hasLogo = Boolean(user?.logoUrl);
+  const isLeader = user?.deviceRole === LEADER_ROLE;
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -222,10 +239,13 @@ export const AuthProvider = ({ children }) => {
       loginAdmin,
       logout,
       setDeviceIdentity,
-      needsDeviceIdentity: user?.role === 'team' && !(user?.deviceName && user?.deviceRole),
+      setTeamLogo,
+      needsDeviceIdentity: isTeam && !hasIdentity,
+      needsTeamLogo: isTeam && hasIdentity && isLeader && !hasLogo,
+      waitingForLeader: isTeam && hasIdentity && !isLeader && !hasLogo,
       isAdmin: user?.role === 'admin',
       isJudge: user?.role === 'judge',
-      isTeam: user?.role === 'team'
+      isTeam
     }}>
       {children}
     </AuthContext.Provider>

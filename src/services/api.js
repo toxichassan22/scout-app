@@ -343,7 +343,8 @@ export const setLeaderboardVisibility = (visible) =>
   apiFetch('/admin/leaderboard/reveal', { method: 'POST', body: JSON.stringify({ visible }) });
 
 // Who is using this device: their own name and scouting role.
-export const SCOUT_ROLES = ['كشاف', 'مرشدة', 'جوال', 'جوالة', 'قائد/ة'];
+export const LEADER_ROLE = 'قائد/ة';
+export const SCOUT_ROLES = ['كشاف', 'مرشدة', 'جوال', 'جوالة', LEADER_ROLE];
 
 export const updateOwnDeviceIdentity = (displayName, role) =>
   apiFetch('/auth/device-identity', { method: 'PATCH', body: JSON.stringify({ displayName, role }) });
@@ -544,10 +545,18 @@ export const triggerCleanSlate = (confirmPassword) =>
 export const triggerGithubBackup = () => apiFetch('/admin/backup/github', { method: 'POST' });
 
 // ─── AWS GPU Studio & AI Generation ───
-export const getGpuStatus = () => apiFetch('/admin/gpu/status', { noRetry: true });
-export const startGpuServer = () => apiFetch('/admin/gpu/start', { method: 'POST', noRetry: true });
+export const getGpuStatus = () =>
+  apiFetch('/ai/gpu-status', { noRetry: true }).catch(() =>
+    apiFetch('/admin/gpu/status', { noRetry: true })
+  );
+
+export const startGpuServer = () =>
+  apiFetch('/ai/gpu-start', { method: 'POST', noRetry: true }).catch(() =>
+    apiFetch('/admin/gpu/start', { method: 'POST', noRetry: true })
+  );
+
 export const stopGpuServer = () => apiFetch('/admin/gpu/stop', { method: 'POST', noRetry: true });
-export const checkGpuHealth = () => apiFetch('/admin/gpu/health', { noRetry: true });
+export const checkGpuHealth = () => apiFetch('/ai/health', { noRetry: true });
 
 export const getAiHealth = () => apiFetch('/ai/health', { noRetry: true });
 export const generateAiImage = (payload) =>

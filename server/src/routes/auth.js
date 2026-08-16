@@ -5,7 +5,7 @@ import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { JWT_SECRET, createMemoryRateLimiter } from '../security.js';
 import { validate, zString } from '../middleware/validate.js';
-import { SCOUT_ROLES } from '../validation.js';
+import { LEADER_ROLE, SCOUT_ROLES } from '../validation.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -49,18 +49,6 @@ router.post('/team/login', validate(loginSchema), async (req, res) => {
     const userAgent = String(req.body.userAgent || req.headers['user-agent'] || 'Unknown Device').slice(0, 500);
     const team = await prisma.team.findUnique({ where: { username }, select: { ...accountSelect, label: true, maxDevices: true, logoUrl: true } });
     if (!team || !(await bcrypt.compare(password, team.passwordHash))) return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
-
-    // Check device count for logo requirement logic
-    const activeCount = await prisma.teamDevice.count({ where: { teamId: team.id, revokedAt: null } });
-    const existingDevice = await prisma.teamDevice.findUnique({ where: { teamId_deviceId: { teamId: team.id, deviceId } } });
-
-    // If logo is missing and this is a NEW secondary device, block login until team leader uploads logo
-    if (process.env.NODE_ENV !== 'test' && !team.logoUrl && activeCount > 0 && !existingDevice) {
-      return res.status(403).json({
-        error: 'يجب على قائد الفريق أولاً تسجيل الدخول ورفع لوجو الفريق قبل إمكانية تسجيل دخول بقية الأعضاء.',
-        requiresLogoFirst: true
-      });
-    }
 
     let created = false;
     let reactivated = false;
@@ -118,6 +106,20 @@ router.patch('/team/logo', authenticateToken, requireRole(['team']), async (req,
     const { logoUrl } = req.body || {};
     if (!logoUrl || typeof logoUrl !== 'string') return res.status(400).json({ error: 'صورة اللوجو مطلوبة' });
 
+    const [team, device] = await Promise.all([
+      prisma.team.findUnique({ where: { id: req.user.id }, select: { logoUrl: true } }),
+      prisma.teamDevice.findUnique({
+        where: { teamId_deviceId: { teamId: req.user.id, deviceId: req.user.deviceId } },
+        select: { role: true },
+      }),
+    ]);
+    if (!team?.logoUrl && device?.role !== LEADER_ROLE) {
+      return res.status(403).json({
+        error: 'يجب على قائد الفريق أولاً تسجيل صفته ورفع لوجو الفريق قبل إمكانية تسجيل بقية الأعضاء.',
+        requiresLeaderFirst: true,
+      });
+    }
+
     const updated = await prisma.team.update({
       where: { id: req.user.id },
       data: { logoUrl },
@@ -163,6 +165,29 @@ const identitySchema = {
 router.patch('/device-identity', authenticateToken, requireRole(['team']), validate(identitySchema), async (req, res) => {
   const displayName = req.body.displayName.trim();
   const role = req.body.role;
+
+  const existing = await prisma.teamDevice.findUnique({
+    where: { teamId_deviceId: { teamId: req.user.id, deviceId: req.user.deviceId } },
+    select: { displayName: true, role: true },
+  });
+  if (existing?.displayName && existing?.role) {
+    return res.status(409).json({
+      success: false,
+      code: 'IDENTITY_LOCKED',
+      error: 'تم تسجيل الاسم والصفة من قبل؛ تعديلهما متاح للإدارة فقط',
+    });
+  }
+
+  const team = await prisma.team.findUnique({
+    where: { id: req.user.id },
+    select: { logoUrl: true },
+  });
+  if (!team?.logoUrl && role !== LEADER_ROLE) {
+    return res.status(403).json({
+      error: 'يجب على قائد الفريق أولاً تسجيل صفته ورفع لوجو الفريق قبل إمكانية تسجيل بقية الأعضاء.',
+      requiresLeaderFirst: true,
+    });
+  }
 
   // This is a first-registration endpoint, not a profile editor. updateMany makes
   // the lock atomic: two tabs cannot race and overwrite the identity after the first

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { BadgeCheck, LogOut, UserRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { SCOUT_ROLES, updateOwnDeviceIdentity } from '../services/api';
+import { LEADER_ROLE, SCOUT_ROLES, updateOwnDeviceIdentity } from '../services/api';
 
 /**
  * A team account is shared by the whole patrol, so the account alone does not say who
@@ -15,12 +15,25 @@ const DeviceIdentityGate = () => {
   const [role, setRole] = useState(user?.deviceRole || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const waitingForLeaderLogo = Boolean(user && !user.logoUrl);
+
+  const selectRole = (option) => {
+    setRole(option);
+    if (waitingForLeaderLogo && option !== LEADER_ROLE) {
+      setError('يجب على قائد الفريق أولاً تسجيل صفته ورفع لوجو الفريق قبل إمكانية تسجيل بقية الأعضاء.');
+      return;
+    }
+    setError('');
+  };
 
   const submit = async event => {
     event.preventDefault();
     const trimmed = name.trim();
     if (trimmed.length < 2) return setError('اكتب اسمك كاملاً');
     if (!role) return setError('اختر صفتك');
+    if (waitingForLeaderLogo && role !== LEADER_ROLE) {
+      return setError('يجب على قائد الفريق أولاً تسجيل صفته ورفع لوجو الفريق قبل إمكانية تسجيل بقية الأعضاء.');
+    }
     setSaving(true);
     setError('');
     try {
@@ -46,6 +59,11 @@ const DeviceIdentityGate = () => {
           حساب الفريق مشترك، فمحتاجين نعرف اسمك وصفتك مرة واحدة على هذا الجهاز. هتظهر
           في أنشطة الفريق وعند الإدارة.
         </p>
+        {waitingForLeaderLogo && (
+          <p className="mt-3 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 text-xs font-bold leading-6 text-amber-200">
+            أول تسجيل للفريق لازم يكون قائد/ة، وبعدها يرفع لوجو الفريق. أي صفة أخرى هتترفض لحد ما اللوجو يترفع.
+          </p>
+        )}
 
         <form onSubmit={submit} className="mt-6 space-y-5">
           <div>
@@ -65,20 +83,25 @@ const DeviceIdentityGate = () => {
           <div>
             <span className="mb-2 block text-xs font-black text-[#a9a3c2]">صفتك</span>
             <div className="grid grid-cols-2 gap-2">
-              {SCOUT_ROLES.map(option => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setRole(option)}
-                  aria-pressed={role === option}
-                  className={`rounded-xl border px-3 py-3 text-sm font-bold transition ${role === option
-                    ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200'
-                    : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/25'
-                    }`}
-                >
-                  {option}
-                </button>
-              ))}
+              {SCOUT_ROLES.map(option => {
+                const blocked = waitingForLeaderLogo && option !== LEADER_ROLE;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => selectRole(option)}
+                    aria-pressed={role === option}
+                    className={`rounded-xl border px-3 py-3 text-sm font-bold transition ${role === option
+                      ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200'
+                      : blocked
+                        ? 'border-white/5 bg-white/[0.02] text-slate-500'
+                        : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/25'
+                      }`}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

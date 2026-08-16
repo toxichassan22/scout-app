@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { Camera, Upload, CheckCircle2, ShieldAlert, Image as ImageIcon } from 'lucide-react';
+import { Camera, Upload, CheckCircle2, Image as ImageIcon } from 'lucide-react';
 import { apiFetch } from '../services/api';
-import { useAuth } from '../context/AuthContext';
 
-export default function TeamLogoUploadModal({ isOpen, onClose, onSuccess }) {
-  const { user } = useAuth();
+export default function TeamLogoUploadModal({ isOpen, onClose, onSuccess, required = false }) {
   const [logoBase64, setLogoBase64] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
   const [saving, setSaving] = useState(false);
@@ -63,7 +61,7 @@ export default function TeamLogoUploadModal({ isOpen, onClose, onSuccess }) {
   return (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 dir-rtl animate-fade-in">
       <div className="relative w-full max-w-md rounded-3xl border border-amber-500/40 bg-slate-950 p-6 shadow-[0_0_60px_rgba(245,158,11,0.25)] text-right">
-        {onClose && (
+        {onClose && !required && (
           <button
             type="button"
             onClick={onClose}
@@ -79,7 +77,9 @@ export default function TeamLogoUploadModal({ isOpen, onClose, onSuccess }) {
 
         <h2 className="text-xl font-black text-white text-center mb-2">شعار ولوجو الفريق 🛡️</h2>
         <p className="text-xs leading-6 text-slate-300 text-center mb-6">
-          يمكنك رفع أو تحديث صورة الشعار/اللوجو الخاص بفريقك ليظهر في لوحة الشرف وملفاتكم الكشفية.
+          {required
+            ? 'لازم ترفع لوجو الفريق عشان تكمل التسجيل وتفتح الدخول لباقي الأعضاء.'
+            : 'يمكنك رفع أو تحديث صورة الشعار/اللوجو الخاص بفريقك ليظهر في لوحة الشرف وملفاتكم الكشفية.'}
         </p>
 
         {error && (
