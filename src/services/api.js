@@ -375,7 +375,7 @@ export const fetchReportFile = async (reportId) => {
 export const getAdminLeaderboard = async () =>
   unwrapList(await apiFetch('/admin/leaderboard?limit=200'));
 
-export const getAdminTeams = async () => unwrapList(await apiFetch('/admin/teams'));
+export const getAdminTeams = async () => unwrapList(await apiFetch('/admin/teams?limit=100'));
 
 export const createTeam = (teamData) =>
   apiFetch('/admin/teams', { method: 'POST', body: JSON.stringify(teamData) });
@@ -476,12 +476,12 @@ export const updateAgendaItem = (id, data) =>
 export const agendaAction = (id, action) =>
   apiFetch(`/admin/agenda/${id}/action`, { method: 'POST', body: JSON.stringify({ action }) });
 
-export const getAdminReports = async () => unwrapList(await apiFetch('/admin/reports'));
+export const getAdminReports = async () => unwrapList(await apiFetch('/admin/reports?limit=100'));
 
 export const deleteAdminReport = (id) =>
   apiFetch(`/admin/reports/${id}`, { method: 'DELETE' });
 
-export const getReportPermissions = async () => unwrapList(await apiFetch('/admin/report-permissions'));
+export const getReportPermissions = async () => unwrapList(await apiFetch('/admin/report-permissions?limit=100'));
 
 export const updateReportPermission = (teamId, competitionId, data) =>
   apiFetch(`/admin/report-permissions/${teamId}/${competitionId}`, { method: 'PATCH', body: JSON.stringify(data) });

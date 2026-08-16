@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, FileText, Loader2, RefreshCw, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowRight, ChevronLeft, Clock, Download, FileText, Loader2, RefreshCw, Search, Sparkles, Trash2, Users } from 'lucide-react';
 import {
   deleteAdminReport, fetchReportFile, getAdminCompetitions, getAdminReports, getAdminTeams,
   getReportPermissions, updateReportPermission
@@ -7,16 +7,25 @@ import {
 import { useSocket } from '../../context/SocketContext';
 import AdminBackLink from '../../components/AdminBackLink';
 
-const dateInput = (value) => value ? new Date(value).toISOString().slice(0, 16) : '';
+const dateInput = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const formatDate = (value) => value ? new Date(value).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' }) : '';
 
 const AdminReports = () => {
   const [reports, setReports] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [teams, setTeams] = useState([]);
   const [competitions, setCompetitions] = useState([]);
-  const [teamId, setTeamId] = useState('');
+  const [selectedTeamId, setSelectedTeamId] = useState('');
   const [competitionId, setCompetitionId] = useState('');
   const [deadline, setDeadline] = useState('');
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [downloadingId, setDownloadingId] = useState('');
@@ -25,9 +34,15 @@ const AdminReports = () => {
   const fetchData = useCallback(async () => {
     try {
       const [r, p, t, c] = await Promise.all([getAdminReports(), getReportPermissions(), getAdminTeams(), getAdminCompetitions()]);
-      setReports(r); setPermissions(p); setTeams(t); setCompetitions(c);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+      setReports(r);
+      setPermissions(p);
+      setTeams(t);
+      setCompetitions(c);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -37,24 +52,61 @@ const AdminReports = () => {
     return () => socket.off('admin:report:new', fetchData);
   }, [socket, fetchData]);
 
-  const selectedPermission = useMemo(() => permissions.find(p => p.teamId === teamId && p.competitionId === competitionId), [permissions, teamId, competitionId]);
+  const selectedPermission = useMemo(
+    () => permissions.find(p => p.teamId === selectedTeamId && p.competitionId === competitionId),
+    [permissions, selectedTeamId, competitionId]
+  );
   useEffect(() => setDeadline(dateInput(selectedPermission?.deadline)), [selectedPermission]);
 
+  const reportsByTeam = useMemo(() => {
+    const grouped = new Map();
+    reports.forEach(report => {
+      const list = grouped.get(report.teamId) || [];
+      list.push(report);
+      grouped.set(report.teamId, list);
+    });
+    return grouped;
+  }, [reports]);
+
+  const visibleTeams = useMemo(() => {
+    const query = search.trim();
+    return teams
+      .filter(team => !query || `${team.label || ''} ${team.username || ''}`.includes(query))
+      .slice()
+      .sort((a, b) => {
+        const aCount = reportsByTeam.get(a.id)?.length || 0;
+        const bCount = reportsByTeam.get(b.id)?.length || 0;
+        if (bCount !== aCount) return bCount - aCount;
+        return String(a.label || '').localeCompare(String(b.label || ''), 'ar');
+      });
+  }, [teams, search, reportsByTeam]);
+
+  const selectedTeam = useMemo(() => teams.find(team => team.id === selectedTeamId) || null, [teams, selectedTeamId]);
+  const teamReports = useMemo(() => (reportsByTeam.get(selectedTeamId) || []).slice().sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt)), [reportsByTeam, selectedTeamId]);
+
   const changePermission = async (data) => {
-    if (!teamId || !competitionId) return alert('اختر الفريق والمسابقة أولاً');
+    if (!selectedTeamId || !competitionId) return alert('اختر المسابقة أولاً');
     setSaving(true);
-    try { await updateReportPermission(teamId, competitionId, { ...data, deadline: deadline || null }); await fetchData(); }
-    catch (err) { alert(err.message); }
-    finally { setSaving(false); }
+    try {
+      await updateReportPermission(selectedTeamId, competitionId, { ...data, deadline: deadline || null });
+      await fetchData();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const removeReport = async (id) => {
     if (!confirm('حذف التقرير والملف نهائياً؟')) return;
-    try { await deleteAdminReport(id); await fetchData(); } catch (err) { alert(err.message); }
+    try {
+      await deleteAdminReport(id);
+      await fetchData();
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
-  // Uploads are not served statically, so the file has to come through the
-  // authorised download route rather than from report.fileUrl directly.
   const downloadReport = async (report) => {
     setDownloadingId(report.id);
     let objectUrl = '';
@@ -75,61 +127,184 @@ const AdminReports = () => {
     }
   };
 
-  // The same two selectors drive the permission form and narrow the list below,
-  // so the admin stays on one team/competition instead of scanning everything.
-  const filteredReports = useMemo(() => reports.filter(r => (
-    (!teamId || r.teamId === teamId) && (!competitionId || r.competitionId === competitionId)
-  )), [reports, teamId, competitionId]);
-  const isFiltered = Boolean(teamId || competitionId);
+  const openTeam = (teamId) => {
+    setSelectedTeamId(teamId);
+    setCompetitionId('');
+    setDeadline('');
+  };
 
-  return <div className="p-6 text-right dir-rtl text-white">
-    <AdminBackLink />
-    <div className="flex items-center justify-between mb-8">
-      <button onClick={fetchData} className="p-2 rounded-xl bg-slate-800 text-sky-400"><RefreshCw size={18} /></button>
-      <div><h1 className="text-2xl font-black flex gap-2">إدارة تقارير الفرق <FileText className="text-emerald-400" /></h1><p className="text-xs text-slate-400 mt-1">الصلاحيات والمواعيد وإعادة فتح التسليم لكل فريق ومسابقة</p></div>
-    </div>
+  const closeTeam = () => {
+    setSelectedTeamId('');
+    setCompetitionId('');
+    setDeadline('');
+  };
 
-    <section className="card p-5 rounded-2xl border border-slate-800 bg-slate-900/60 mb-7">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-black">اختر الفريق والمسابقة</h2>
-        {isFiltered && <button onClick={() => { setTeamId(''); setCompetitionId(''); }} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-[11px] font-bold text-slate-300 transition-colors hover:text-white"><X size={13} /> إلغاء التحديد وعرض الكل</button>}
+  const permissionStatus = (permission) => {
+    if (!permission) return { label: 'مفتوح افتراضياً', className: 'bg-slate-800 text-slate-300' };
+    const expired = permission.deadline && new Date(permission.deadline) < new Date();
+    if (permission.canSubmit === false) return { label: 'موقوف', className: 'bg-red-500/10 text-red-300' };
+    if (expired) return { label: 'انتهى الموعد', className: 'bg-red-500/10 text-red-300' };
+    if (permission.reopenedAt) return { label: 'أُعيد فتحه', className: 'bg-amber-500/10 text-amber-200' };
+    return { label: 'مسموح', className: 'bg-emerald-500/10 text-emerald-300' };
+  };
+
+  return (
+    <div className="p-6 text-right dir-rtl text-white">
+      <AdminBackLink />
+      <div className="mb-8 flex items-center justify-between">
+        <button type="button" onClick={fetchData} className="rounded-xl bg-slate-800 p-2 text-sky-400"><RefreshCw size={18} /></button>
+        <div>
+          <h1 className="flex gap-2 text-2xl font-black">إدارة تقارير الفرق <FileText className="text-emerald-400" /></h1>
+          <p className="mt-1 text-xs text-slate-400">اختر الفرقة أولاً، ثم راجع تقاريرها وأدر صلاحية التسليم لمسابقة محددة</p>
+        </div>
       </div>
-      <p className="mb-4 text-xs text-slate-400">التحديد يصفّي قائمة التقارير بالأسفل، ويحدّد الفريق والمسابقة لتعديل صلاحية التسليم.</p>
-      <div className="grid md:grid-cols-3 gap-3">
-        <select className="ai-input bg-slate-950" value={teamId} onChange={e => setTeamId(e.target.value)}><option value="">اختر الفريق</option>{teams.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}</select>
-        <select className="ai-input bg-slate-950" value={competitionId} onChange={e => setCompetitionId(e.target.value)}><option value="">اختر المسابقة</option>{competitions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-        <input type="datetime-local" className="ai-input" value={deadline} onChange={e => setDeadline(e.target.value)} />
-      </div>
-      <h3 className="mt-6 mb-3 text-xs font-black text-slate-400">صلاحية التسليم للفريق والمسابقة المحدّدين</h3>
-      <div className="flex flex-wrap gap-2">
-        <button disabled={saving} onClick={() => changePermission({ canSubmit: true })} className="px-4 py-2 rounded-xl bg-emerald-600 text-xs font-bold">منح الصلاحية / حفظ الموعد</button>
-        <button disabled={saving} onClick={() => changePermission({ canSubmit: false })} className="px-4 py-2 rounded-xl bg-red-600 text-xs font-bold">سحب الصلاحية</button>
-        <button disabled={saving} onClick={() => changePermission({ reopen: true, canSubmit: true })} className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 text-xs font-black">إعادة فتح التسليم</button>
-        {selectedPermission && <span className={`px-3 py-2 rounded-xl text-xs ${selectedPermission.canSubmit ? 'text-emerald-300 bg-emerald-500/10' : 'text-red-300 bg-red-500/10'}`}>{selectedPermission.canSubmit ? 'مسموح' : 'موقوف'}{selectedPermission.reopenedAt ? ' • أُعيد فتحه' : ''}</span>}
-      </div>
-    </section>
 
-    {!loading && reports.length > 0 && <div className="mb-4 text-xs font-bold text-slate-400">
-      {isFiltered ? `المعروض: ${filteredReports.length} من ${reports.length} تقرير` : `إجمالي التقارير: ${reports.length}`}
-    </div>}
-
-    {loading ? <div className="py-16 text-center text-slate-500">جاري التحميل...</div>
-      : reports.length === 0 ? <div className="py-16 text-center text-slate-500"><Sparkles className="mx-auto mb-3" />لا توجد تقارير مرفوعة بعد</div>
-        : filteredReports.length === 0 ? <div className="py-16 text-center text-slate-500"><Sparkles className="mx-auto mb-3" />لا توجد تقارير مطابقة لهذا التحديد</div> :
-          <div className="grid md:grid-cols-2 gap-4">{filteredReports.map(rep => {
-        const permission = permissions.find(p => p.teamId === rep.teamId && p.competitionId === rep.competitionId);
-        const expired = permission?.deadline && new Date(permission.deadline) < new Date();
-        return <article key={rep.id} className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="flex justify-between gap-3">
-            <div className="flex gap-2">
-              <button onClick={() => removeReport(rep.id)} className="p-2 text-red-400 bg-red-500/10 rounded-lg"><Trash2 size={14} /></button>
-              <button onClick={() => downloadReport(rep)} disabled={downloadingId === rep.id} title="تنزيل الملف" className="p-2 text-emerald-300 bg-emerald-500/10 rounded-lg disabled:opacity-50">{downloadingId === rep.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}</button>
-            </div>
-            <div><h3 className="font-bold">{rep.title || rep.fileName}</h3><p className="text-xs text-emerald-400">{rep.team?.label || 'فريق'} • {rep.competition?.name || 'بدون مسابقة'}</p></div>
+      <section className="mb-6 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/[0.08] p-4">
+          <div className="mb-2 flex items-center justify-between text-cyan-100">
+            <span className="text-xs font-bold">الفرق المسجلة</span>
+            <Users size={16} />
           </div>
-          <div className="mt-3 flex flex-wrap gap-2 text-[10px]"><span className="bg-slate-800 px-2 py-1 rounded">تم التسليم: {new Date(rep.uploadedAt).toLocaleString('ar-EG')}</span><span className={`px-2 py-1 rounded ${!permission?.canSubmit || expired ? 'bg-red-500/10 text-red-300' : 'bg-emerald-500/10 text-emerald-300'}`}>{expired ? 'انتهى الموعد' : permission?.canSubmit === false ? 'الصلاحية مسحوبة' : 'مسموح'}</span></div>
-        </article>;
-      })}</div>}
-  </div>;
+          <strong className="block text-3xl font-black">{teams.length}</strong>
+        </div>
+        <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.08] p-4">
+          <div className="mb-2 flex items-center justify-between text-emerald-100">
+            <span className="text-xs font-bold">التقارير المرفوعة</span>
+            <FileText size={16} />
+          </div>
+          <strong className="block text-3xl font-black">{reports.length}</strong>
+        </div>
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+          <div className="mb-2 flex items-center justify-between text-slate-300">
+            <span className="text-xs font-bold">فرق بدون تقارير</span>
+            <Sparkles size={16} />
+          </div>
+          <strong className="block text-3xl font-black">{teams.filter(team => !(reportsByTeam.get(team.id)?.length)).length}</strong>
+        </div>
+      </section>
+
+      {loading ? (
+        <div className="py-16 text-center text-slate-500">جاري التحميل...</div>
+      ) : !selectedTeam ? (
+        <>
+          <div className="relative mb-5">
+            <Search size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              type="search"
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+              placeholder="ابحث باسم الفرقة..."
+              className="ai-input w-full bg-slate-950 pr-10"
+            />
+          </div>
+
+          {visibleTeams.length === 0 ? (
+            <div className="py-16 text-center text-slate-500">
+              <Users className="mx-auto mb-3" />
+              {teams.length === 0 ? 'لا توجد فرق مسجلة بعد' : 'لا توجد فرق مطابقة للبحث'}
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {visibleTeams.map(team => {
+                const teamFiles = reportsByTeam.get(team.id) || [];
+                return (
+                  <button
+                    key={team.id}
+                    type="button"
+                    onClick={() => openTeam(team.id)}
+                    className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-right transition hover:-translate-y-0.5 hover:border-cyan-400/30"
+                  >
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <span className={`rounded-xl px-2.5 py-1 text-[11px] font-black ${teamFiles.length ? 'bg-emerald-500/10 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}>
+                        {teamFiles.length} تقرير
+                      </span>
+                      <ChevronLeft size={18} className="text-slate-500" />
+                    </div>
+                    <h2 className="text-base font-black text-white">{team.label || team.username}</h2>
+                    <p className="mt-1 text-[11px] font-bold text-slate-500" dir="ltr">{team.username}</p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <button type="button" onClick={closeTeam} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-bold text-slate-300 hover:text-white">
+              <ArrowRight size={14} /> كل الفرق
+            </button>
+            <div>
+              <h2 className="text-xl font-black">{selectedTeam.label || selectedTeam.username}</h2>
+              <p className="mt-1 text-xs text-slate-400">{teamReports.length} تقرير مرفوع لهذه الفرقة</p>
+            </div>
+          </div>
+
+          <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+            <h3 className="mb-1 font-black">صلاحية التسليم لهذه الفرقة</h3>
+            <p className="mb-4 text-xs text-slate-400">اختر المسابقة ثم امنح أو اسحب الصلاحية، أو حدّد موعداً نهائياً، أو أعد فتح التسليم بعد الرفع الأول.</p>
+            <div className="mb-4 grid gap-3 md:grid-cols-2">
+              <select className="ai-input bg-slate-950" value={competitionId} onChange={event => setCompetitionId(event.target.value)}>
+                <option value="">اختر المسابقة</option>
+                {competitions.map(competition => <option key={competition.id} value={competition.id}>{competition.name}</option>)}
+              </select>
+              <input type="datetime-local" className="ai-input" value={deadline} onChange={event => setDeadline(event.target.value)} />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={saving} onClick={() => changePermission({ canSubmit: true })} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold disabled:opacity-50">منح الصلاحية / حفظ الموعد</button>
+              <button type="button" disabled={saving} onClick={() => changePermission({ canSubmit: false })} className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold disabled:opacity-50">سحب الصلاحية</button>
+              <button type="button" disabled={saving} onClick={() => changePermission({ reopen: true, canSubmit: true })} className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-50">إعادة فتح التسليم</button>
+              {competitionId && (
+                <span className={`rounded-xl px-3 py-2 text-xs ${permissionStatus(selectedPermission).className}`}>
+                  {permissionStatus(selectedPermission).label}
+                  {selectedPermission?.deadline ? ` • حتى ${formatDate(selectedPermission.deadline)}` : ''}
+                </span>
+              )}
+            </div>
+          </section>
+
+          {teamReports.length === 0 ? (
+            <div className="py-16 text-center text-slate-500">
+              <Sparkles className="mx-auto mb-3" />
+              هذه الفرقة لم ترفع أي تقارير بعد
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {teamReports.map(report => {
+                const permission = permissions.find(p => p.teamId === report.teamId && p.competitionId === report.competitionId);
+                const status = permissionStatus(permission);
+                return (
+                  <article key={report.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+                    <div className="flex justify-between gap-3">
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => removeReport(report.id)} className="rounded-lg bg-red-500/10 p-2 text-red-400"><Trash2 size={14} /></button>
+                        <button type="button" onClick={() => downloadReport(report)} disabled={downloadingId === report.id} title="تنزيل الملف" className="rounded-lg bg-emerald-500/10 p-2 text-emerald-300 disabled:opacity-50">
+                          {downloadingId === report.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                        </button>
+                      </div>
+                      <div>
+                        <h3 className="font-bold">{report.title || report.fileName}</h3>
+                        <p className="text-xs text-emerald-400">{report.competition?.name || 'بدون مسابقة'}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2 text-[10px]">
+                      <span className="rounded bg-slate-800 px-2 py-1">تم التسليم: {formatDate(report.uploadedAt)}</span>
+                      <span className={`rounded px-2 py-1 ${status.className}`}>{status.label}</span>
+                      {permission?.deadline && (
+                        <span className="inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-1">
+                          <Clock size={10} /> {formatDate(permission.deadline)}
+                        </span>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 };
+
 export default AdminReports;
