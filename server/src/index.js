@@ -18,7 +18,6 @@ import quizRoutes from './routes/quiz.js';
 import reportsRoutes from './routes/reports.js';
 import competitionsRoutes from './routes/competitions.js';
 import activitiesRoutes from './routes/activities.js';
-import supportRoutes from './routes/support.js';
 import aiRoutes from './routes/ai.js';
 import prisma, { databaseReady } from './db.js';
 import { ensureTeamStandings } from './teamStanding.js';
@@ -26,7 +25,6 @@ import { finalizeExpiredSessions } from './quizService.js';
 import { ensureActivityCatalog } from './activityService.js';
 import { startGithubBackupWorker, stopGithubBackupWorker } from './githubBackup.js';
 import { purgeIdempotencyKeys, startIdempotencyCleanup } from './middleware/idempotent.js';
-import { initializeWhatsApp, shutdownWhatsApp } from './whatsapp.js';
 import { startUploadWorkers } from './backup-exporter.js';
 import { createCorsOptions, createMemoryRateLimiter, requestId, securityHeaders, subjectId } from './security.js';
 import { authenticateToken } from './middleware/auth.js';
@@ -153,7 +151,6 @@ protectedApiRouter.use('/quiz', quizRoutes);
 protectedApiRouter.use('/reports', reportsRoutes);
 protectedApiRouter.use('/competitions', competitionsRoutes);
 protectedApiRouter.use('/activities', activitiesRoutes);
-protectedApiRouter.use('/support', supportRoutes);
 protectedApiRouter.use('/ai', aiRoutes);
 app.use('/api', protectedApiRouter);
 app.use('/api/v1', protectedApiRouter);
@@ -273,7 +270,6 @@ export async function startServer(port = PORT) {
     const onListening = () => {
       server.off('error', onError);
       logger.info({ port }, 'Digital Scout Camp backend running');
-      Promise.resolve().then(() => initializeWhatsApp()).catch(error => logger.error({ err: error }, 'failed to initialize WhatsApp support'));
       resolve(server);
     };
     server.once('error', onError);
@@ -307,7 +303,6 @@ async function shutdown(signal) {
   const finishShutdown = async () => {
     clearTimeout(forceExit);
     try { io?.close?.(); } catch (err) { logger.error({ err }, 'socket.io close error'); }
-    try { await shutdownWhatsApp(); } catch (err) { logger.error({ err }, 'WhatsApp support close error'); }
     try { await prisma.$disconnect(); } catch (e) { logger.error({ e }, 'prisma disconnect error'); }
     process.exit(0);
   };

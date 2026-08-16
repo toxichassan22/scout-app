@@ -1,10 +1,31 @@
 import { useState } from 'react';
-import { ArrowRight, Bug, CheckCircle2, ExternalLink, Headphones, Lightbulb, MessageCircle, Send, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Bug, CheckCircle2, Copy, ExternalLink, Headphones, Lightbulb, MessageCircle, Send, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { sendSupportMessage } from '../services/api';
 
 const SUPPORT_COMMUNITY_URL = 'https://chat.whatsapp.com/JEJYciePADA32TZLWB9pq6';
+
+const copyText = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const area = document.createElement('textarea');
+      area.value = text;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.left = '-9999px';
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand('copy');
+      area.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+};
 
 const Support = () => {
   const navigate = useNavigate();
@@ -12,8 +33,18 @@ const Support = () => {
   const [category, setCategory] = useState('مشكلة تقنية');
   const [message, setMessage] = useState('');
   const [sent, setSent] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
+  const [composed, setComposed] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const teamName = user?.label || user?.name || user?.teamName || user?.username || 'غير محدد';
+  const personName = user?.deviceName || user?.name || 'غير محدد';
+
+  const buildSupportMessage = (content) => (
+    `اسم المجموعة: ${teamName}\n` +
+    `اسم الشخص: ${personName}\n` +
+    `التصنيف: ${category}\n\n` +
+    `محتوى الرسالة:\n${content}`
+  );
 
   const openSupportChat = () => {
     window.open(SUPPORT_COMMUNITY_URL, '_blank', 'noopener,noreferrer');
@@ -23,23 +54,13 @@ const Support = () => {
     event.preventDefault();
     const content = message.trim();
     if (!content) return;
-    if (!user) {
-      setError('يجب تسجيل الدخول بحساب الفريق لإرسال رسالة الدعم تلقائياً.');
-      return;
-    }
-
-    setSending(true);
-    setSent(false);
-    setError('');
-    try {
-      await sendSupportMessage(category, content);
-      setMessage('');
-      setSent(true);
-    } catch (err) {
-      setError(err.message || 'تعذر إرسال رسالة الدعم حالياً');
-    } finally {
-      setSending(false);
-    }
+    const text = buildSupportMessage(content);
+    const didCopy = await copyText(text);
+    setComposed(text);
+    setCopied(didCopy);
+    setMessage('');
+    setSent(true);
+    window.open(SUPPORT_COMMUNITY_URL, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -104,21 +125,23 @@ const Support = () => {
             التفاصيل
             <textarea value={message} onChange={event => setMessage(event.target.value)} required maxLength={2000} rows={6} className="input-field resize-y leading-7" placeholder="اكتب المشكلة أو الاقتراح بالتفصيل..." />
           </label>
-          {error && (
-            <div role="alert" className="rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-center text-xs font-bold leading-6 text-red-200">
-              {error}
-            </div>
-          )}
           {sent && (
-            <div role="status" className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3">
+            <div role="status" className="space-y-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3">
               <p className="flex items-center justify-center gap-2 text-center text-xs font-bold text-emerald-200">
-                <CheckCircle2 size={15} /> تم إرسال رسالتك إلى فريق الدعم على واتساب تلقائياً.
+                <CheckCircle2 size={15} />
+                {copied ? 'تم نسخ الرسالة وفتح جروب الدعم. الصقها في المحادثة.' : 'تم تجهيز الرسالة وفتح جروب الدعم. انسخها والصقها في المحادثة.'}
               </p>
+              {composed && (
+                <>
+                  <pre className="whitespace-pre-wrap rounded-xl border border-white/10 bg-black/30 p-3 text-right text-xs leading-7 text-slate-200">{composed}</pre>
+                  <button type="button" onClick={async () => setCopied(await copyText(composed))} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-black text-emerald-200">
+                    <Copy size={14} /> {copied ? 'تم النسخ' : 'نسخ الرسالة'}
+                  </button>
+                </>
+              )}
             </div>
           )}
-          <button type="submit" disabled={sending} className="btn-violet w-full !py-4 disabled:cursor-wait disabled:opacity-60">
-            <Send size={17} /> {sending ? 'جاري الإرسال إلى واتساب...' : 'إرسال للدعم الفني والمقترحات'}
-          </button>
+          <button type="submit" className="btn-violet w-full !py-4"><Send size={17} /> إرسال للدعم الفني والمقترحات</button>
         </form>
       </section>
     </main>

@@ -290,12 +290,6 @@ export const loginAdmin = (username, password) =>
 export const getCurrentUser = () =>
   apiFetch('/auth/me');
 
-export const sendSupportMessage = (category, message) =>
-  apiFetch('/support/whatsapp', {
-    method: 'POST',
-    body: JSON.stringify({ category, message }),
-  });
-
 // Public/Team Data
 export const getLeaderboard = async () => unwrapList(await apiFetch('/leaderboard'));
 
