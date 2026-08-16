@@ -56,6 +56,11 @@ server/prisma/*.sqlite-*
 server/prisma/prisma/
 server/uploads/
 
+# WhatsApp Web authentication/session data (never commit linked-account credentials)
+server/.baileys_auth/
+server/.wwebjs_auth/
+server/.wwebjs_cache/
+
 # Local backup archives
 scout-app.zip
 

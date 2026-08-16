@@ -54,6 +54,10 @@ try {
 
   const teamToken = login.data.token;
 
+  const support = await request(base, 'POST', '/api/support/whatsapp', { category: 'مشكلة تقنية', message: 'Smoke support message' }, teamToken);
+  assert.equal(support.response.status, 503, 'support should report WhatsApp setup status instead of claiming success');
+  assert.equal(support.data.code, 'WHATSAPP_NOT_CONFIGURED', 'support should identify missing WhatsApp group configuration');
+
   const start = await request(base, 'POST', '/api/quiz/start', { competitionId: competition.id, entryCode: 'SMOKE-123' }, teamToken);
   assert.equal(start.response.status, 200, `quiz start should succeed: ${JSON.stringify(start.data)}`);
   assert.ok(start.data.sessionId, 'quiz start response should contain a sessionId');
