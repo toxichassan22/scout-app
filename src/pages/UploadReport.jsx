@@ -12,7 +12,7 @@ const REPORT_FIELD_GROUPS = [
   { key: 'scientific', label: 'المجال العلمي', slugs: ['report-scientific-research', 'report-ai-models', 'report-smart-scout'] },
   { key: 'scouting', label: 'المجال الكشفي', slugs: ['report-earth-magazine', 'report-scout-model', 'report-reels'] },
   { key: 'artistic', label: 'المجال الفني', slugs: ['report-campfire', 'report-poster', 'report-exhibition', 'report-art-workshop'] },
-  { key: 'cultural', label: 'المجال الثقافي', slugs: ['report-video'] },
+  { key: 'cultural', label: 'المجال الثقافي', slugs: ['report-video', 'report-carnival'] },
   { key: 'religious', label: 'المجال الديني', slugs: ['report-surah-al-kahf', 'report-hadith', 'report-worksheet', 'report-tilawa'] },
 ];
 const REPORT_FIELD_BY_SLUG = Object.fromEntries(REPORT_FIELD_GROUPS.flatMap(group => group.slugs.map(slug => [slug, group.key])));

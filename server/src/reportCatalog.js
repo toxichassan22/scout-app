@@ -31,6 +31,7 @@ export const OFFICIAL_REPORT_CATALOG = [
   catalogEntry('comp-report-catalog-09', 'report-exhibition', 'المعرض', 'المجال الفني', 'توثيق وتجهيز المعرض الفني.'),
   catalogEntry('comp-report-catalog-10', 'report-art-workshop', 'الورشة الفنية', 'المجال الفني', 'تقرير ومخرجات الورشة الفنية.'),
   catalogEntry('comp-report-catalog-11', 'report-video', 'الفيديو', 'المجال الثقافي', 'فيديو ثقافي موثق من الفريق.'),
+  catalogEntry('comp-report-catalog-16', 'report-carnival', 'الكرنفال', 'المجال الثقافي', 'تقرير مشاركة الفريق في الكرنفال.'),
   catalogEntry('comp-report-catalog-12', 'report-surah-al-kahf', 'سورة الكهف', 'المجال الديني', 'تقرير تسميع وحفظ سورة الكهف.'),
   catalogEntry('comp-report-catalog-13', 'report-hadith', 'أحاديث', 'المجال الديني', 'تقرير حفظ وتسميع الأحاديث.'),
   catalogEntry('comp-report-catalog-14', 'report-worksheet', 'ورقة عمل', 'المجال الديني', 'ورقة عمل دينية موثقة ومنظمة.'),
