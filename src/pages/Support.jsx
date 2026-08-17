@@ -1,39 +1,16 @@
 import { useState } from 'react';
-import { ArrowRight, Bug, CheckCircle2, Copy, ExternalLink, Headphones, Lightbulb, MessageCircle, Send, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Bug, CheckCircle2, ExternalLink, Headphones, Lightbulb, MessageCircle, Send, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const SUPPORT_COMMUNITY_URL = 'https://chat.whatsapp.com/EvBemStijQ9DGUyDnehl81';
-
-const copyText = async (text) => {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    try {
-      const area = document.createElement('textarea');
-      area.value = text;
-      area.setAttribute('readonly', '');
-      area.style.position = 'fixed';
-      area.style.left = '-9999px';
-      document.body.appendChild(area);
-      area.select();
-      const ok = document.execCommand('copy');
-      area.remove();
-      return ok;
-    } catch {
-      return false;
-    }
-  }
-};
+const SUPPORT_WHATSAPP_NUMBER = '201015374789';
 
 const Support = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [message, setMessage] = useState('');
   const [sent, setSent] = useState(false);
-  const [composed, setComposed] = useState('');
-  const [copied, setCopied] = useState(false);
 
   const teamName = user?.label || user?.name || user?.teamName || user?.username || 'غير محدد';
   const personName = user?.deviceName || user?.name || 'غير محدد';
@@ -48,15 +25,12 @@ const Support = () => {
     window.open(SUPPORT_COMMUNITY_URL, '_blank', 'noopener,noreferrer');
   };
 
-  const submitSuggestion = async event => {
+  const submitSuggestion = event => {
     event.preventDefault();
     const content = message.trim();
     if (!content) return;
     const text = buildSupportMessage(content);
-    window.open(SUPPORT_COMMUNITY_URL, '_blank', 'noopener,noreferrer');
-    const didCopy = await copyText(text);
-    setComposed(text);
-    setCopied(didCopy);
+    window.open(`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
     setMessage('');
     setSent(true);
   };
@@ -115,19 +89,11 @@ const Support = () => {
             <textarea value={message} onChange={event => setMessage(event.target.value)} required maxLength={2000} rows={6} className="input-field resize-y leading-7" placeholder="اكتب المشكلة أو الاقتراح بالتفصيل..." />
           </label>
           {sent && (
-            <div role="status" className="space-y-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3">
+            <div role="status" className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3">
               <p className="flex items-center justify-center gap-2 text-center text-xs font-bold text-emerald-200">
                 <CheckCircle2 size={15} />
-                {copied ? 'تم نسخ الرسالة وفتح جروب الدعم. الصقها واضغط إرسال.' : 'تم فتح جروب الدعم. انسخ الرسالة والصقها ثم اضغط إرسال.'}
+                تم فتح واتساب والرسالة جاهزة. اضغط إرسال هناك.
               </p>
-              {composed && (
-                <>
-                  <pre className="whitespace-pre-wrap rounded-xl border border-white/10 bg-black/30 p-3 text-right text-xs leading-7 text-slate-200">{composed}</pre>
-                  <button type="button" onClick={async () => setCopied(await copyText(composed))} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-black text-emerald-200">
-                    <Copy size={14} /> {copied ? 'تم النسخ' : 'نسخ الرسالة'}
-                  </button>
-                </>
-              )}
             </div>
           )}
           <button type="submit" className="btn-violet w-full !py-4"><Send size={17} /> إرسال للدعم الفني والمقترحات</button>
