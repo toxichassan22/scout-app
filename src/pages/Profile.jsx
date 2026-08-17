@@ -62,6 +62,7 @@ const Profile = () => {
   };
 
   const teamName = user?.label || user?.name || user?.username || 'فرقة الصقور';
+  const memberRole = user?.deviceRole || 'عضو';
   const myReportsCount = reportStats.submitted;
   const reportsTotal = reportStats.total;
 
@@ -101,7 +102,7 @@ const Profile = () => {
                 <ShieldCheck size={22} />
               </div>
               <span className="badge-ember text-xs font-black">
-                بطاقة الكشاف الموثّقة
+                بطاقة الفريق الموثّقة
               </span>
             </div>
 
@@ -135,7 +136,7 @@ const Profile = () => {
               </h1>
               <p className="mt-1.5 text-sm font-bold text-[#a9a3c2]">
                 {user?.deviceName
-                  ? <>{user.deviceRole || 'عضو'}: <span className="text-white">{user.deviceName}</span></>
+                  ? <>{memberRole}: <span className="text-white">{user.deviceName}</span></>
                   : <span className="text-white">عضو الفريق</span>}
               </p>
               <div className="mt-2.5 flex flex-wrap items-center justify-center sm:justify-start gap-3">
@@ -236,7 +237,7 @@ const Profile = () => {
                 <p className="mt-1 text-sm font-black text-white">{user?.deviceName || 'غير مسجل'}</p>
               </div>
               <span className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-200">
-                {user?.deviceRole || 'غير محددة'}
+                {memberRole}
               </span>
             </div>
             <p className="mt-3 text-[10px] leading-5 text-[#6e6889]">

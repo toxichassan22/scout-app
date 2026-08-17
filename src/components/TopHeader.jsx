@@ -51,7 +51,7 @@ export const TopHeader = memo(function TopHeader() {
                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#10b981]/20 text-[#10b981]">
                   <User size={12} />
                 </div>
-                <span>{user.name || user.teamName || 'الكشاف'}</span>
+                <span>{user.deviceName || user.label || user.name || user.teamName || 'الفريق'}</span>
               </Link>
 
               {user.role === 'admin' && (

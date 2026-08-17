@@ -177,8 +177,7 @@ const Home = memo(function Home() {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // اسم الفريق المسجل ديناميكياً
-  const teamName = user?.name || user?.teamName || user?.username || 'الكشاف';
+  const teamName = user?.label || user?.name || user?.teamName || user?.username || 'الفريق';
 
   const fetchInitialData = async () => {
     try {

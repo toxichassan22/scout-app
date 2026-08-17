@@ -77,7 +77,17 @@ router.post('/team/login', validate(loginSchema), async (req, res) => {
     });
 
     if (created || reactivated) req.io?.emit('device:registered', { teamId: team.id, username: team.username, deviceId, reactivated });
-    const token = signToken({ id: team.id, username: team.username, role: 'team', label: team.label, deviceId, deviceName: device.displayName || '', deviceRole: device.role || '', deviceVersion: device.tokenVersion, authVersion: team.authVersion });
+    const token = signToken({
+      id: team.id,
+      username: team.username,
+      role: 'team',
+      label: team.label,
+      deviceId,
+      deviceName: device.displayName || '',
+      deviceRole: device.role || '',
+      deviceVersion: device.tokenVersion,
+      authVersion: team.authVersion,
+    });
     res.json({
       token,
       user: {
@@ -235,7 +245,11 @@ router.get('/me', authenticateToken, async (req, res) => {
   ]);
   res.json({
     user: {
-      ...req.user,
+      id: req.user.id,
+      username: req.user.username,
+      role: 'team',
+      label: team?.label || req.user.label,
+      deviceId: req.user.deviceId,
       deviceName: device?.displayName || '',
       deviceRole: device?.role || '',
       logoUrl: team?.logoUrl || null,
