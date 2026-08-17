@@ -6,7 +6,7 @@ const APP_SHELL = [
   '/',
   '/login',
   '/manifest.webmanifest',
-  '/brand/festival-logo-favicon.png',
+  '/brand/festival-logo-favicon.png?v=8',
   '/festival-logo.png',
 ];
 
