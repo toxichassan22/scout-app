@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Trash2, Upload, UserCheck, X, UserPlus, ShieldAlert, Pencil, Save, Smartphone, UserRound, CircleCheck, Clock3, Monitor, ShieldCheck } from 'lucide-react';
+import { Users, Plus, Trash2, Upload, UserCheck, X, UserPlus, ShieldAlert, Pencil, Save, Smartphone, UserRound, CircleCheck, Clock3, Monitor, ShieldCheck, FileText, Check, ListChecks } from 'lucide-react';
 import {
   getAdminTeams, createTeam, updateTeam, deleteTeam, importTeams,
   getTeamMembers, addTeamMember, deleteTeamMember,
-  getTeamDevices, revokeTeamDevice
+  getTeamDevices, revokeTeamDevice,
+  getAdminCompetitions, updateReportPermissions
 } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
 import AdminBackLink from '../../components/AdminBackLink';
@@ -76,6 +77,14 @@ const AdminTeams = () => {
   const [devices, setDevices] = useState([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [deviceError, setDeviceError] = useState('');
+
+  const [reportTeam, setReportTeam] = useState(null);
+  const [reportCompetitions, setReportCompetitions] = useState([]);
+  const [reportCompetitionIds, setReportCompetitionIds] = useState([]);
+  const [reportDeadline, setReportDeadline] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportSaving, setReportSaving] = useState(false);
+  const [reportError, setReportError] = useState('');
 
   useEffect(() => {
     fetchTeams();
@@ -250,6 +259,64 @@ const AdminTeams = () => {
     setEditForm({ username: team.username, label: team.label, password: '', maxDevices: team.maxDevices || 24 });
   };
 
+  const openReportPermissions = async (team) => {
+    setReportTeam(team);
+    setReportCompetitionIds([]);
+    setReportDeadline('');
+    setReportError('');
+    setReportLoading(true);
+    try {
+      const competitions = await getAdminCompetitions();
+      const reports = competitions.filter(competition => String(competition.slug || '').startsWith('report-'));
+      setReportCompetitions(reports);
+      setReportCompetitionIds(reports.map(competition => competition.id));
+    } catch (err) {
+      setReportError(err.message || 'فشل في تحميل تقارير الفريق');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const closeReportPermissions = () => {
+    setReportTeam(null);
+    setReportCompetitionIds([]);
+    setReportDeadline('');
+    setReportError('');
+  };
+
+  const allTeamReportsSelected = reportCompetitions.length > 0 && reportCompetitionIds.length === reportCompetitions.length;
+
+  const toggleReportCompetition = (competitionId) => {
+    setReportCompetitionIds(current => current.includes(competitionId)
+      ? current.filter(id => id !== competitionId)
+      : [...current, competitionId]);
+  };
+
+  const grantTeamReportPermission = async ({ canSubmit }) => {
+    if (!reportTeam || reportCompetitionIds.length === 0) {
+      setReportError('اختر تقريراً واحداً على الأقل');
+      return;
+    }
+    const teamName = reportTeam.label || reportTeam.username;
+    setReportSaving(true);
+    setReportError('');
+    try {
+      await updateReportPermissions(reportTeam.id, {
+        competitionIds: reportCompetitionIds,
+        canSubmit,
+        deadline: reportDeadline || null,
+      });
+      setReportSaving(false);
+      closeReportPermissions();
+      alert(canSubmit
+        ? `تم السماح لفريق ${teamName} برفع التقارير المختارة فقط`
+        : `تم سحب صلاحية الرفع من فريق ${teamName} فقط`);
+    } catch (err) {
+      setReportError(err.message || 'فشل تحديث صلاحية رفع التقارير');
+      setReportSaving(false);
+    }
+  };
+
   const handleUpdateTeam = async (e) => {
     e.preventDefault();
     setSavingTeam(true);
@@ -409,6 +476,15 @@ const AdminTeams = () => {
                       >
                         <ShieldAlert size={13} />
                         الأجهزة ({t._count?.devices || 0}/{t.maxDevices || 24})
+                      </button>
+
+                      <button
+                        onClick={() => openReportPermissions(t)}
+                        className="text-xs font-bold text-violet-300 hover:text-violet-200 bg-violet-500/10 border border-violet-500/20 px-2.5 py-1 rounded-lg flex items-center gap-1 transition"
+                        title="السماح لهذا الفريق فقط برفع تقرير"
+                      >
+                        <FileText size={13} />
+                        صلاحية التقرير
                       </button>
                     </div>
 
@@ -728,6 +804,73 @@ const AdminTeams = () => {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {reportTeam && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm dir-rtl"
+          onMouseDown={event => { if (event.target === event.currentTarget && !reportSaving) closeReportPermissions(); }}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="team-report-permission-title" className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl border border-violet-500/30 bg-slate-950 p-5 text-right shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <button type="button" onClick={closeReportPermissions} disabled={reportSaving} className="rounded-xl bg-slate-800 p-2 text-slate-300 hover:text-white disabled:opacity-50" aria-label="إغلاق">
+                <X size={18} />
+              </button>
+              <div>
+                <h2 id="team-report-permission-title" className="text-lg font-black text-white">صلاحية رفع تقرير لهذا الفريق</h2>
+                <p className="mt-1 text-xs text-violet-300">{reportTeam.label || reportTeam.username}</p>
+                <p className="mt-1 text-[11px] text-slate-400">التفعيل هنا لهذا الفريق فقط، وليس لكل الفرق من صفحة التقارير.</p>
+              </div>
+            </div>
+
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-3">
+              <span className="text-xs font-bold text-slate-400">تم اختيار {reportCompetitionIds.length} من {reportCompetitions.length}</span>
+              <button
+                type="button"
+                onClick={() => setReportCompetitionIds(allTeamReportsSelected ? [] : reportCompetitions.map(competition => competition.id))}
+                disabled={reportCompetitions.length === 0 || reportSaving || reportLoading}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-50"
+              >
+                <Check size={14} /> {allTeamReportsSelected ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/40 p-3">
+              {reportLoading ? (
+                <p className="py-8 text-center text-sm text-slate-500">جاري تحميل التقارير...</p>
+              ) : reportCompetitions.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-500">لا توجد تقارير متاحة حالياً</p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {reportCompetitions.map(competition => {
+                    const selected = reportCompetitionIds.includes(competition.id);
+                    return (
+                      <label key={competition.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition ${selected ? 'border-violet-400/50 bg-violet-500/10' : 'border-slate-800 bg-slate-950/60 hover:border-slate-600'}`}>
+                        <input type="checkbox" checked={selected} onChange={() => toggleReportCompetition(competition.id)} disabled={reportSaving} className="h-4 w-4 accent-violet-500" />
+                        <span className="flex-1 text-sm font-bold text-white">{competition.name}</span>
+                        {selected && <Check size={16} className="text-violet-300" />}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <label className="mt-4 block text-xs font-bold text-slate-400">
+              موعد نهائي لهذا الفريق فقط (اختياري)
+              <input type="datetime-local" value={reportDeadline} onChange={event => setReportDeadline(event.target.value)} disabled={reportSaving} className="ai-input mt-2 w-full" />
+            </label>
+            {reportError && <p className="mt-3 text-xs font-bold text-red-400">{reportError}</p>}
+            <div className="mt-5 flex flex-wrap justify-start gap-2">
+              <button type="button" onClick={closeReportPermissions} disabled={reportSaving} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300 hover:text-white disabled:opacity-50">إلغاء</button>
+              <button type="button" onClick={() => grantTeamReportPermission({ canSubmit: false })} disabled={reportSaving || reportCompetitionIds.length === 0} className="rounded-xl bg-red-600 px-4 py-2 text-xs font-black disabled:opacity-50">{reportSaving ? 'جاري التحديث...' : 'سحب من هذا الفريق'}</button>
+              <button type="button" onClick={() => grantTeamReportPermission({ canSubmit: true })} disabled={reportSaving || reportCompetitionIds.length === 0} className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-5 py-2 text-xs font-black disabled:opacity-50">
+                <ListChecks size={14} />
+                {reportSaving ? 'جاري التفعيل...' : 'السماح لهذا الفريق فقط'}
+              </button>
+            </div>
           </div>
         </div>
       )}
