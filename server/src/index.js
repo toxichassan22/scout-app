@@ -228,10 +228,7 @@ export async function startServer(port = PORT) {
       },
     });
     await prisma.agendaItem.updateMany({
-      where: {
-        id: 'agenda-official-11',
-        title: { in: ['تكملة المجال الرياضي', 'تكمية المجال الرياضي'] },
-      },
+      where: { title: { in: ['تكملة المجال الرياضي', 'تكمية المجال الرياضي'] } },
       data: { title: 'المجال الرياضي' },
     });
   } catch (err) {
