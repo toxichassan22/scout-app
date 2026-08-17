@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Calendar, Plus, Trash2, Edit3, Clock, MapPin, Sparkles, CheckCircle2, X, Play, Square } from 'lucide-react';
 import { getAgenda, addAgendaItem, deleteAgendaItem, updateAgendaItem, agendaAction, getAdminCompetitions } from '../../services/api';
 import { formatTimeRange12 } from '../../utils/timeFormat';
