@@ -12,6 +12,22 @@ export function joinPublicRealtimeRooms(socket) {
     }
 }
 
+export function emitCompetitionStarted(io, competition) {
+    if (!io || !competition) return;
+    io.emit('competition:update', {
+        action: 'opened',
+        competitionId: competition.id,
+        name: competition.name,
+        isOpen: true,
+    });
+    io.emit('competition:mandatory_alert', {
+        title: `🏁 انطلقت المسابقة الآن: ${competition.name}`,
+        message: `تم فتح باب المشاركة في مسابقة (${competition.name}) رسمياً. حظاً موفقاً لجميع الفرق!`,
+        type: 'competition',
+        competitionId: competition.id,
+    });
+}
+
 async function doBroadcast(io, loadLeaderboard) {
     try {
         const [leaderboard, teamRanks] = await Promise.all([

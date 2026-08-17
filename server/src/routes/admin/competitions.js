@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import prisma from '../../db.js';
 import { boundedString } from '../../validation.js';
 import { finalizeCompetitionSessions } from '../../quizService.js';
-import { emitLeaderboardUpdate } from '../../realtime.js';
+import { emitCompetitionStarted, emitLeaderboardUpdate } from '../../realtime.js';
 import { getAnonymousLeaderboard } from '../leaderboard.js';
 import { validate, zString, zId, zNumber, zBoolean } from '../../middleware/validate.js';
 import { z } from 'zod';
@@ -155,15 +155,8 @@ router.patch('/competitions/:id', validate(competitionUpdateSchema), async (req,
     clearFestivalContextCache();
 
     if (req.io) {
-      req.io.emit('competition:update', { action: 'updated', competitionId: comp.id, name: comp.name, isOpen: comp.isOpen, opened: justOpened });
-      if (justOpened) {
-        req.io.emit('competition:mandatory_alert', {
-          title: `🏁 انطلقت المسابقة الآن: ${comp.name}`,
-          message: `تم فتح باب المشاركة في مسابقة (${comp.name}) رسمياً. حظاً موفقاً لجميع الفرق!`,
-          type: 'competition',
-          competitionId: comp.id
-        });
-      }
+      if (justOpened) emitCompetitionStarted(req.io, comp);
+      else req.io.emit('competition:update', { action: 'updated', competitionId: comp.id, name: comp.name, isOpen: comp.isOpen });
       if (isOpen === false) req.io.emit('judge:session:closed', { competitionId: comp.id });
     }
 
@@ -183,10 +176,10 @@ router.post('/competitions/:id/passcode', validate({ params: { id: zId('المس
     const randomCode = crypto.randomInt(100000, 1000000).toString();
     const comp = await prisma.competition.update({
       where: { id: req.params.id },
-      data: { passcode: randomCode, isOpen: true }
+      data: { passcode: randomCode }
     });
     clearFestivalContextCache();
-    if (req.io) req.io.emit('competition:update', { action: 'opened', competitionId: comp.id, name: comp.name, isOpen: comp.isOpen, opened: true });
+    if (req.io) req.io.emit('competition:update', { action: 'passcode', competitionId: comp.id, name: comp.name, isOpen: comp.isOpen });
     res.json({ passcode: comp.passcode });
   } catch (err) {
     req.log.error({ err }, 'admin generate passcode failed');

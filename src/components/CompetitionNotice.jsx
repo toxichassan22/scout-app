@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BellRing, Trophy, Newspaper, X, ExternalLink } from 'lucide-react';
+import { Trophy, Newspaper, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -33,24 +33,12 @@ const CompetitionNotice = () => {
       });
     };
 
-    const handleCompUpdate = (payload) => {
-      if (!payload?.opened) return;
-      setModalNotice({
-        title: `🏁 انطلقت المسابقة الآن: ${payload.name || 'مسابقة جديدة'}`,
-        message: 'تم فتح المسابقة رسمياً، يمكنك الدخول والمشاركة فوراً.',
-        type: 'competition',
-        competitionId: payload.competitionId
-      });
-    };
-
     socket.on('competition:mandatory_alert', handleCompAlert);
     socket.on('news:mandatory_alert', handleNewsAlert);
-    socket.on('competition:update', handleCompUpdate);
 
     return () => {
       socket.off('competition:mandatory_alert', handleCompAlert);
       socket.off('news:mandatory_alert', handleNewsAlert);
-      socket.off('competition:update', handleCompUpdate);
     };
   }, [socket, user?.role]);
 

@@ -99,7 +99,7 @@ const AdminJudges = () => {
         await updateCompetition(c.id, { revoke: true });
       } else {
         const code = prompt('أدخل كود المحكم المخصص', c.passcode || '');
-        if (code !== null) await updateCompetition(c.id, { passcode: code, isOpen: true });
+        if (code !== null) await updateCompetition(c.id, { passcode: code });
       }
       await load();
     } catch (e) {

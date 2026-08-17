@@ -3,6 +3,7 @@ import prisma from '../../db.js';
 import { validate, zString, zId, zNumber } from '../../middleware/validate.js';
 import { z } from 'zod';
 import { clearFestivalContextCache } from '../../aiContext.js';
+import { emitCompetitionStarted } from '../../realtime.js';
 
 const router = Router();
 
@@ -160,22 +161,27 @@ router.post('/agenda/:id/action', validate(agendaActionSchema), async (req, res)
       if (matchedComp) compId = matchedComp.id;
     }
 
+    let openedCompetition = null;
     if (compId) {
-      await prisma.competition.update({
+      const before = await prisma.competition.findUnique({ where: { id: compId }, select: { isOpen: true, name: true } }).catch(() => null);
+      const updated = await prisma.competition.update({
         where: { id: compId },
         data: {
           isOpen: isStarting,
           startsAt: isStarting ? now : undefined,
           endsAt: !isStarting ? now : undefined,
         },
-      }).catch(() => {});
+      }).catch(() => null);
+      if (updated && isStarting && !before?.isOpen) openedCompetition = updated;
     }
 
     clearFestivalContextCache();
     if (req.io) {
       req.io.emit('agenda:update', { action, agendaId: item.id });
       req.io.emit('competitions:update');
-      if (compId) req.io.emit('competition:update', { competitionId: compId, isOpen: isStarting });
+      if (openedCompetition) emitCompetitionStarted(req.io, openedCompetition);
+      else if (compId) req.io.emit('competition:update', { competitionId: compId, isOpen: isStarting });
+      if (compId && !isStarting) req.io.emit('judge:session:closed', { competitionId: compId });
     }
 
     res.json({ ...item, status: isStarting ? 'active' : 'closed' });
