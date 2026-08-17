@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 const STATIC_CACHE = `digital-scout-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `digital-scout-runtime-${CACHE_VERSION}`;
 
@@ -6,6 +6,7 @@ const APP_SHELL = [
   '/',
   '/login',
   '/manifest.webmanifest',
+  '/brand/festival-favicon.png',
   '/festival-logo.png',
 ];
 
