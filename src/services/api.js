@@ -357,7 +357,7 @@ export const sendAiMessage = (messages) => apiFetch('/ai/chat', { method: 'POST'
 export const unlockJudgeSession = (passcode) =>
   apiFetch('/judge/unlock', { method: 'POST', body: JSON.stringify({ passcode }) });
 
-export const getJudgeTeams = async (competitionId) => unwrapList(await apiFetch(`/judge/teams/${competitionId}`));
+export const getJudgeTeams = async (competitionId) => unwrapList(await apiFetch(`/judge/teams/${competitionId}?limit=100`));
 
 export const submitJudgeScore = (data) =>
   apiFetch('/judge/scores', { method: 'POST', body: JSON.stringify(data) });

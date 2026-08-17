@@ -101,7 +101,7 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
     });
     if (!competition) return res.status(403).json({ success: false, error: 'المسابقة مغلقة أو غير متاحة للتحكيم حالياً', requestId: req.requestId, timestamp: new Date().toISOString() });
 
-    const { page, limit, skip } = parsePagination(req.query);
+    const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 100, maxLimit: 200 });
     const [teams, total] = await Promise.all([
       prisma.team.findMany({
         orderBy: { label: 'asc' },
