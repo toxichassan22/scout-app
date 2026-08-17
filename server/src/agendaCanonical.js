@@ -46,7 +46,7 @@ export const OFFICIAL_AGENDA = [
     item({ id: 'agenda-official-9', period: 'period-1', order: 10, title: 'تصميم فيديو دقيقتين بالـ AI', type: 'competition', zoneId: zone.secondFloor, startTime: '10:30', endTime: '12:00', competitionId: 'comp-video-1', locationNote: 'الدور الثالث' }),
     item({ id: 'agenda-official-10', period: 'period-1', order: 11, title: 'عقد وربطات', type: 'competition', zoneId: zone.camp, startTime: '10:30', endTime: '12:00', competitionId: 'comp-report-9' }),
 
-    item({ id: 'agenda-official-11', period: 'period-2', order: 12, title: 'تكملة المجال الرياضي', type: 'competition', zoneId: zone.field, startTime: '12:00', endTime: '13:00' }),
+    item({ id: 'agenda-official-11', period: 'period-2', order: 12, title: 'المجال الرياضي', type: 'competition', zoneId: zone.field, startTime: '12:00', endTime: '13:00' }),
     item({ id: 'agenda-official-12', period: 'period-2', order: 13, title: 'الورشة الفنية', type: 'workshop', zoneId: zone.behindMosque, startTime: '12:00', endTime: '13:00', competitionId: 'comp-report-10' }),
     item({ id: 'agenda-official-13', period: 'period-2', order: 14, title: 'بحث على خطى الأنبياء', type: 'workshop', zoneId: zone.secondFloor, startTime: '12:00', endTime: '13:00', competitionId: 'comp-report-13', locationNote: 'الدور الثاني' }),
     item({ id: 'agenda-official-14', period: 'period-2', order: 15, title: 'عرض ثلاث مبتكرات علمية', type: 'workshop', zoneId: zone.secondFloor, startTime: '12:00', endTime: '13:00', competitionId: 'comp-report-12', locationNote: 'الدور الثالث' }),

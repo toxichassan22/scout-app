@@ -14,6 +14,7 @@ assert.equal(closing?.startTime, '17:30', 'closing should start at 17:30');
 assert.equal(closing?.endTime, '20:30', 'closing should end at 20:30');
 assert.equal(OFFICIAL_AGENDA.find(item => item.title === 'تجمع واستقبال الوفود')?.zoneId, 'zone-5', 'arrival should be at camp');
 assert.equal(OFFICIAL_AGENDA.find(item => item.title === 'تحية العلم وافتتاح المهرجان')?.zoneId, 'zone-5', 'opening should be at camp');
+assert.equal(OFFICIAL_AGENDA.find(item => item.id === 'agenda-official-11')?.title, 'المجال الرياضي', 'sports continuation should use the current title');
 
 const sampleItem = OFFICIAL_AGENDA[0];
 const festivalDate = '2026-08-21';

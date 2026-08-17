@@ -227,6 +227,13 @@ export async function startServer(port = PORT) {
         description: 'مسابقة العقد والربطات الكشفية للمجموعات',
       },
     });
+    await prisma.agendaItem.updateMany({
+      where: {
+        id: 'agenda-official-11',
+        title: { in: ['تكملة المجال الرياضي', 'تكمية المجال الرياضي'] },
+      },
+      data: { title: 'المجال الرياضي' },
+    });
   } catch (err) {
     logger.warn({ err }, 'failed to rename duplicated items');
   }
