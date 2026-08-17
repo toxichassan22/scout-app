@@ -25,6 +25,14 @@ const typeClass = type => type === 'schedule_only'
     ? 'border-violet-500/30 bg-violet-500/10 text-violet-300'
     : 'border-amber-500/30 bg-amber-500/10 text-amber-300';
 
+const isOnlineCompetition = competition => Boolean(
+  competition && (
+    competition.type === 'auto_digital'
+    || competition.requiresQr
+    || ['genius', 'geography', 'two_truths'].includes(competition.slug)
+  )
+);
+
 const AdminCompetitions = () => {
   const [competitions, setCompetitions] = useState([]);
   const [zones, setZones] = useState([]);
@@ -101,6 +109,7 @@ const AdminCompetitions = () => {
     const draft = drafts[id] || {};
     setBusy(id);
     try {
+      const competition = competitions.find(item => item.id === id);
       await updateCompetition(id, {
         name: draft.name,
         isOpen: draft.isOpen,
@@ -108,7 +117,7 @@ const AdminCompetitions = () => {
         endTime: draft.endTime || null,
         zoneId: draft.zoneId || null,
         locationNote: draft.locationNote || '',
-        qrCode: draft.qrCode || null,
+        ...(isOnlineCompetition(competition) ? { qrCode: draft.qrCode || null } : {}),
       });
       await load();
     } catch (saveError) {
@@ -137,7 +146,7 @@ const AdminCompetitions = () => {
   const togglePeriod = key => setOpenPeriods(previous => ({ ...previous, [key]: !previous[key] }));
 
   const validCompetitions = Array.isArray(competitions) ? competitions : [];
-  const qrCompetitions = validCompetitions.filter(c => c && (c.requiresQr || ['genius', 'geography', 'two_truths'].includes(c.slug)));
+  const qrCompetitions = validCompetitions.filter(isOnlineCompetition);
 
   return (
     <main className="app-shell min-h-screen p-4 text-white sm:p-6 dir-rtl">
@@ -205,6 +214,7 @@ const AdminCompetitions = () => {
                         const schedule = competition.schedule || {};
                         const expanded = expandedId === competition.id;
                         const isToggling = busy === `${competition.id}:toggle`;
+                        const usesQr = isOnlineCompetition(competition);
                         const currentQr = draft.qrCode || competition.qrCode || `scout-qr-${competition.slug || competition.id}`;
 
                         return expanded ? (
@@ -216,7 +226,7 @@ const AdminCompetitions = () => {
                               </div>
                               <button type="button" onClick={() => setExpandedId(null)} className="rounded-xl border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white">إغلاق</button>
                             </div>
-                            <div className="grid gap-5 md:grid-cols-[1fr_200px]">
+                            <div className={`grid gap-5 ${usesQr ? 'md:grid-cols-[1fr_200px]' : ''}`}>
                               <div className="space-y-4">
                                 <label className="block text-xs font-black text-slate-400">اسم المسابقة<input className="ai-input mt-1 w-full text-base font-black" value={draft.name || ''} onChange={event => field(competition.id, 'name', event.target.value)} /></label>
                                 <label className="block text-xs font-black text-slate-400">مكان المسابقة<select className="ai-input mt-1 w-full bg-slate-950" value={draft.zoneId || ''} onChange={event => field(competition.id, 'zoneId', event.target.value)}><option value="">غير محدد</option>{zones.map(zone => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label>
@@ -225,9 +235,11 @@ const AdminCompetitions = () => {
                                   <label className="block text-xs font-black text-slate-400">من<span className="relative mt-1 block"><Clock3 size={15} className="pointer-events-none absolute right-3 top-3 text-amber-300" /><input type="time" className="ai-input w-full pr-9 font-mono" value={draft.startTime || ''} onChange={event => field(competition.id, 'startTime', event.target.value)} /></span></label>
                                   <label className="block text-xs font-black text-slate-400">إلى<span className="relative mt-1 block"><Clock3 size={15} className="pointer-events-none absolute right-3 top-3 text-amber-300" /><input type="time" className="ai-input w-full pr-9 font-mono" value={draft.endTime || ''} onChange={event => field(competition.id, 'endTime', event.target.value)} /></span></label>
                                 </div>
-                                <label className="block text-xs font-black text-slate-400">كود الـ QR الخاص بالمسابقة<input className="ai-input mt-1 w-full font-mono text-sm" value={draft.qrCode || ''} placeholder={`افتراضي: scout-qr-${competition.slug}`} onChange={event => field(competition.id, 'qrCode', event.target.value)} /></label>
+                                {usesQr && (
+                                  <label className="block text-xs font-black text-slate-400">كود الـ QR الخاص بالمسابقة<input className="ai-input mt-1 w-full font-mono text-sm" value={draft.qrCode || ''} placeholder={`افتراضي: scout-qr-${competition.slug}`} onChange={event => field(competition.id, 'qrCode', event.target.value)} /></label>
+                                )}
                               </div>
-                              { (competition.type === 'auto_digital' || ['genius', 'two_truths', 'geography', 'easter-egg'].includes(competition.slug)) && (
+                              {usesQr && (
                                 <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white p-4 text-center text-slate-900">
                                   <p className="mb-2 text-xs font-black text-slate-800">QR المسابقة الرقمية</p>
                                   <QRCodeSVG value={currentQr} size={140} bgColor="#ffffff" fgColor="#0f172a" level="H" />
