@@ -23,6 +23,7 @@ import prisma, { databaseReady } from './db.js';
 import { ensureTeamStandings } from './teamStanding.js';
 import { finalizeExpiredSessions } from './quizService.js';
 import { ensureActivityCatalog } from './activityService.js';
+import { syncOfficialReportCatalog } from './reportCatalog.js';
 import { startGithubBackupWorker, stopGithubBackupWorker } from './githubBackup.js';
 import { purgeIdempotencyKeys, startIdempotencyCleanup } from './middleware/idempotent.js';
 import { startUploadWorkers } from './backup-exporter.js';
@@ -200,6 +201,7 @@ let idempotencyTimer;
 
 export async function startServer(port = PORT) {
   await databaseReady;
+  await syncOfficialReportCatalog(prisma);
   try {
     await ensureTeamStandings();
   } catch (err) {

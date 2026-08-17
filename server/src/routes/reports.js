@@ -12,7 +12,7 @@ import { isEmergencyFrozen } from '../freeze.js';
 import { validate, zString, zId } from '../middleware/validate.js';
 import { idempotent } from '../middleware/idempotent.js';
 import { parsePagination, paginatedResponse } from '../pagination.js';
-import { OFFICIAL_REPORT_IDS } from '../reportCatalog.js';
+import { OFFICIAL_REPORT_IDS, resolveOfficialReportId } from '../reportCatalog.js';
 
 const router = Router();
 
@@ -98,8 +98,18 @@ async function removeStoredFile(fileUrl) {
 
 async function finalizeReport(req, res, { title, content, competitionId, storedName, fileName, fileUrl }) {
   if (!competitionId) return res.status(400).json({ error: 'competitionId مطلوب للتقارير الجديدة' });
-  const competition = await prisma.competition.findFirst({ where: { OR: [{ id: String(competitionId) }, { slug: String(competitionId) }] } });
-  if (!competition) return res.status(404).json({ error: 'المسابقة غير موجودة' });
+  const requestedCompetitionId = String(competitionId).trim();
+  const resolvedCompetitionId = resolveOfficialReportId(requestedCompetitionId);
+  const competitionIdentifiers = [...new Set([requestedCompetitionId, resolvedCompetitionId])];
+  const competition = await prisma.competition.findFirst({
+    where: {
+      OR: competitionIdentifiers.flatMap(identifier => [{ id: identifier }, { slug: identifier }]),
+    },
+  });
+  if (!competition) {
+    await removeStoredFile(fileUrl);
+    return res.status(404).json({ error: 'المسابقة غير موجودة' });
+  }
   const permission = await prisma.reportPermission.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } } });
   if (permission && (permission.canSubmit === false || (permission.deadline && new Date(permission.deadline) < new Date()))) return res.status(403).json({ error: 'لا تملك صلاحية إرسال التقرير حالياً' });
 

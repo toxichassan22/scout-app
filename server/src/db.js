@@ -110,7 +110,7 @@ async function deduplicateCompetitions(client) {
       'comp-report-12': 'comp-report-catalog-01',
       'comp-report-13': 'comp-report-catalog-14',
       'comp-report-15': 'comp-report-catalog-16',
-      'comp-report-17': 'comp-report-catalog-05',
+      'comp-report-17': 'comp-report-catalog-02',
       'comp-report-18': 'comp-report-catalog-04',
       'comp-report-19': 'comp-report-catalog-03',
       'comp-report-21': 'comp-report-catalog-06',

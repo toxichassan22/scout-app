@@ -38,7 +38,18 @@ export const OFFICIAL_REPORT_CATALOG = [
   catalogEntry('comp-report-catalog-15', 'report-tilawa', 'دولة التلاوة', 'المجال الديني', 'تقرير مشاركة الفريق في دولة التلاوة.'),
 ];
 
+const OFFICIAL_REPORT_ID_BY_IDENTIFIER = new Map(
+  OFFICIAL_REPORT_CATALOG.flatMap(report => [[report.id, report.id], [report.slug, report.id]]),
+);
+OFFICIAL_REPORT_ID_BY_IDENTIFIER.set('comp-report-17', 'comp-report-catalog-02');
+OFFICIAL_REPORT_ID_BY_IDENTIFIER.set('report_model_presentation', 'comp-report-catalog-02');
+
 export const OFFICIAL_REPORT_IDS = OFFICIAL_REPORT_CATALOG.map(report => report.id);
+
+export function resolveOfficialReportId(identifier) {
+  const value = String(identifier ?? '').trim();
+  return OFFICIAL_REPORT_ID_BY_IDENTIFIER.get(value) || value;
+}
 
 export async function syncOfficialReportCatalog(prisma) {
   for (const report of OFFICIAL_REPORT_CATALOG) {
