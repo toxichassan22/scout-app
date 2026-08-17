@@ -4,6 +4,7 @@ import prisma from '../../db.js';
 import { getAnonymousLeaderboard, clearLeaderboardCache } from '../leaderboard.js';
 import { recalculateTeamStanding } from '../../teamStanding.js';
 import { validateScoreLimit } from '../../scoreRules.js';
+import { requestDataBackup } from '../../backupScheduler.js';
 import { validate, zId, zNumber } from '../../middleware/validate.js';
 import { z } from 'zod';
 
@@ -38,6 +39,34 @@ router.patch('/scores/:id', validate(scoreOverrideSchema), async (req, res) => {
   } catch (err) {
     req.log.error({ err }, 'admin score override failed');
     res.status(500).json({ success: false, error: 'فشل في تعديل الدرجة', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
+});
+
+router.delete('/scores/:id', validate({ params: { id: zId('النتيجة') } }), async (req, res) => {
+  try {
+    const existing = await prisma.score.findUnique({
+      where: { id: req.params.id },
+      include: { competition: { select: { id: true, type: true, isOpen: true } } },
+    });
+    if (!existing) return res.status(404).json({ success: false, error: 'النتيجة غير موجودة', requestId: req.requestId, timestamp: new Date().toISOString() });
+
+    await prisma.$transaction(async tx => {
+      await tx.score.delete({ where: { id: existing.id } });
+      await recalculateTeamStanding(existing.teamId, tx);
+      if (existing.competition?.type === 'manual_judged' && existing.competition.isOpen === false) {
+        await tx.competition.update({ where: { id: existing.competitionId }, data: { isOpen: true } });
+      }
+    });
+
+    clearLeaderboardCache();
+    await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
+    req.io?.to('admin').emit('admin:score:deleted', { scoreId: existing.id, teamId: existing.teamId, competitionId: existing.competitionId });
+    requestDataBackup({ reason: 'admin-score-deleted' });
+
+    res.json({ success: true, message: 'تم حذف الدرجة وأصبح الفريق متاحاً للتقييم من جديد' });
+  } catch (err) {
+    req.log.error({ err }, 'admin score delete failed');
+    res.status(500).json({ success: false, error: 'فشل في حذف الدرجة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 

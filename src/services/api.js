@@ -456,6 +456,9 @@ export const lockScore = (id) =>
 export const updateScoreOverride = (id, data) =>
   apiFetch(`/admin/scores/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 
+export const deleteScore = (id) =>
+  apiFetch(`/admin/scores/${id}`, { method: 'DELETE' });
+
 export const publishNews = (data) =>
   apiFetch('/admin/news', { method: 'POST', body: JSON.stringify(data) });
 

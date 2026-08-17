@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown, Edit3, FileText, Lock, Save, ShieldCheck, Trophy, Unlock, Users, X } from 'lucide-react';
-import { getScoreBreakdown, lockScore, unlockScore, updateScoreOverride } from '../../services/api';
+import { Check, ChevronDown, Edit3, FileText, Lock, Save, Trash2, Trophy, Unlock, Users, X } from 'lucide-react';
+import { deleteScore, getScoreBreakdown, lockScore, unlockScore, updateScoreOverride } from '../../services/api';
 import AdminBackLink from '../../components/AdminBackLink';
 
 const json = value => {
@@ -8,14 +8,6 @@ const json = value => {
 };
 
 const byArabic = (a, b) => String(a).localeCompare(String(b), 'ar');
-
-const auditLabels = {
-  unlock: 'فتح التعديل',
-  admin_correction: 'تصحيح إداري',
-  judge_submit: 'تسليم المحكم',
-};
-
-const formatDate = value => new Date(value).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
 
 const getMaxScore = competition => {
   if (!competition) return 0;
@@ -46,7 +38,7 @@ const StatCard = ({ label, value, hint, tone, icon: Icon }) => (
   </div>
 );
 
-const ScoreCard = ({ score, editing, total, values, saving, onBegin, onSave, onCancel, onTotalChange, onValuesChange, onUnlock, onLock }) => {
+const ScoreCard = ({ score, editing, total, values, saving, deleting, onBegin, onSave, onCancel, onTotalChange, onValuesChange, onUnlock, onLock, onDelete }) => {
   const isEditing = editing === score.id;
   const maxScore = getMaxScore(score.competition);
   const exceedsLimit = !score.isVirtual && Number(score.total) > maxScore;
@@ -125,6 +117,7 @@ const ScoreCard = ({ score, editing, total, values, saving, onBegin, onSave, onC
           <button type="button" onClick={() => onBegin(score)} className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-black text-slate-950 transition hover:bg-cyan-400"><Edit3 size={15} /> تعديل الدرجة</button>
           {score.isFinal ? <button type="button" onClick={() => onUnlock(score)} className="inline-flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-xs font-black text-amber-200 transition hover:bg-amber-400/20"><Unlock size={15} /> فتح التعديل</button>
             : <button type="button" onClick={() => onLock(score)} className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2.5 text-xs font-black text-emerald-200 transition hover:bg-emerald-400/20"><Lock size={15} /> قفل التعديل</button>}
+          <button type="button" onClick={() => onDelete(score)} disabled={deleting === score.id} className="inline-flex items-center gap-2 rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-2.5 text-xs font-black text-red-200 transition hover:bg-red-400/20 disabled:cursor-wait disabled:opacity-60"><Trash2 size={15} />{deleting === score.id ? 'جاري الحذف...' : 'حذف الدرجة'}</button>
         </div>
       )}
     </article>
@@ -136,6 +129,7 @@ const AdminScoring = () => {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(null);
   const [total, setTotal] = useState('');
   const [values, setValues] = useState('{}');
   const [competitionId, setCompetitionId] = useState('');
@@ -194,6 +188,22 @@ const AdminScoring = () => {
   const lock = async score => {
     try { await lockScore(score.id); setEditing(null); await load(); }
     catch (error) { alert(error.message || 'فشل في قفل التعديل'); }
+  };
+
+  const remove = async score => {
+    const teamName = score.team?.label || 'هذا الفريق';
+    const competitionName = score.competition?.name || 'هذه المسابقة';
+    if (!window.confirm(`حذف درجة ${teamName} في «${competitionName}» نهائياً؟\nسيختفي التقييم من النتائج ويعود الفريق لقائمة التحكيم.`)) return;
+    try {
+      setDeleting(score.id);
+      await deleteScore(score.id);
+      if (editing === score.id) setEditing(null);
+      await load();
+    } catch (error) {
+      alert(error.message || 'فشل في حذف الدرجة');
+    } finally {
+      setDeleting(null);
+    }
   };
 
   const save = async score => {
@@ -281,7 +291,7 @@ const AdminScoring = () => {
                   <span className="shrink-0 rounded-xl bg-slate-950 px-3 py-2 text-[11px] font-black text-slate-400">فتح القائمة</span>
                 </summary>
                 <div className="space-y-3 border-t border-white/10 bg-slate-950/20 p-3 sm:p-4">
-                  {group.scores.map(score => <ScoreCard key={score.id || `${score.teamId}:${score.competitionId}`} score={score} editing={editing} total={total} values={values} saving={saving} onBegin={begin} onSave={save} onCancel={() => setEditing(null)} onTotalChange={setTotal} onValuesChange={setValues} onUnlock={unlock} onLock={lock} />)}
+                  {group.scores.map(score => <ScoreCard key={score.id || `${score.teamId}:${score.competitionId}`} score={score} editing={editing} total={total} values={values} saving={saving} deleting={deleting} onBegin={begin} onSave={save} onCancel={() => setEditing(null)} onTotalChange={setTotal} onValuesChange={setValues} onUnlock={unlock} onLock={lock} onDelete={remove} />)}
                 </div>
               </details>)}
             </div>}
