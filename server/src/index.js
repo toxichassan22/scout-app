@@ -227,12 +227,20 @@ export async function startServer(port = PORT) {
         description: 'مسابقة العقد والربطات الكشفية للمجموعات',
       },
     });
+  } catch (err) {
+    logger.warn({ err }, 'failed to rename duplicated items');
+  }
+  try {
     await prisma.agendaItem.updateMany({
       where: { title: { in: ['تكملة المجال الرياضي', 'تكمية المجال الرياضي'] } },
       data: { title: 'المجال الرياضي' },
     });
+    await prisma.competition.updateMany({
+      where: { name: { in: ['تكملة المجال الرياضي', 'تكمية المجال الرياضي'] } },
+      data: { name: 'المجال الرياضي' },
+    });
   } catch (err) {
-    logger.warn({ err }, 'failed to rename duplicated items');
+    logger.warn({ err }, 'failed to normalize sports agenda title');
   }
   try {
     await ensureActivityCatalog();
