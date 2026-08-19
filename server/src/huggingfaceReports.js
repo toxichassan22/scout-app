@@ -36,6 +36,20 @@ function safePathPart(value, fallback) {
 }
 
 function reportLocation({ team, report }) {
+  const teamName = safePathPart(team?.label || team?.username, 'team');
+  const teamId = safePathPart(team?.id, 'team').slice(0, 8);
+  const teamKey = `${teamName}-${teamId}`;
+  const competitionKey = safePathPart(report?.competitionId, 'competition');
+  const storedName = path.basename(String(report?.fileUrl || report?.fileName || 'report.txt'));
+  const extension = path.extname(storedName).toLowerCase() || '.txt';
+  const folder = `${prefix}/${teamKey}/${competitionKey}`;
+  return {
+    filePath: `${folder}/current${extension}`,
+    metadataPath: `${folder}/metadata.json`,
+  };
+}
+
+function legacyReportLocation({ team, report }) {
   const teamKey = safePathPart(team?.id, 'team');
   const competitionKey = safePathPart(report?.competitionId, 'competition');
   const storedName = path.basename(String(report?.fileUrl || report?.fileName || 'report.txt'));
@@ -103,12 +117,15 @@ export async function syncReportToHuggingFace({ team, competitionName, report, f
   const fileBuffer = await readFile(filePath);
   const location = reportLocation({ team, report });
   const previousLocation = previousReport ? reportLocation({ team, report: previousReport }) : null;
+  const legacyLocation = legacyReportLocation({ team, report });
   const mimeType = String(report.fileName || '').toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream';
   const metadata = publicMetadata({ team, competitionName, report, filePath: location.filePath, contentHash: sha256(fileBuffer), mimeType });
 
   return withOperationLock(async () => {
     const remoteMetadata = await readRemoteMetadata(location.metadataPath);
-    const contentChanged = remoteMetadata?.contentHash !== metadata.contentHash || remoteMetadata?.filePath !== location.filePath;
+    const legacyMetadata = legacyLocation.metadataPath === location.metadataPath ? null : await readRemoteMetadata(legacyLocation.metadataPath);
+    const knownMetadata = remoteMetadata || legacyMetadata;
+    const contentChanged = knownMetadata?.contentHash !== metadata.contentHash || knownMetadata?.filePath !== location.filePath;
     const metadataChanged = remoteMetadata?.metadataHash !== metadata.metadataHash;
     const operations = [];
 
@@ -118,9 +135,17 @@ export async function syncReportToHuggingFace({ team, competitionName, report, f
     if (metadataChanged || contentChanged || !remoteMetadata) {
       operations.push({ operation: 'addOrUpdate', path: location.metadataPath, content: new Blob([JSON.stringify(metadata, null, 2)]) });
     }
-    const oldFilePath = previousLocation?.filePath || remoteMetadata?.filePath;
-    if (oldFilePath && oldFilePath !== location.filePath) {
-      operations.push({ operation: 'delete', path: oldFilePath });
+    const oldFilePaths = new Set([previousLocation?.filePath, knownMetadata?.filePath, legacyMetadata?.filePath].filter(Boolean));
+    for (const oldFilePath of oldFilePaths) {
+      if (oldFilePath !== location.filePath) operations.push({ operation: 'delete', path: oldFilePath });
+    }
+    const oldMetadataPaths = new Set([
+      previousLocation?.metadataPath,
+      legacyMetadata ? legacyLocation.metadataPath : null,
+      remoteMetadata ? location.metadataPath : null,
+    ].filter(Boolean));
+    for (const oldMetadataPath of oldMetadataPaths) {
+      if (oldMetadataPath !== location.metadataPath) operations.push({ operation: 'delete', path: oldMetadataPath });
     }
 
     if (operations.length === 0) return { success: true, skipped: true, verified: true, filePath: location.filePath };
@@ -136,11 +161,18 @@ export async function syncReportToHuggingFace({ team, competitionName, report, f
 export async function deleteReportFromHuggingFace({ team, report }) {
   if (!isHuggingFaceReportsConfigured()) return { skipped: true, reason: 'HF_REPORTS_REPO or HF_REPORTS_TOKEN is not configured' };
   const location = reportLocation({ team, report });
+  const legacyLocation = legacyReportLocation({ team, report });
 
   return withOperationLock(async () => {
     const remoteMetadata = await readRemoteMetadata(location.metadataPath);
-    if (!remoteMetadata) return { success: true, skipped: true, reason: 'report is not present in Hugging Face' };
-    const paths = new Set([location.filePath, remoteMetadata.filePath, location.metadataPath].filter(Boolean));
+    const legacyMetadata = legacyLocation.metadataPath === location.metadataPath ? null : await readRemoteMetadata(legacyLocation.metadataPath);
+    if (!remoteMetadata && !legacyMetadata) return { success: true, skipped: true, reason: 'report is not present in Hugging Face' };
+    const paths = new Set([
+      remoteMetadata?.filePath,
+      remoteMetadata ? location.metadataPath : null,
+      legacyMetadata?.filePath,
+      legacyMetadata ? legacyLocation.metadataPath : null,
+    ].filter(Boolean));
     const result = await createCommit([...paths].map(pathInRepo => ({ operation: 'delete', path: pathInRepo })), `Delete report ${report.competitionId || report.id}`);
     return { success: true, skipped: false, deleted: [...paths], commit: result };
   });
