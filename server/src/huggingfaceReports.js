@@ -9,6 +9,19 @@ const revision = String(process.env.HF_REPORTS_REVISION || 'main').trim() || 'ma
 const prefix = String(process.env.HF_REPORTS_PREFIX || 'reports').trim().replace(/^\/+|\/+$/g, '') || 'reports';
 const repo = { type: 'dataset', name: repoId };
 let operationQueue = Promise.resolve();
+let bulkSyncStatus = {
+  running: false,
+  jobId: null,
+  startedAt: null,
+  finishedAt: null,
+  processed: 0,
+  total: 0,
+  synced: 0,
+  skipped: 0,
+  failed: 0,
+  failures: [],
+  error: null,
+};
 
 function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
@@ -110,9 +123,13 @@ export async function syncReportToHuggingFace({ team, competitionName, report, f
       operations.push({ operation: 'delete', path: oldFilePath });
     }
 
-    if (operations.length === 0) return { success: true, skipped: true, filePath: location.filePath };
+    if (operations.length === 0) return { success: true, skipped: true, verified: true, filePath: location.filePath };
     const result = await createCommit(operations, `Sync report ${report.competitionId || report.id}`);
-    return { success: true, skipped: false, filePath: location.filePath, commit: result };
+    const verifiedMetadata = await readRemoteMetadata(location.metadataPath);
+    if (!verifiedMetadata || verifiedMetadata.contentHash !== metadata.contentHash || verifiedMetadata.filePath !== location.filePath) {
+      throw new Error(`Hugging Face verification failed for ${location.filePath}`);
+    }
+    return { success: true, skipped: false, verified: true, filePath: location.filePath, commit: result };
   });
 }
 
@@ -129,21 +146,76 @@ export async function deleteReportFromHuggingFace({ team, report }) {
   });
 }
 
-export async function syncReportsToHuggingFace(reports, uploadsDir) {
+export async function syncReportsToHuggingFace(reports, uploadsDir, onProgress) {
   if (!isHuggingFaceReportsConfigured()) return { skipped: true, reason: 'HF_REPORTS_REPO or HF_REPORTS_TOKEN is not configured' };
   let synced = 0;
   let skipped = 0;
-  for (const report of reports) {
-    if (!report.fileUrl || !report.team) continue;
+  let failed = 0;
+  const failures = [];
+  const eligibleReports = reports.filter(report => report.fileUrl && report.team);
+
+  for (let index = 0; index < eligibleReports.length; index += 1) {
+    const report = eligibleReports[index];
     const filePath = path.join(uploadsDir, path.basename(report.fileUrl));
-    const result = await syncReportToHuggingFace({
-      team: report.team,
-      competitionName: report.competition?.name || report.competitionId,
-      report,
-      filePath,
-    });
-    if (result.skipped) skipped += 1;
-    else synced += 1;
+    try {
+      const result = await syncReportToHuggingFace({
+        team: report.team,
+        competitionName: report.competition?.name || report.competitionId,
+        report,
+        filePath,
+      });
+      if (result.skipped) skipped += 1;
+      else synced += 1;
+    } catch (error) {
+      failed += 1;
+      if (failures.length < 25) failures.push({ reportId: report.id, error: error.message || 'Unknown Hugging Face sync error' });
+    }
+    onProgress?.({ processed: index + 1, total: eligibleReports.length, synced, skipped, failed, failures });
   }
-  return { success: true, synced, skipped, total: reports.length, repository: repoId };
+
+  return { success: failed === 0, synced, skipped, failed, failures, total: eligibleReports.length, repository: repoId };
+}
+
+export function getHuggingFaceSyncStatus() {
+  return { ...bulkSyncStatus, repository: repoId };
+}
+
+export function startHuggingFaceReportsSync(reports, uploadsDir) {
+  if (!isHuggingFaceReportsConfigured()) return { started: false, skipped: true, reason: 'HF_REPORTS_REPO or HF_REPORTS_TOKEN is not configured' };
+  if (bulkSyncStatus.running) return { started: false, running: true, jobId: bulkSyncStatus.jobId, ...getHuggingFaceSyncStatus() };
+
+  const jobId = crypto.randomUUID();
+  bulkSyncStatus = {
+    running: true,
+    jobId,
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    processed: 0,
+    total: reports.filter(report => report.fileUrl && report.team).length,
+    synced: 0,
+    skipped: 0,
+    failed: 0,
+    failures: [],
+    error: null,
+  };
+
+  syncReportsToHuggingFace(reports, uploadsDir, progress => {
+    bulkSyncStatus = { ...bulkSyncStatus, ...progress };
+  }).then(result => {
+    bulkSyncStatus = {
+      ...bulkSyncStatus,
+      ...result,
+      running: false,
+      finishedAt: new Date().toISOString(),
+    };
+  }).catch(error => {
+    bulkSyncStatus = {
+      ...bulkSyncStatus,
+      running: false,
+      finishedAt: new Date().toISOString(),
+      error: error.message || 'Hugging Face sync failed',
+    };
+  });
+
+  return { started: true, running: true, jobId, ...getHuggingFaceSyncStatus() };
 }

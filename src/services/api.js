@@ -553,6 +553,7 @@ export const triggerCleanSlate = (confirmPassword) =>
 
 export const triggerGithubBackup = () => apiFetch('/admin/backup/github', { method: 'POST' });
 export const syncHuggingFaceReports = () => apiFetch('/admin/backup/huggingface-reports', { method: 'POST', noRetry: true });
+export const getHuggingFaceReportsSyncStatus = () => apiFetch('/admin/backup/huggingface-reports/status', { noRetry: true });
 
 // ─── AWS GPU Studio & AI Generation ───
 export const getGpuStatus = () =>

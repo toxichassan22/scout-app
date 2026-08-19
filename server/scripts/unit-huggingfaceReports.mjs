@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 process.env.HF_REPORTS_REPO = '';
 process.env.HF_REPORTS_TOKEN = '';
 
-const { getHuggingFaceReportLocation, isHuggingFaceReportsConfigured } = await import('../src/huggingfaceReports.js');
+const { getHuggingFaceReportLocation, getHuggingFaceSyncStatus, isHuggingFaceReportsConfigured, startHuggingFaceReportsSync } = await import('../src/huggingfaceReports.js');
 
 assert.equal(isHuggingFaceReportsConfigured(), false);
+assert.equal(getHuggingFaceSyncStatus().running, false);
+assert.equal(startHuggingFaceReportsSync([], 'uploads').skipped, true);
 assert.deepEqual(
   getHuggingFaceReportLocation({
     team: { id: 'team-1' },

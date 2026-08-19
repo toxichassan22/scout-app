@@ -2,7 +2,7 @@ import path from 'node:path';
 import { Router } from 'express';
 import prisma from '../../db.js';
 import { generateFullBackup } from '../../backup-exporter.js';
-import { isHuggingFaceReportsConfigured, syncReportsToHuggingFace } from '../../huggingfaceReports.js';
+import { getHuggingFaceSyncStatus, isHuggingFaceReportsConfigured, startHuggingFaceReportsSync } from '../../huggingfaceReports.js';
 import { syncGithubBackup } from '../../githubBackup.js';
 
 const router = Router();
@@ -37,12 +37,19 @@ router.post('/backup/huggingface-reports', async (req, res) => {
       },
       orderBy: { uploadedAt: 'asc' },
     });
-    const result = await syncReportsToHuggingFace(reports, path.join(process.cwd(), 'uploads'));
-    res.json(result);
+    const result = startHuggingFaceReportsSync(reports, path.join(process.cwd(), 'uploads'));
+    res.status(202).json({ success: true, ...result });
   } catch (err) {
-    req.log.error({ err }, 'admin Hugging Face reports sync failed');
-    res.status(500).json({ success: false, error: 'فشل في مزامنة التقارير إلى Hugging Face' });
+    req.log.error({ err }, 'admin Hugging Face reports sync failed to start');
+    res.status(500).json({ success: false, error: 'فشل في بدء مزامنة التقارير إلى Hugging Face' });
   }
+});
+
+router.get('/backup/huggingface-reports/status', (req, res) => {
+  if (!isHuggingFaceReportsConfigured()) {
+    return res.status(503).json({ success: false, error: 'Hugging Face reports storage is not configured' });
+  }
+  res.json({ success: true, ...getHuggingFaceSyncStatus() });
 });
 
 router.post('/backup/trigger', async (req, res) => {

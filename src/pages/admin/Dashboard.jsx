@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { LogOut, Newspaper, Trophy, Users, UserCheck, Shield, ShieldAlert, FileText, Award, Calendar, RefreshCw, Snowflake, Database, QrCode, Sparkles, Cpu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getAdminLeaderboard, getAdminTeams, getAdminJudges, getAdminReports, triggerEmergencyFreeze, triggerCleanSlate, apiFetch, triggerGithubBackup, syncHuggingFaceReports, getLeaderboardVisibility, setLeaderboardVisibility, getGpuStatus } from '../../services/api';
+import { getAdminLeaderboard, getAdminTeams, getAdminJudges, getAdminReports, triggerEmergencyFreeze, triggerCleanSlate, apiFetch, triggerGithubBackup, syncHuggingFaceReports, getHuggingFaceReportsSyncStatus, getLeaderboardVisibility, setLeaderboardVisibility, getGpuStatus } from '../../services/api';
 
 const Dashboard = () => {
   const { logout, user } = useAuth();
@@ -112,8 +112,21 @@ const Dashboard = () => {
     if (!confirm('سيتم رفع التقارير الحالية فقط إلى مستودع Hugging Face العام واستبدال النسخ بنفس المسارات. هل تريد المتابعة؟')) return;
     try {
       setHuggingFaceLoading(true);
-      const result = await syncHuggingFaceReports();
-      alert(result.skipped ? 'Hugging Face غير مفعل في إعدادات السيرفر.' : `تمت مزامنة ${result.synced} تقريراً، وتخطي ${result.skipped} بدون تغيير.`);
+      const started = await syncHuggingFaceReports();
+      if (started.skipped) {
+        alert('Hugging Face غير مفعل في إعدادات السيرفر.');
+        return;
+      }
+      for (let attempt = 0; attempt < 90; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const status = await getHuggingFaceReportsSyncStatus();
+        if (!status.running) {
+          if (status.error) throw new Error(status.error);
+          alert(`تم التحقق من مزامنة HF: ${status.synced || 0} مرفوع، ${status.skipped || 0} موجود مسبقاً، ${status.failed || 0} فشل، من أصل ${status.total || 0}.`);
+          return;
+        }
+      }
+      alert('المزامنة ما زالت تعمل في الخلفية. افحص الزر مرة أخرى بعد قليل لمعرفة العدد النهائي.');
     } catch (error) {
       alert(error.message || 'فشل مزامنة التقارير إلى Hugging Face');
     } finally {
