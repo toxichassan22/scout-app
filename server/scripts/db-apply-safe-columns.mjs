@@ -3,18 +3,16 @@ import { PrismaClient } from '@prisma/client';
 import { requireExistingDatabase, resolveDatabasePath, sqliteFileUrl } from './sqlite-operations-lib.mjs';
 
 /**
- * Adds columns the schema expects but the live database lacks.
+ * Adds additive schema pieces the live database may lack.
  *
  * The production database predates Prisma Migrate — `migrate deploy` refuses with
  * P3005 because the schema is not empty and nothing is recorded as applied. The
  * deploy therefore relies on `db:drift` as its guarantee, and a purely additive
  * column would otherwise fail that check and abort every deploy.
  *
- * Only `ALTER TABLE ... ADD COLUMN` with a default belongs here. That form does not
- * move data, rebuild a table or drop anything, so it is safe to run unattended and
- * is a no-op when the column is already present. Prisma's own SQLite output for the
- * same change rebuilds the table via CREATE/INSERT/DROP/RENAME, which is not
- * something to run without review.
+ * Only additive ALTER TABLE statements, CREATE TABLE IF NOT EXISTS statements, and
+ * indexes belong here. They do not remove or rewrite existing data, so they are safe
+ * to run unattended and are no-ops when the schema piece is already present.
  *
  * Anything that removes, renames or narrows a column must be a reviewed migration
  * run deliberately, never from here. `db:drift` still runs afterwards and will abort
@@ -54,6 +52,31 @@ const ADDITIVE_INDEXES = [
     },
 ];
 
+const ADDITIVE_TABLES = [
+    {
+        name: 'JudgeTeamClaim',
+        sql: `
+            CREATE TABLE IF NOT EXISTS "JudgeTeamClaim" (
+                "id" TEXT NOT NULL PRIMARY KEY,
+                "competitionId" TEXT NOT NULL,
+                "teamId" TEXT NOT NULL,
+                "judgeId" TEXT NOT NULL,
+                "expiresAt" DATETIME NOT NULL,
+                "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT "JudgeTeamClaim_competitionId_fkey" FOREIGN KEY ("competitionId") REFERENCES "Competition" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+                CONSTRAINT "JudgeTeamClaim_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+                CONSTRAINT "JudgeTeamClaim_judgeId_fkey" FOREIGN KEY ("judgeId") REFERENCES "Judge" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+            )
+        `,
+        indexes: [
+            'CREATE UNIQUE INDEX IF NOT EXISTS "JudgeTeamClaim_competitionId_teamId_key" ON "JudgeTeamClaim"("competitionId", "teamId")',
+            'CREATE INDEX IF NOT EXISTS "JudgeTeamClaim_judgeId_competitionId_idx" ON "JudgeTeamClaim"("judgeId", "competitionId")',
+            'CREATE INDEX IF NOT EXISTS "JudgeTeamClaim_expiresAt_idx" ON "JudgeTeamClaim"("expiresAt")',
+        ],
+    },
+];
+
 const databasePath = resolveDatabasePath();
 let prisma;
 
@@ -83,6 +106,12 @@ try {
     for (const index of ADDITIVE_INDEXES) {
         await prisma.$executeRawUnsafe(index.sql);
         alreadyPresent.push(index.name);
+    }
+
+    for (const table of ADDITIVE_TABLES) {
+        await prisma.$executeRawUnsafe(table.sql);
+        for (const index of table.indexes) await prisma.$executeRawUnsafe(index);
+        alreadyPresent.push(table.name);
     }
 
     console.log(JSON.stringify({
