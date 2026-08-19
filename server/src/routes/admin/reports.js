@@ -66,7 +66,7 @@ router.delete('/reports/:id', validate({ params: { id: zId('التقرير') } }
 
       if (report.team) {
         if (isHuggingFaceReportsConfigured()) {
-          await deleteReportFromHuggingFace({ team: report.team, report });
+          await deleteReportFromHuggingFace({ team: report.team, competitionName: report.competition?.name || report.competitionId, report });
         } else {
           const locations = getReportDriveLocations({
             team: report.team,
