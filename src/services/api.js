@@ -281,8 +281,11 @@ export const loginTeam = (username, password) => {
   return apiFetch('/auth/team/login', { method: 'POST', body: JSON.stringify({ username, password, deviceId, userAgent }) });
 };
 
-export const loginJudge = (username, password) =>
-  apiFetch('/auth/judge/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+export const loginJudge = (username, password) => {
+  const deviceId = getOrCreateDeviceId();
+  const userAgent = navigator.userAgent;
+  return apiFetch('/auth/judge/login', { method: 'POST', body: JSON.stringify({ username, password, deviceId, userAgent }) });
+};
 
 export const loginAdmin = (username, password) =>
   apiFetch('/auth/admin/login', { method: 'POST', body: JSON.stringify({ username, password }) });
@@ -358,6 +361,8 @@ export const unlockJudgeSession = (passcode) =>
   apiFetch('/judge/unlock', { method: 'POST', body: JSON.stringify({ passcode }) });
 
 export const getJudgeTeams = async (competitionId) => unwrapList(await apiFetch(`/judge/teams/${competitionId}?limit=100`));
+export const claimJudgeTeam = (competitionId, teamId) => apiFetch(`/judge/teams/${competitionId}/${teamId}/claim`, { method: 'POST', noRetry: true });
+export const releaseJudgeTeamClaim = (competitionId, teamId) => apiFetch(`/judge/teams/${competitionId}/${teamId}/claim`, { method: 'DELETE', noRetry: true });
 
 export const submitJudgeScore = (data) =>
   apiFetch('/judge/scores', { method: 'POST', body: JSON.stringify(data) });
@@ -414,6 +419,9 @@ export const createJudge = (data) =>
 
 export const updateJudge = (id, data) =>
   apiFetch(`/admin/judges/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+
+export const resetJudgeDevice = (id) =>
+  apiFetch(`/admin/judges/${id}/device/reset`, { method: 'POST' });
 
 export const deleteJudge = (id) =>
   apiFetch(`/admin/judges/${id}`, { method: 'DELETE' });

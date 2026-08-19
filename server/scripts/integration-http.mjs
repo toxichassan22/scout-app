@@ -10,6 +10,9 @@ const suffix = Date.now().toString();
 const password = 'Strong!Integration123';
 const deviceId = `http-device-${suffix}-abcdefghijkl`;
 const otherDeviceId = `http-device-other-${suffix}-abcdef`;
+const judgeDeviceId = `http-judge-device-${suffix}`;
+const otherJudgeDeviceId = `http-judge-other-${suffix}`;
+const secondJudgeDeviceId = `http-judge-two-device-${suffix}`;
 const json = (value) => JSON.stringify(value);
 async function request(base, method, route, body, token, device = deviceId) {
     const response = await fetch(`${base}${route}`, {
@@ -31,6 +34,8 @@ let address;
 let team;
 let admin;
 let judge;
+let secondJudge;
+let thirdJudge;
 let competition;
 let otherCompetition;
 let report;
@@ -42,6 +47,8 @@ try {
         prisma.competition.create({ data: { name: 'HTTP Quiz', slug: `http-quiz-${suffix}`, type: 'auto_digital', isOpen: true, entryCode: 'ENTRY-123', duration: 600 } }),
         prisma.competition.create({ data: { name: 'Other Quiz', slug: `http-other-${suffix}`, type: 'auto_digital', isOpen: true, entryCode: null, duration: 600 } }),
     ]);
+    secondJudge = await prisma.judge.create({ data: { username: `http-judge-two-${suffix}`, name: 'HTTP Judge Two', passwordHash: await bcrypt.hash(password, 4) } });
+    thirdJudge = await prisma.judge.create({ data: { username: `http-judge-three-${suffix}`, name: 'HTTP Judge Three', passwordHash: await bcrypt.hash(password, 4) } });
     const question = await prisma.question.create({ data: { competitionId: competition.id, text: 'One?', options: '["yes","no"]', correctOption: 0, points: 10 } });
     await prisma.judgeCompetition.create({ data: { judgeId: judge.id, competitionId: competition.id } });
     await startServer(0);
@@ -54,9 +61,11 @@ try {
     result = await request(base, 'POST', '/api/auth/admin/login', { username: admin.username, password }, undefined, null);
     assert.equal(result.response.status, 200);
     const adminToken = result.data.token;
-    result = await request(base, 'POST', '/api/auth/judge/login', { username: judge.username, password }, undefined, null);
+    result = await request(base, 'POST', '/api/auth/judge/login', { username: judge.username, password, deviceId: judgeDeviceId }, undefined, null);
     assert.equal(result.response.status, 200);
     const judgeToken = result.data.token;
+    result = await request(base, 'POST', '/api/auth/judge/login', { username: judge.username, password, deviceId: otherJudgeDeviceId }, undefined, null);
+    assert.equal(result.response.status, 409);
 
     result = await request(base, 'GET', '/api/admin/teams', undefined, adminToken, null);
     assert.equal(result.response.status, 200);
@@ -102,6 +111,25 @@ try {
 
     const scoreCompetition = await prisma.competition.create({ data: { name: 'HTTP Manual', slug: `http-manual-${suffix}`, type: 'manual_judged', isOpen: true, criteria: '[{"key":"quality","maxScore":10}]' } });
     await prisma.judgeCompetition.create({ data: { judgeId: judge.id, competitionId: scoreCompetition.id } });
+    result = await request(base, 'POST', `/api/admin/judges/${secondJudge.id}/assignments`, { competitionId: scoreCompetition.id }, adminToken, null);
+    assert.equal(result.response.status, 201);
+    result = await request(base, 'POST', `/api/admin/judges/${thirdJudge.id}/assignments`, { competitionId: scoreCompetition.id }, adminToken, null);
+    assert.equal(result.response.status, 409);
+    result = await request(base, 'POST', '/api/auth/judge/login', { username: secondJudge.username, password, deviceId: secondJudgeDeviceId }, undefined, null);
+    assert.equal(result.response.status, 200);
+    const secondJudgeToken = result.data.token;
+    result = await request(base, 'POST', `/api/judge/teams/${scoreCompetition.id}/${team.id}/claim`, undefined, judgeToken, null);
+    assert.equal(result.response.status, 200);
+    result = await request(base, 'POST', `/api/judge/teams/${scoreCompetition.id}/${team.id}/claim`, undefined, secondJudgeToken, null);
+    assert.equal(result.response.status, 409);
+    result = await request(base, 'DELETE', `/api/judge/teams/${scoreCompetition.id}/${team.id}/claim`, undefined, judgeToken, null);
+    assert.equal(result.response.status, 200);
+    result = await request(base, 'POST', `/api/judge/teams/${scoreCompetition.id}/${team.id}/claim`, undefined, secondJudgeToken, null);
+    assert.equal(result.response.status, 200);
+    result = await request(base, 'DELETE', `/api/judge/teams/${scoreCompetition.id}/${team.id}/claim`, undefined, secondJudgeToken, null);
+    assert.equal(result.response.status, 200);
+    result = await request(base, 'POST', `/api/judge/teams/${scoreCompetition.id}/${team.id}/claim`, undefined, judgeToken, null);
+    assert.equal(result.response.status, 200);
     const scoreRequests = Array.from({ length: 4 }, () => request(base, 'POST', '/api/judge/scores', { competitionId: scoreCompetition.id, teamId: team.id, values: { quality: 8 }, total: 8 }, judgeToken, null));
     const scoreResults = await Promise.all(scoreRequests);
     assert.equal((await prisma.score.count({ where: { competitionId: scoreCompetition.id, teamId: team.id } })), 1);
@@ -113,6 +141,8 @@ try {
     await prisma.report.deleteMany({ where: { teamId: team?.id } }).catch(() => { });
     await prisma.team.delete({ where: { id: team?.id } }).catch(() => { });
     await prisma.judge.delete({ where: { id: judge?.id } }).catch(() => { });
+    await prisma.judge.delete({ where: { id: secondJudge?.id } }).catch(() => { });
+    await prisma.judge.delete({ where: { id: thirdJudge?.id } }).catch(() => { });
     await prisma.admin.delete({ where: { id: admin?.id } }).catch(() => { });
     await prisma.competition.deleteMany({ where: { id: { in: [competition?.id, otherCompetition?.id].filter(Boolean) } } }).catch(() => { });
     await prisma.$disconnect();

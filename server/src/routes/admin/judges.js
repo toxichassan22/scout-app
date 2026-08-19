@@ -49,6 +49,23 @@ router.post('/judges', validate(judgeCreateSchema), async (req, res) => {
   }
 });
 
+router.post('/judges/:id/device/reset', validate({ params: { id: zId('المحكم') } }), async (req, res) => {
+  try {
+    await prisma.$transaction([
+      prisma.judge.update({
+        where: { id: req.params.id },
+        data: { judgeDeviceId: null, authVersion: { increment: 1 } },
+        select: safeJudgeSelect,
+      }),
+      prisma.judgeTeamClaim.deleteMany({ where: { judgeId: req.params.id } }),
+    ]);
+    res.json({ success: true, message: 'تم فتح جهاز المحكم ويمكنه تسجيل الدخول من جهاز جديد' });
+  } catch (err) {
+    req.log.error({ err }, 'admin reset judge device failed');
+    res.status(500).json({ success: false, error: 'فشل في فتح جهاز المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
+});
+
 router.delete('/judges/:id', validate({ params: { id: zId('المحكم') } }), async (req, res) => {
   try {
     await prisma.judge.delete({ where: { id: req.params.id } });

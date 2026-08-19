@@ -31,6 +31,7 @@ model Team {
   wallet                TeamWallet?
   walletTransactions    WalletTransaction[]
   purchases             Purchase[]
+  judgeTeamClaims        JudgeTeamClaim[]
 }
 
 model TeamMember {
@@ -67,17 +68,19 @@ model Admin {
 }
 
 model Judge {
-  id           String   @id @default(uuid())
-  name         String
-  username     String   @unique
-  passwordHash String
-  authVersion  Int      @default(0)
-  createdAt    DateTime @default(now())
+  id              String   @id @default(uuid())
+  name            String
+  username        String   @unique
+  passwordHash    String
+  authVersion     Int      @default(0)
+  judgeDeviceId   String?
+  createdAt       DateTime @default(now())
 
-  scores      Score[]
-  assignments JudgeCompetition[]
-  judgeScores JudgeScore[]
-  scoreAudits ScoreAudit[]
+  scores          Score[]
+  assignments     JudgeCompetition[]
+  judgeScores     JudgeScore[]
+  scoreAudits     ScoreAudit[]
+  judgeTeamClaims JudgeTeamClaim[]
 }
 
 model Competition {
@@ -107,6 +110,7 @@ model Competition {
   judgeAssignments  JudgeCompetition[]
   judgeScores       JudgeScore[]
   scoreAudits       ScoreAudit[]
+  judgeTeamClaims   JudgeTeamClaim[]
   teamAccess        CompetitionAccess[]
   videoAttempts     VideoAttempt[]
 }
@@ -208,6 +212,23 @@ model JudgeCompetition {
   createdAt     DateTime    @default(now())
 
   @@unique([judgeId, competitionId])
+}
+
+model JudgeTeamClaim {
+  id            String      @id @default(uuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  teamId        String
+  team          Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  judgeId       String
+  judge         Judge       @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+  expiresAt     DateTime
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([competitionId, teamId])
+  @@index([judgeId, competitionId])
+  @@index([expiresAt])
 }
 
 model JudgeScore {

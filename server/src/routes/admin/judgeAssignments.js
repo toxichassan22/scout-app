@@ -5,6 +5,7 @@ import { recalculateTeamStanding } from '../../teamStanding.js';
 import { validate, zString, zId } from '../../middleware/validate.js';
 import { parsePagination, paginatedResponse } from '../../pagination.js';
 import { getOfficialCriteria } from '../../officialCompetitionCriteria.js';
+import { ensureJudgeCompetitionAssignment } from '../../judgeAccess.js';
 
 const safeTeamSelect = { id: true, username: true, label: true, maxDevices: true, authVersion: true, createdAt: true };
 const safeJudgeSelect = { id: true, name: true, username: true, authVersion: true, createdAt: true };
@@ -88,31 +89,20 @@ router.post('/judges/:judgeId/assignments', validate(judgeAssignmentSchema), asy
   try {
     const { competitionId } = req.body;
     const { judgeId } = req.params;
-    // A competition belongs to exactly one judge. Without this check a second judge
-    // can unlock the passcode and fill in a whole sheet, only to be rejected on
-    // submit by the unique score constraint on (competitionId, teamId).
-    const currentOwner = await prisma.judgeCompetition.findFirst({
-      where: { competitionId, judgeId: { not: judgeId } },
-      select: { judge: { select: { name: true } } },
-    });
-    if (currentOwner) {
-      return res.status(409).json({
-        success: false,
-        error: `هذه المسابقة مكلّف بها المحكم "${currentOwner.judge?.name || 'آخر'}" بالفعل؛ أزل تكليفه أولاً`,
-        requestId: req.requestId,
-        timestamp: new Date().toISOString(),
-      });
-    }
-    const row = await prisma.judgeCompetition.upsert({ where: { judgeId_competitionId: { judgeId, competitionId } }, create: { judgeId, competitionId }, update: {} });
-    res.status(201).json(row);
+    const result = await ensureJudgeCompetitionAssignment(prisma, competitionId, judgeId);
+    res.status(result.created ? 201 : 200).json({ ...result.assignment, assignmentCount: result.count, maxAssignments: 2 });
   } catch (err) {
     req.log.error({ err }, 'admin assign judge failed');
-    res.status(500).json({ success: false, error: 'فشل في تعيين المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
+    res.status(err.status || 500).json({ success: false, error: err.status ? err.message : 'فشل في تعيين المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
 router.delete('/judges/:judgeId/assignments/:competitionId', validate({ params: { judgeId: zId('المحكم'), competitionId: zId('المسابقة') } }), async (req, res) => {
   try {
-    await prisma.judgeCompetition.deleteMany({ where: { judgeId: req.params.judgeId, competitionId: req.params.competitionId } });
+    await prisma.$transaction([
+      prisma.judgeCompetition.deleteMany({ where: { judgeId: req.params.judgeId, competitionId: req.params.competitionId } }),
+      prisma.judgeTeamClaim.deleteMany({ where: { judgeId: req.params.judgeId, competitionId: req.params.competitionId } }),
+    ]);
+    req.io?.to('judge').emit('judge:team:released', { competitionId: req.params.competitionId, judgeId: req.params.judgeId });
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, 'admin remove judge assignment failed');

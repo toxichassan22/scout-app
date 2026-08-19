@@ -4,7 +4,7 @@ import {
   CheckCircle2, AlertCircle, Save, ArrowRight, ShieldCheck, Award,
   FileText, ExternalLink, Eye, X, FileCheck
 } from 'lucide-react';
-import { getJudgeTeams, submitJudgeScore, fetchReportFile } from '../../services/api';
+import { claimJudgeTeam, getJudgeTeams, releaseJudgeTeamClaim, submitJudgeScore, fetchReportFile } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
 
 const JudgingSheet = () => {
@@ -34,18 +34,25 @@ const JudgingSheet = () => {
 
     fetchTeams();
 
-    if (socket) {
-      socket.on('judge:session:closed', ({ competitionId }) => {
-        if (competitionId === competition.id) {
-          alert('تم إغلاق التقييم لهذه المسابقة من قِبل الأدمن');
-          navigate('/judge/passcode', { replace: true });
-        }
-      });
+    if (!socket) return undefined;
+    const handleSessionClosed = ({ competitionId }) => {
+      if (competitionId === competition.id) {
+        alert('تم إغلاق التقييم لهذه المسابقة من قِبل الأدمن');
+        navigate('/judge/passcode', { replace: true });
+      }
+    };
+    const refreshClaims = ({ competitionId }) => {
+      if (competitionId === competition.id) fetchTeams();
+    };
+    socket.on('judge:session:closed', handleSessionClosed);
+    socket.on('judge:team:claimed', refreshClaims);
+    socket.on('judge:team:released', refreshClaims);
 
-      return () => {
-        socket.off('judge:session:closed');
-      };
-    }
+    return () => {
+      socket.off('judge:session:closed', handleSessionClosed);
+      socket.off('judge:team:claimed', refreshClaims);
+      socket.off('judge:team:released', refreshClaims);
+    };
   }, [competition, socket]);
 
   const fetchTeams = async (completedTeamId = null) => {
@@ -53,19 +60,35 @@ const JudgingSheet = () => {
       const data = await getJudgeTeams(competition.id);
       setTeams(data);
       if (completedTeamId) {
-        const next = data.find(t => !t.isFinal && t.id !== completedTeamId);
-        if (next) selectTeam(next);
-        else if (!data.some(t => !t.isFinal)) navigate('/judge/passcode', { replace: true });
+        if (!data.some(t => !t.isFinal)) navigate('/judge/passcode', { replace: true });
         else { setSelectedTeam(null); setScores({}); }
-      } else if ((!selectedTeam || selectedTeam.isFinal) && data.length > 0) {
-        const firstUnlocked = data.find(t => !t.isFinal);
-        if (firstUnlocked) selectTeam(firstUnlocked);
       }
     } catch (err) {
       console.error('Failed to load teams:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (!competition || !selectedTeam) return undefined;
+    const renewClaim = () => {
+      claimJudgeTeam(competition.id, selectedTeam.id).catch(error => {
+        setMessage(error.message || 'انتهى حجز الفريق؛ اختره مرة أخرى');
+        setSelectedTeam(null);
+        setScores({});
+      });
+    };
+    const interval = setInterval(renewClaim, 60_000);
+    return () => {
+      clearInterval(interval);
+      releaseJudgeTeamClaim(competition.id, selectedTeam.id).catch(() => {});
+    };
+  }, [competition?.id, selectedTeam?.id]);
+
+  const leaveSheet = async () => {
+    if (competition && selectedTeam) await releaseJudgeTeamClaim(competition.id, selectedTeam.id).catch(() => {});
+    navigate('/judge/passcode', { replace: true });
   };
 
   // Open report file directly in a new browser tab
@@ -86,16 +109,30 @@ const JudgingSheet = () => {
     }
   }, [selectedTeam?.report?.id]);
 
-  const selectTeam = (team) => {
+  const selectTeam = async team => {
     if (team.isFinal) return;
-    setSelectedTeam(team);
-    setMessage('');
-    // Populate existing or initial scores
-    const initialScores = {};
-    (competition.criteria || []).forEach(c => {
-      initialScores[c.key] = 0;
-    });
-    setScores(initialScores);
+    try {
+      await claimJudgeTeam(competition.id, team.id);
+      setSelectedTeam(team);
+      setMessage('تم حجز الفريق لك مؤقتاً؛ يمكنك إلغاء الاختيار في أي وقت.');
+      const initialScores = {};
+      (competition.criteria || []).forEach(c => {
+        initialScores[c.key] = 0;
+      });
+      setScores(initialScores);
+    } catch (error) {
+      setMessage(error.message || 'الفريق مفتوح عند محكم آخر؛ حدّث القائمة واختر فريقاً آخر.');
+      fetchTeams();
+    }
+  };
+
+  const releaseSelectedTeam = async () => {
+    if (!selectedTeam) return;
+    await releaseJudgeTeamClaim(competition.id, selectedTeam.id).catch(() => {});
+    setSelectedTeam(null);
+    setScores({});
+    setMessage('تم إلغاء حجز الفريق ويمكن لمحكم آخر فتحه.');
+    fetchTeams();
   };
 
   const handleScoreChange = (key, val, maxScore) => {
@@ -124,9 +161,10 @@ const JudgingSheet = () => {
       });
 
       const completedId = selectedTeam.id;
-      setMessage('تم اعتماد النتيجة نهائياً، وتم الانتقال للفريق التالي المتاح.');
+      setMessage('تم اعتماد النتيجة نهائياً، ويمكنك اختيار الفريق التالي المتاح.');
       setShowConfirm(false);
       setScores({});
+      setSelectedTeam(null);
       await fetchTeams(completedId);
     } catch (err) {
       setMessage(err.message || 'فشل في حفظ التقييم');
@@ -149,7 +187,7 @@ const JudgingSheet = () => {
         </div>
 
         <button
-          onClick={() => navigate('/judge/passcode')}
+          onClick={leaveSheet}
           className="text-xs text-slate-400 hover:text-white flex items-center gap-1 bg-slate-800 px-3 py-2 rounded-xl transition"
         >
           <ArrowRight size={14} />
@@ -228,6 +266,13 @@ const JudgingSheet = () => {
                 </div>
 
                 <h2 className="text-lg font-black text-white">{selectedTeam.label}</h2>
+              </div>
+
+              <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-3 py-2 text-xs">
+                <button type="button" onClick={releaseSelectedTeam} className="rounded-lg bg-slate-800 px-3 py-2 font-bold text-slate-300 hover:bg-slate-700">
+                  إلغاء اختيار الفريق
+                </button>
+                <span className="text-cyan-200">الفريق محجوز لك مؤقتاً، ويتحرر تلقائياً عند انتهاء المهلة.</span>
               </div>
 
               {/* Dynamic Criteria inputs */}

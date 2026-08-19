@@ -10,6 +10,7 @@ await databaseReady;
 const suffix = Date.now().toString();
 const password = 'Strong!Judge123';
 const idempotencyKey = `race-idempotency-${suffix}`;
+const judgeDeviceId = `race-judge-device-${suffix}`;
 
 async function request(base, method, route, body, token, extraHeaders = {}) {
   const response = await fetch(`${base}${route}`, {
@@ -65,9 +66,11 @@ try {
   const address = server.address();
   const base = `http://127.0.0.1:${address.port}`;
 
-  const login = await request(base, 'POST', '/api/auth/judge/login', { username: judge.username, password });
+  const login = await request(base, 'POST', '/api/auth/judge/login', { username: judge.username, password, deviceId: judgeDeviceId });
   assert.equal(login.response.status, 200, `judge login should succeed: ${JSON.stringify(login.data)}`);
   const judgeToken = login.data.token;
+  const claim = await request(base, 'POST', `/api/judge/teams/${competition.id}/${team.id}/claim`, undefined, judgeToken);
+  assert.equal(claim.response.status, 200, `judge claim should succeed: ${JSON.stringify(claim.data)}`);
 
   const scoreBody = {
     competitionId: competition.id,

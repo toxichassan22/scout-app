@@ -28,6 +28,12 @@ const ADDITIVE_COLUMNS = [
         reason: 'each device records the scouting role of the person using it',
     },
     {
+        table: 'Judge',
+        column: 'judgeDeviceId',
+        sql: 'ALTER TABLE "Judge" ADD COLUMN "judgeDeviceId" TEXT',
+        reason: 'binds each judge account to one browser device',
+    },
+    {
         table: 'AgendaItem',
         column: 'competitionId',
         sql: `ALTER TABLE "AgendaItem" ADD COLUMN "competitionId" TEXT`,

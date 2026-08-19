@@ -13,11 +13,14 @@ import { idempotent } from '../middleware/idempotent.js';
 import { validate, zString, zId, zNumber } from '../middleware/validate.js';
 import { z } from 'zod';
 import { parsePagination, paginatedResponse } from '../pagination.js';
+import { ensureJudgeCompetitionAssignment } from '../judgeAccess.js';
 
 const router = Router();
 
 const unlockSchema = { body: { passcode: zString('كود المسابقة', { min: 1, max: 100 }) } };
 const teamsSchema = { params: { competitionId: zId('المسابقة') } };
+const claimSchema = { params: { competitionId: zId('المسابقة'), teamId: zId('الفريق') } };
+const JUDGE_CLAIM_TTL_MS = Math.max(60_000, Number(process.env.JUDGE_CLAIM_TTL_MS) || 10 * 60 * 1000);
 const scoreSchema = {
   body: {
     competitionId: zId('المسابقة'),
@@ -63,13 +66,7 @@ router.post('/unlock', validate(unlockSchema), async (req, res) => {
       return res.status(404).json({ error: 'كود المسابقة غير صحيح أو المسابقة مغلقة حالياً' });
     }
 
-    const existingAssignment = await prisma.judgeCompetition.findFirst({ where: { competitionId: competition.id } });
-    if (existingAssignment && existingAssignment.judgeId !== req.user.id) {
-      return res.status(409).json({ error: 'هذه المسابقة مفتوحة لمحكم آخر بالفعل' });
-    }
-    if (!existingAssignment) {
-      await prisma.judgeCompetition.create({ data: { competitionId: competition.id, judgeId: req.user.id } });
-    }
+    await ensureJudgeCompetitionAssignment(prisma, competition.id, req.user.id);
 
     failedAttempts.delete(clientIp);
 
@@ -88,6 +85,7 @@ router.post('/unlock', validate(unlockSchema), async (req, res) => {
       }
     });
   } catch (err) {
+    if (err.status === 409) return res.status(409).json({ success: false, error: err.message, code: err.code });
     req.log.error({ err }, 'judge unlock failed');
     res.status(500).json({ success: false, error: 'خطأ في التحقق من كود المسابقة', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
@@ -101,9 +99,17 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
     });
     if (!competition) return res.status(403).json({ success: false, error: 'المسابقة مغلقة أو غير متاحة للتحكيم حالياً', requestId: req.requestId, timestamp: new Date().toISOString() });
 
+    const now = new Date();
+    await prisma.judgeTeamClaim.deleteMany({ where: { competitionId, expiresAt: { lte: now } } });
+    const teamWhere = {
+      judgeTeamClaims: {
+        none: { competitionId, judgeId: { not: req.user.id }, expiresAt: { gt: now } },
+      },
+    };
     const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 100, maxLimit: 200 });
     const [teams, total] = await Promise.all([
       prisma.team.findMany({
+        where: teamWhere,
         orderBy: { label: 'asc' },
         skip,
         take: limit,
@@ -114,7 +120,7 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
           reports: { where: { competitionId }, orderBy: { uploadedAt: 'desc' }, take: 1, select: { id: true, title: true, content: true, fileUrl: true, fileName: true, uploadedAt: true } }
         }
       }),
-      prisma.team.count(),
+      prisma.team.count({ where: teamWhere }),
     ]);
 
     const formattedTeams = teams.map(t => {
@@ -134,6 +140,49 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
   } catch (err) {
     req.log.error({ err }, 'failed to fetch judge teams');
     res.status(500).json({ success: false, error: 'فشل في جلب قائمة الفرق والتقارير', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
+});
+
+router.post('/teams/:competitionId/:teamId/claim', validate(claimSchema), async (req, res) => {
+  const { competitionId, teamId } = req.params;
+  const judgeId = req.user.id;
+  try {
+    const competition = await prisma.competition.findFirst({
+      where: { id: competitionId, isOpen: true, judgeAssignments: { some: { judgeId } } },
+      select: { id: true },
+    });
+    if (!competition) return res.status(403).json({ success: false, error: 'المسابقة مغلقة أو غير متاحة للتحكيم' });
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + JUDGE_CLAIM_TTL_MS);
+    const claim = await prisma.$transaction(async tx => {
+      const score = await tx.score.findUnique({ where: { competitionId_teamId: { competitionId, teamId } }, select: { isFinal: true } });
+      if (score?.isFinal) throw Object.assign(new Error('تم اعتماد تقييم هذا الفريق بالفعل'), { status: 409, code: 'TEAM_ALREADY_SCORED' });
+      await tx.judgeTeamClaim.deleteMany({ where: { competitionId, teamId, expiresAt: { lte: now } } });
+      const existing = await tx.judgeTeamClaim.findUnique({ where: { competitionId_teamId: { competitionId, teamId } } });
+      if (existing && existing.judgeId !== judgeId) throw Object.assign(new Error('الفريق مفتوح الآن عند محكم آخر'), { status: 409, code: 'TEAM_CLAIMED' });
+      if (existing) return tx.judgeTeamClaim.update({ where: { id: existing.id }, data: { expiresAt } });
+      return tx.judgeTeamClaim.create({ data: { competitionId, teamId, judgeId, expiresAt } });
+    });
+
+    req.io?.to('judge').emit('judge:team:claimed', { competitionId, teamId, judgeId, expiresAt: claim.expiresAt });
+    res.json({ success: true, claim: { teamId, competitionId, expiresAt: claim.expiresAt } });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ success: false, error: err.message, code: err.code });
+    req.log.error({ err, competitionId, teamId }, 'judge team claim failed');
+    res.status(500).json({ success: false, error: 'فشل في حجز الفريق للتقييم' });
+  }
+});
+
+router.delete('/teams/:competitionId/:teamId/claim', validate(claimSchema), async (req, res) => {
+  const { competitionId, teamId } = req.params;
+  try {
+    const result = await prisma.judgeTeamClaim.deleteMany({ where: { competitionId, teamId, judgeId: req.user.id } });
+    if (result.count > 0) req.io?.to('judge').emit('judge:team:released', { competitionId, teamId, judgeId: req.user.id });
+    res.json({ success: true, released: result.count > 0 });
+  } catch (err) {
+    req.log.error({ err, competitionId, teamId }, 'judge team claim release failed');
+    res.status(500).json({ success: false, error: 'فشل في إلغاء حجز الفريق' });
   }
 });
 
@@ -174,8 +223,11 @@ router.post('/scores', enforceNotFrozen, validate(scoreSchema), idempotent('judg
       const existingScore = await tx.score.findUnique({ where: { competitionId_teamId: { competitionId, teamId } } });
       if (existingScore?.isFinal) throw Object.assign(new Error('تم اعتماد التقييم نهائياً ولا يمكن تعديله'), { status: 409 });
       if (existingScore) throw Object.assign(new Error('لا يحق للمحكم تعديل نتيجة قائمة؛ التصحيح متاح للإدارة فقط'), { status: 409 });
+      const claim = await tx.judgeTeamClaim.findUnique({ where: { competitionId_teamId: { competitionId, teamId } } });
+      if (!claim || claim.judgeId !== judgeId || claim.expiresAt <= new Date()) throw Object.assign(new Error('انتهى حجز الفريق؛ افتحه مرة أخرى قبل الحفظ'), { status: 409, code: 'TEAM_CLAIM_EXPIRED' });
 
       const score = await tx.score.create({ data: { competitionId, teamId, judgeId, values: serializedValues, total: calculated, isFinal: true } });
+      await tx.judgeTeamClaim.deleteMany({ where: { competitionId, teamId, judgeId } });
       await tx.judgeScore.create({ data: { scoreId: score.id, competitionId, teamId, judgeId, values: serializedValues, total: calculated } });
       await tx.scoreAudit.create({ data: { scoreId: score.id, competitionId, teamId, judgeId, action: 'judge_submit', newData: JSON.stringify({ values: parsedValues, total: calculated }) } });
       await recalculateTeamStanding(teamId, tx);

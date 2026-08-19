@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { KeyRound, Pencil, Plus, Trash2, UserCheck, X } from 'lucide-react';
+import { KeyRound, Pencil, Plus, RefreshCw, Trash2, UserCheck, X } from 'lucide-react';
 import {
   assignJudgeCompetition, createJudge, deleteJudge, generateCompetitionPasscode,
   getAdminCompetitions, getAdminJudges, getJudgeAssignments,
-  unassignJudgeCompetition, updateCompetition, updateJudge
+  resetJudgeDevice, unassignJudgeCompetition, updateCompetition, updateJudge
 } from '../../services/api';
 import AdminBackLink from '../../components/AdminBackLink';
 
@@ -31,10 +31,9 @@ const AdminJudges = () => {
   }, []);
 
   const assigned = (jid, cid) => assignments[jid]?.some(a => a.competitionId === cid);
-  // Each competition is owned by exactly one judge, so surface who holds it
-  // instead of letting the admin click and get rejected.
-  const ownerOf = cid => judges.find(j => assignments[j.id]?.some(a => a.competitionId === cid));
-  const availableComps = competitions.filter(c => !ownerOf(c.id));
+  // A competition can be assigned to up to two judges; surface both owners in the admin view.
+  const judgesOf = cid => judges.filter(judge => assigned(judge.id, cid));
+  const availableCompsFor = jid => competitions.filter(c => !assigned(jid, c.id) && judgesOf(c.id).length < 2);
 
   const resetForm = () => {
     setEditing(null);
@@ -77,6 +76,16 @@ const AdminJudges = () => {
       await deleteJudge(j.id);
       if (editing === j.id) resetForm();
       await load();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const resetJudgeDeviceLock = async judge => {
+    if (!confirm(`فتح قفل جهاز المحكم ${judge.name}؟ سيتم تسجيل خروجه من الجهاز الحالي.`)) return;
+    try {
+      await resetJudgeDevice(judge.id);
+      alert('تم فتح قفل الجهاز؛ يمكن للمحكم تسجيل الدخول من جهاز جديد.');
     } catch (err) {
       alert(err.message);
     }
@@ -155,6 +164,7 @@ const AdminJudges = () => {
           <div className="space-y-2">
             {judges.map(j => {
               const judgeComps = (assignments[j.id] || []).map(a => a.competition).filter(Boolean);
+              const judgeAvailableComps = availableCompsFor(j.id);
               return (
                 <article key={j.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3">
                   <div className="min-w-0 flex-1">
@@ -167,19 +177,22 @@ const AdminJudges = () => {
                           <button type="button" onClick={() => toggleAssignment(j.id, c.id)} className="hover:text-red-400" title="إلغاء التكليف">×</button>
                         </span>
                       ))}
-                      {availableComps.length > 0 && (
+                      {judgeAvailableComps.length > 0 && (
                         <select
                           className="ai-input max-w-[180px] cursor-pointer rounded-lg py-1 text-xs"
                           value=""
                           onChange={e => { if (e.target.value) toggleAssignment(j.id, e.target.value); }}
                         >
                           <option value="">+ تكليف مسابقة</option>
-                          {availableComps.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          {judgeAvailableComps.map(c => <option key={c.id} value={c.id}>{c.name} ({judgesOf(c.id).length}/2)</option>)}
                         </select>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => resetJudgeDeviceLock(j)} className="p-1.5 text-cyan-400 hover:text-cyan-300" title="فتح قفل الجهاز">
+                      <RefreshCw size={15} />
+                    </button>
                     <button type="button" onClick={() => startEdit(j)} className="p-1.5 text-amber-400 hover:text-amber-300" title="تعديل">
                       <Pencil size={15} />
                     </button>
@@ -199,7 +212,7 @@ const AdminJudges = () => {
           أكواد المسابقات
           <KeyRound size={16} className="text-amber-400" />
         </h2>
-        <p className="mb-4 text-[11px] text-slate-500">كود الدخول للمحكم. كل مسابقة لها محكم واحد.</p>
+        <p className="mb-4 text-[11px] text-slate-500">كود الدخول للمحكمين. يمكن تكليف محكم أو محكمين لكل مسابقة دون تقييم نفس الفريق مرتين.</p>
         {competitions.length === 0 ? (
           <p className="py-6 text-center text-sm text-slate-500">لا توجد مسابقات تحكيم يدوي.</p>
         ) : (
@@ -215,11 +228,11 @@ const AdminJudges = () => {
               </thead>
               <tbody>
                 {competitions.map(c => {
-                  const owner = ownerOf(c.id);
+                  const owners = judgesOf(c.id);
                   return (
                     <tr key={c.id} className="border-b border-slate-800/70 last:border-0">
                       <td className="py-3 font-bold">{c.name}</td>
-                      <td className="py-3 text-xs text-slate-400">{owner ? owner.name : 'غير مكلّف'}</td>
+                      <td className="py-3 text-xs text-slate-400">{owners.length ? owners.map(owner => owner.name).join('، ') : 'غير مكلّف'} ({owners.length}/2)</td>
                       <td className="py-3 font-mono text-amber-400">{c.passcode || '—'}</td>
                       <td className="py-3">
                         <div className="flex flex-wrap gap-2">

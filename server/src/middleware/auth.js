@@ -3,7 +3,7 @@ import prisma from '../db.js';
 import { JWT_SECRET } from '../security.js';
 import logger from '../logger.js';
 const modelByRole = { team: 'team', judge: 'judge', admin: 'admin' };
-const REVOCATION_REASONS = new Set(['invalid_claims', 'revoked', 'device_required', 'device_revoked']);
+const REVOCATION_REASONS = new Set(['invalid_claims', 'revoked', 'device_required', 'device_revoked', 'judge_device_required', 'judge_device_revoked']);
 
 /**
  * True only when the session is genuinely no longer valid. Anything else — a
@@ -20,12 +20,19 @@ export async function verifyAuthenticatedUser(token) {
   const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
   const modelName = modelByRole[payload.role];
   if (!modelName || !payload.id || !Number.isInteger(payload.authVersion)) throw new Error('invalid_claims');
-  const account = await prisma[modelName].findUnique({ where: { id: payload.id }, select: { id: true, authVersion: true } });
+  const select = payload.role === 'judge'
+    ? { id: true, authVersion: true, judgeDeviceId: true }
+    : { id: true, authVersion: true };
+  const account = await prisma[modelName].findUnique({ where: { id: payload.id }, select });
   if (!account || account.authVersion !== payload.authVersion) throw new Error('revoked');
   if (payload.role === 'team') {
     if (!payload.deviceId || !Number.isInteger(payload.deviceVersion)) throw new Error('device_required');
     const device = await prisma.teamDevice.findUnique({ where: { teamId_deviceId: { teamId: payload.id, deviceId: payload.deviceId } }, select: { tokenVersion: true, revokedAt: true } });
     if (!device || device.revokedAt || device.tokenVersion !== payload.deviceVersion) throw new Error('device_revoked');
+  }
+  if (payload.role === 'judge') {
+    if (!payload.deviceId) throw new Error('judge_device_required');
+    if (!account.judgeDeviceId || account.judgeDeviceId !== payload.deviceId) throw new Error('judge_device_revoked');
   }
   return payload;
 }

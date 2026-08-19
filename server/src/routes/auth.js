@@ -23,6 +23,8 @@ const roleLoginSchema = {
   body: {
     username: zString('اسم المستخدم', { min: 1, max: 80 }),
     password: zString('كلمة السر', { min: 1, max: 256 }),
+    deviceId: zString('معرف الجهاز', { max: 200 }).optional(),
+    userAgent: zString('وكيل المستخدم', { max: 500 }).optional(),
   },
 };
 const loginLimiter = createMemoryRateLimiter({
@@ -148,13 +150,30 @@ async function roleLogin(req, res, role) {
   try {
     const { username, password } = req.body;
     const model = role === 'judge' ? prisma.judge : prisma.admin;
-    const select = role === 'judge' ? { ...accountSelect, name: true } : accountSelect;
+    const select = role === 'judge' ? { ...accountSelect, name: true, judgeDeviceId: true } : accountSelect;
     const account = await model.findUnique({ where: { username }, select });
     if (!account || !(await bcrypt.compare(password, account.passwordHash))) return res.status(401).json({ error: 'اسم المستخدم أو كلمة السر غير صحيحة' });
+
+    const rawDeviceId = req.body.deviceId || req.headers['x-device-id'];
+    const deviceId = typeof rawDeviceId === 'string' ? rawDeviceId.trim() : '';
+    if (role === 'judge') {
+      if (!deviceId) return res.status(400).json({ error: 'معرف جهاز المحكم مطلوب' });
+      if (account.judgeDeviceId && account.judgeDeviceId !== deviceId) {
+        return res.status(409).json({ error: 'حساب المحكم مربوط بجهاز آخر. اطلب من الأدمن إعادة فتح الجهاز.', code: 'JUDGE_DEVICE_LOCKED' });
+      }
+      if (!account.judgeDeviceId) {
+        const bound = await prisma.judge.updateMany({ where: { id: account.id, judgeDeviceId: null }, data: { judgeDeviceId: deviceId } });
+        if (!bound.count) {
+          const current = await prisma.judge.findUnique({ where: { id: account.id }, select: { judgeDeviceId: true } });
+          if (current?.judgeDeviceId !== deviceId) return res.status(409).json({ error: 'حساب المحكم مربوط بجهاز آخر. اطلب من الأدمن إعادة فتح الجهاز.', code: 'JUDGE_DEVICE_LOCKED' });
+        }
+      }
+    }
+
     const user = role === 'judge'
       ? { id: account.id, name: account.name, username: account.username, role }
       : { id: account.id, username: account.username, role };
-    res.json({ token: signToken({ ...user, authVersion: account.authVersion }), user });
+    res.json({ token: signToken({ ...user, authVersion: account.authVersion, ...(role === 'judge' ? { deviceId } : {}) }), user });
   } catch (err) {
     if (err.statusCode === 400 || err.status === 400) return res.status(400).json({ error: err.message });
     req.log.error({ err, role }, 'role login failed');
