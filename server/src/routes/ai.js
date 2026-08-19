@@ -10,7 +10,8 @@ import { validate, zString } from '../middleware/validate.js';
 import { z } from 'zod';
 import { getFestivalContext } from '../aiContext.js';
 import { requestAiProvider, streamAiProvider } from '../aiGateway.js';
-import { checkGpuHealth, AI_GPU_SERVER_URL } from '../gpuService.js';
+import { checkGpuHealth, getGpuStatus, startGpuInstance, AI_GPU_SERVER_URL } from '../gpuService.js';
+import logger from '../logger.js';
 
 const router = Router();
 router.use(requireRole(['team', 'admin']));
@@ -40,6 +41,42 @@ router.get('/health', async (req, res) => {
       success: false,
       ready: false,
       error: err.message || 'تعذر الاتصال بسيرفر الذكاء الاصطناعي',
+    });
+  }
+});
+
+// ─── GPU Server Status (Teams & Admins) ───
+router.get('/gpu-status', async (req, res) => {
+  try {
+    const [statusResult, healthResult] = await Promise.all([
+      getGpuStatus(),
+      checkGpuHealth(),
+    ]);
+
+    res.json({
+      success: true,
+      ...statusResult,
+      health: healthResult,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Failed to get GPU status for user');
+    res.status(500).json({
+      success: false,
+      error: err.message || 'فشل في استعلام حالة سيرفر الـ GPU',
+    });
+  }
+});
+
+// ─── GPU Server Wake/Start (Teams & Admins) ───
+router.post('/gpu-start', async (req, res) => {
+  try {
+    const result = await startGpuInstance();
+    res.json(result);
+  } catch (err) {
+    logger.error({ err }, 'Failed to start GPU instance for user');
+    res.status(500).json({
+      success: false,
+      error: err.message || 'فشل في تشغيل سيرفر الـ GPU',
     });
   }
 });
