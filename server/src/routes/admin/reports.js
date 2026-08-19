@@ -3,6 +3,10 @@ import path from 'path';
 import { Router } from 'express';
 import prisma from '../../db.js';
 import { deleteFromGoogleDrive } from '../../backup-exporter.js';
+import { getReportDriveLocations } from '../../uploadSecurity.js';
+import { isHuggingFaceReportsConfigured, deleteReportFromHuggingFace } from '../../huggingfaceReports.js';
+import { requestDataBackup } from '../../backupScheduler.js';
+import { requestGithubBackup } from '../../githubBackup.js';
 import { validate, zId } from '../../middleware/validate.js';
 import { parsePagination, paginatedResponse } from '../../pagination.js';
 
@@ -43,7 +47,10 @@ router.delete('/reports/:id', validate({ params: { id: zId('التقرير') } }
     const reportId = req.params.id;
     const report = await prisma.report.findUnique({
       where: { id: reportId },
-      include: { team: { select: safeTeamSelect } }
+      include: {
+        team: { select: safeTeamSelect },
+        competition: { select: { name: true } },
+      }
     });
 
     if (report) {
@@ -55,13 +62,27 @@ router.delete('/reports/:id', validate({ params: { id: zId('التقرير') } }
           try { fs.unlinkSync(fp); } catch (_) { }
         }
 
-        if (report.team) {
-          const safeFolderName = `Team_${report.team.username}_${report.team.label.replace(/[/\\?%*:|"<>]/g, '_')}`;
-          deleteFromGoogleDrive(fileName, `03_TEAMS_DATA/${safeFolderName}/reports`, 'delete_file').catch(() => { });
+      }
+
+      if (report.team) {
+        if (isHuggingFaceReportsConfigured()) {
+          await deleteReportFromHuggingFace({ team: report.team, report });
+        } else {
+          const locations = getReportDriveLocations({
+            team: report.team,
+            competitionName: report.competition?.name || report.competitionId || 'مسابقة',
+            report,
+          });
+          const results = await Promise.all(locations.map(location => deleteFromGoogleDrive(location.fileName, location.folderPath)));
+          if (results.some(result => result === null)) {
+            req.log.warn({ reportId, locations }, 'some Google Drive report deletions failed');
+          }
         }
       }
 
       await prisma.report.delete({ where: { id: reportId } });
+      if (isHuggingFaceReportsConfigured()) requestGithubBackup({ reason: 'admin-report-deleted' });
+      else requestDataBackup({ reason: 'admin-report-deleted' });
     }
 
     res.json({ success: true, message: 'تم حذف التقرير والملف بنجاح' });

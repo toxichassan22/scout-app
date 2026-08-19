@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { LogOut, Newspaper, Trophy, Users, UserCheck, Shield, ShieldAlert, FileText, Award, Calendar, RefreshCw, Snowflake, Database, QrCode, Sparkles, Cpu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getAdminLeaderboard, getAdminTeams, getAdminJudges, getAdminReports, triggerEmergencyFreeze, triggerCleanSlate, apiFetch, triggerGithubBackup, getLeaderboardVisibility, setLeaderboardVisibility, getGpuStatus } from '../../services/api';
+import { getAdminLeaderboard, getAdminTeams, getAdminJudges, getAdminReports, triggerEmergencyFreeze, triggerCleanSlate, apiFetch, triggerGithubBackup, syncHuggingFaceReports, getLeaderboardVisibility, setLeaderboardVisibility, getGpuStatus } from '../../services/api';
 
 const Dashboard = () => {
   const { logout, user } = useAuth();
@@ -18,6 +18,7 @@ const Dashboard = () => {
   const [leaderboardVisible, setLeaderboardVisible] = useState(false);
   const [backupLoading, setBackupLoading] = useState(false);
   const [githubBackupLoading, setGithubBackupLoading] = useState(false);
+  const [huggingFaceLoading, setHuggingFaceLoading] = useState(false);
   const [cleanSlateLoading, setCleanSlateLoading] = useState(false);
   const [gpuState, setGpuState] = useState('unknown');
 
@@ -104,6 +105,19 @@ const Dashboard = () => {
       }
     } finally {
       setBackupLoading(false);
+    }
+  };
+
+  const handleHuggingFaceSync = async () => {
+    if (!confirm('سيتم رفع التقارير الحالية فقط إلى مستودع Hugging Face العام واستبدال النسخ بنفس المسارات. هل تريد المتابعة؟')) return;
+    try {
+      setHuggingFaceLoading(true);
+      const result = await syncHuggingFaceReports();
+      alert(result.skipped ? 'Hugging Face غير مفعل في إعدادات السيرفر.' : `تمت مزامنة ${result.synced} تقريراً، وتخطي ${result.skipped} بدون تغيير.`);
+    } catch (error) {
+      alert(error.message || 'فشل مزامنة التقارير إلى Hugging Face');
+    } finally {
+      setHuggingFaceLoading(false);
     }
   };
 
@@ -249,6 +263,16 @@ const Dashboard = () => {
             >
               <Database size={16} />
               {githubBackupLoading ? 'جارٍ مزامنة النسخة الخاصة...' : 'مزامنة GitHub Private'}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleHuggingFaceSync}
+              disabled={huggingFaceLoading}
+              className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs font-black text-amber-300 transition hover:bg-amber-500/20 disabled:opacity-50"
+            >
+              <Database size={16} />
+              {huggingFaceLoading ? 'جارٍ رفع التقارير إلى HF...' : 'مزامنة التقارير إلى HF'}
             </button>
 
             <button

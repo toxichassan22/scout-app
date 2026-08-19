@@ -6,13 +6,16 @@ import multer from 'multer';
 import logger from '../logger.js';
 import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
-import { queueUploadToGoogleDrive } from '../backup-exporter.js';
-import { MAX_UPLOAD_BYTES, safeDriveFileName, safeStoredName, validateBase64Upload, validateBufferUpload, UPLOAD_TYPES } from '../uploadSecurity.js';
+import { deleteFromGoogleDrive, queueUploadToGoogleDrive } from '../backup-exporter.js';
+import { getReportDriveLocations, MAX_UPLOAD_BYTES, safeStoredName, validateBase64Upload, validateBufferUpload, UPLOAD_TYPES } from '../uploadSecurity.js';
+import { isHuggingFaceReportsConfigured, syncReportToHuggingFace } from '../huggingfaceReports.js';
 import { isEmergencyFrozen } from '../freeze.js';
 import { validate, zString, zId } from '../middleware/validate.js';
 import { idempotent } from '../middleware/idempotent.js';
 import { parsePagination, paginatedResponse } from '../pagination.js';
 import { OFFICIAL_REPORT_IDS, resolveOfficialReportId } from '../reportCatalog.js';
+import { requestDataBackup } from '../backupScheduler.js';
+import { requestGithubBackup } from '../githubBackup.js';
 
 const router = Router();
 
@@ -115,8 +118,7 @@ async function finalizeReport(req, res, { title, content, competitionId, storedN
 
   const validCompId = competition.id;
   const displayName = fileName || storedName;
-  const driveFileName = safeDriveFileName(competition.name, displayName, storedName);
-
+  const team = await prisma.team.findUnique({ where: { id: req.user.id }, select: { id: true, username: true, label: true } });
   const existingReport = await prisma.report.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: validCompId } } });
   let report;
   try {
@@ -129,15 +131,21 @@ async function finalizeReport(req, res, { title, content, competitionId, storedN
   }
   if (existingReport?.fileUrl && existingReport.fileUrl !== fileUrl) await removeStoredFile(existingReport.fileUrl);
 
-  // Google Drive Cloud Upload (queued with concurrency limit)
+  const useHuggingFace = isHuggingFaceReportsConfigured();
+  const driveLocation = getReportDriveLocations({ team, competitionName: competition.name, report })[0];
+  if (existingReport && !useHuggingFace) {
+    const currentLocationKey = `${driveLocation.folderPath}/${driveLocation.fileName}`;
+    const oldLocations = getReportDriveLocations({ team, competitionName: competition.name, report: existingReport })
+      .filter(location => `${location.folderPath}/${location.fileName}` !== currentLocationKey);
+    await Promise.allSettled(oldLocations.map(location => deleteFromGoogleDrive(location.fileName, location.folderPath)));
+  }
   (async () => {
+    const diskPath = path.join(uploadsDir, storedName);
     try {
-      const team = await prisma.team.findUnique({ where: { id: req.user.id } });
-      const teamLabel = (team?.label || team?.username || req.user.username || 'فريق').replace(/[/\\?%*:|"<>]/g, '_');
-      const folderPath = `الفرق_الكشفية/${teamLabel}/التقارير_المرفوعة`;
-
-      const diskPath = path.join(uploadsDir, storedName);
-      try {
+      if (useHuggingFace) {
+        const result = await syncReportToHuggingFace({ team, competitionName: competition.name, report, filePath: diskPath, previousReport: existingReport });
+        req.log.info({ storedName, filePath: result.filePath, skipped: result.skipped }, 'report synced to Hugging Face');
+      } else {
         const ext = path.extname(storedName).toLowerCase();
         let mimeType = 'application/pdf';
         if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
@@ -145,16 +153,16 @@ async function finalizeReport(req, res, { title, content, competitionId, storedN
         else if (ext === '.mp4') mimeType = 'video/mp4';
         else if (ext === '.zip') mimeType = 'application/zip';
         else if (ext === '.txt') mimeType = 'text/plain';
-
-        const uploadRes = await queueUploadToGoogleDrive(driveFileName, mimeType, diskPath, folderPath);
-        req.log.info({ storedName, driveFileName, folderPath, result: uploadRes?.result }, 'report uploaded to Google Drive');
-      } catch (error) {
-        if (error.code !== 'ENOENT') throw error;
+        const result = await queueUploadToGoogleDrive(driveLocation.fileName, mimeType, diskPath, driveLocation.folderPath);
+        req.log.info({ storedName, driveFileName: driveLocation.fileName, folderPath: driveLocation.folderPath, result: result?.result }, 'report uploaded to Google Drive');
       }
-    } catch (driveErr) {
-      req.log.error({ driveErr }, 'report Google Drive upload failed');
+    } catch (error) {
+      if (error.code !== 'ENOENT') req.log.error({ error }, useHuggingFace ? 'report Hugging Face upload failed' : 'report Google Drive upload failed');
     }
   })();
+  const backupReason = existingReport ? 'report-replaced' : 'report-uploaded';
+  if (useHuggingFace) requestGithubBackup({ reason: backupReason });
+  else requestDataBackup({ reason: backupReason });
 
   if (req.io) {
     req.io.to('admin').emit('admin:report:new', { reportId: report.id });
@@ -273,6 +281,20 @@ router.patch('/:id', authenticateToken, requireRole(['team']), rejectFileUrl, va
   try { validateReportFields({ title, content, fileName }); } catch (error) { return res.status(error.status).json({ error: error.message }); }
   if (await isEmergencyFrozen()) return res.status(423).json({ error: 'تم إيقاف العمليات مؤقتاً', frozen: true });
   const report = await prisma.report.update({ where: { id: existing.id }, data: { ...(title !== undefined && { title }), ...(content !== undefined && { content }), ...(fileName !== undefined && { fileName: String(fileName).slice(0, 255) }), uploadedAt: new Date() } });
+  if (isHuggingFaceReportsConfigured()) {
+    const team = await prisma.team.findUnique({ where: { id: req.user.id }, select: { id: true, username: true, label: true } });
+    const competition = await prisma.competition.findUnique({ where: { id: report.competitionId }, select: { name: true } });
+    syncReportToHuggingFace({
+      team,
+      competitionName: competition?.name || report.competitionId,
+      report,
+      filePath: path.join(uploadsDir, path.basename(report.fileUrl)),
+      previousReport: existing,
+    }).catch(error => req.log.error({ error }, 'report metadata Hugging Face sync failed'));
+    requestGithubBackup({ reason: 'report-updated' });
+  } else {
+    requestDataBackup({ reason: 'report-updated' });
+  }
   res.json({ success: true, report });
 });
 

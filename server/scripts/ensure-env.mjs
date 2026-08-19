@@ -181,9 +181,21 @@ for (const [key, alias] of BACKUP_KEYS) {
     if (value) upsertEnv(lines, key, value);
 }
 
+const HF_KEYS = [
+    ['HF_REPORTS_REPO', 'HF_REPORTS_REPO'],
+    ['HF_REPORTS_TOKEN', 'HF_REPORTS_TOKEN'],
+    ['HF_REPORTS_REVISION', 'HF_REPORTS_REVISION'],
+    ['HF_REPORTS_PREFIX', 'HF_REPORTS_PREFIX'],
+];
+for (const [key, alias] of HF_KEYS) {
+    const value = process.env[alias] || readEnvValue(lines, key);
+    if (value) upsertEnv(lines, key, value);
+}
+
 const githubBackupReady = Boolean(readEnvValue(lines, 'GITHUB_BACKUP_REPO') && readEnvValue(lines, 'GITHUB_BACKUP_TOKEN'));
 const driveBackupReady = Boolean(readEnvValue(lines, 'GDRIVE_WEBHOOK_URL'));
-console.log(`[ensure-env] off-box backups — private repo: ${githubBackupReady ? 'configured' : 'MISSING'}, google drive: ${driveBackupReady ? 'configured' : 'MISSING'}`);
+const huggingFaceReportsReady = Boolean(readEnvValue(lines, 'HF_REPORTS_REPO') && readEnvValue(lines, 'HF_REPORTS_TOKEN'));
+console.log(`[ensure-env] off-box backups — private repo: ${githubBackupReady ? 'configured' : 'MISSING'}, google drive: ${driveBackupReady ? 'configured' : 'MISSING'}, Hugging Face reports: ${huggingFaceReportsReady ? 'configured' : 'MISSING'}`);
 
 if (!githubBackupReady) {
     // Name what is absent, so a wrong or missing repository setting is obvious from

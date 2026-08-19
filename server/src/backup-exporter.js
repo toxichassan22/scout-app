@@ -13,6 +13,8 @@ import {
   sqliteFileUrl,
   timestampForFilename,
 } from '../scripts/sqlite-operations-lib.mjs';
+import { getReportDriveLocations } from './uploadSecurity.js';
+import { isHuggingFaceReportsConfigured } from './huggingfaceReports.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,9 +30,26 @@ const GDRIVE_UPLOAD_MAX_RETRIES = Math.max(0, Number(process.env.GDRIVE_UPLOAD_M
 // which is wasteful and slow once a festival has real data. Content hashes of what
 // was last uploaded let unchanged files be skipped.
 const MANIFEST_PATH = path.join(BACKUP_ROOT, 'upload-manifest.json');
+const driveLocks = new Map();
+let fullBackupPromise;
 
 function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
+function driveMimeType(fileName) {
+  const extension = path.extname(fileName).toLowerCase();
+  return {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.mp4': 'video/mp4',
+    '.zip': 'application/zip',
+    '.rar': 'application/x-rar-compressed',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.txt': 'text/plain',
+  }[extension] || 'application/pdf';
 }
 
 async function readUploadManifest() {
@@ -55,8 +74,9 @@ async function writeUploadManifest(manifest) {
  * Upload only when the content differs from what the manifest recorded. The key is
  * the destination path, so renaming or moving a file still uploads it.
  */
-async function uploadIfChanged(manifest, stats, fileName, mimeType, buffer, folderPath) {
+async function uploadIfChanged(manifest, stats, fileName, mimeType, buffer, folderPath, activeKeys) {
   const key = `${folderPath}/${fileName}`;
+  activeKeys?.add(key);
   const digest = sha256(buffer);
   if (manifest.files[key] === digest) {
     stats.skipped += 1;
@@ -73,24 +93,75 @@ async function uploadIfChanged(manifest, stats, fileName, mimeType, buffer, fold
   return result;
 }
 
-/**
- * Upload a file buffer to Google Drive with structured subfolder path support.
- * The buffer is converted to base64 only for the outbound webhook request.
- */
-export async function uploadToGoogleDrive(fileName, mimeType, fileBuffer, folderPath = '') {
-  if (!GDRIVE_WEBHOOK_URL) return { skipped: true, reason: 'GDRIVE_WEBHOOK_URL is not configured' };
-  try {
-    const fileData = fileBuffer.toString('base64');
-    const body = JSON.stringify({ fileName, mimeType, fileData, bufferBase64: fileData, folderPath });
-    const headers = { 'Content-Type': 'application/json' };
-    if (GDRIVE_BEARER) headers.Authorization = `Bearer ${GDRIVE_BEARER}`;
-    if (GDRIVE_SIGNING_SECRET) headers['X-Webhook-Signature'] = crypto.createHmac('sha256', GDRIVE_SIGNING_SECRET).update(body).digest('hex');
-    const response = await fetch(GDRIVE_WEBHOOK_URL, { method: 'POST', headers, body, redirect: 'follow' });
-    if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      throw new Error(`Drive webhook returned HTTP ${response.status}: ${errText.slice(0, 100)}`);
+async function pruneStaleReportUploads(manifest, activeReportKeys, stats) {
+  const staleKeys = Object.keys(manifest.files).filter(key => key.includes('/التقارير_المرفوعة/') && !activeReportKeys.has(key));
+  for (const key of staleKeys) {
+    const separator = key.lastIndexOf('/');
+    if (separator <= 0 || separator === key.length - 1) continue;
+    const folderPath = key.slice(0, separator);
+    const fileName = key.slice(separator + 1);
+    const result = await deleteFromGoogleDrive(fileName, folderPath);
+    if (result && !result.skipped) {
+      delete manifest.files[key];
+      stats.deleted = (stats.deleted || 0) + 1;
     }
-    return await response.json().catch(() => ({ status: 'success' }));
+  }
+}
+
+function withDriveLock(key, operation) {
+  const previous = driveLocks.get(key) || Promise.resolve();
+  const current = previous.catch(() => {}).then(operation);
+  driveLocks.set(key, current);
+  return current.finally(() => {
+    if (driveLocks.get(key) === current) driveLocks.delete(key);
+  });
+}
+
+async function postDrivePayload(payload, description) {
+  const body = JSON.stringify(payload);
+  const headers = { 'Content-Type': 'application/json' };
+  if (GDRIVE_BEARER) headers.Authorization = `Bearer ${GDRIVE_BEARER}`;
+  if (GDRIVE_SIGNING_SECRET) headers['X-Webhook-Signature'] = crypto.createHmac('sha256', GDRIVE_SIGNING_SECRET).update(body).digest('hex');
+  const response = await fetch(GDRIVE_WEBHOOK_URL, { method: 'POST', headers, body, redirect: 'follow' });
+  const responseText = await response.text().catch(() => '');
+  let responseBody = {};
+  try {
+    responseBody = responseText ? JSON.parse(responseText) : {};
+  } catch {
+    responseBody = {};
+  }
+  if (!response.ok) {
+    throw new Error(`${description}: Drive webhook returned HTTP ${response.status}: ${responseBody.message || responseText.slice(0, 100)}`);
+  }
+  return responseBody;
+}
+
+async function requestDriveDelete(fileName, folderPath, action = 'delete_file') {
+  return postDrivePayload({ action, fileName, folderPath }, `${action} ${folderPath}/${fileName}`);
+}
+
+export async function uploadToGoogleDrive(fileName, mimeType, fileBuffer, folderPath = '', { replaceExisting = true } = {}) {
+  if (isHuggingFaceReportsConfigured()) return { skipped: true, reason: 'Hugging Face reports storage is active' };
+  if (!GDRIVE_WEBHOOK_URL) return { skipped: true, reason: 'GDRIVE_WEBHOOK_URL is not configured' };
+  const key = `${folderPath}/${fileName}`;
+  try {
+    return await withDriveLock(key, async () => {
+      if (replaceExisting) {
+        await requestDriveDelete(fileName, folderPath).catch(err => {
+          console.warn(`[Google Drive Replace] Could not remove ${key} before upload:`, err.message);
+        });
+      }
+      const fileData = fileBuffer.toString('base64');
+      return postDrivePayload({
+        fileName,
+        mimeType,
+        fileData,
+        bufferBase64: fileData,
+        folderPath,
+        replaceExisting,
+        idempotencyKey: key,
+      }, `upload ${key}`);
+    });
   } catch (err) {
     console.error(`[Google Drive Error] Failed to upload ${fileName}:`, err.message);
     throw err;
@@ -173,27 +244,37 @@ export async function startUploadWorkers() {
 }
 
 export async function queueUploadToGoogleDrive(fileName, mimeType, filePath, folderPath = '') {
+  if (isHuggingFaceReportsConfigured()) return { skipped: true, reason: 'Hugging Face reports storage is active' };
   if (!GDRIVE_WEBHOOK_URL) return { skipped: true, reason: 'GDRIVE_WEBHOOK_URL is not configured' };
+  const pending = await prisma.pendingUpload.findFirst({
+    where: { fileName, folderPath, status: 'pending' },
+    orderBy: { createdAt: 'asc' },
+  });
+  if (pending) {
+    await prisma.pendingUpload.update({
+      where: { id: pending.id },
+      data: { filePath, mimeType, retryCount: 0, nextAttemptAt: new Date(), leasedUntil: null },
+    });
+    startUploadWorkers();
+    return { queued: true, coalesced: true };
+  }
   await prisma.pendingUpload.create({
     data: { fileName, filePath, mimeType, folderPath, status: 'pending', retryCount: 0, nextAttemptAt: new Date() },
   });
   startUploadWorkers();
+  return { queued: true, coalesced: false };
 }
 
 /**
  * Delete / Trash a file or team folder from Google Drive via Webhook
  */
 export async function deleteFromGoogleDrive(fileName = '', folderPath = '', action = 'delete_file') {
+  if (isHuggingFaceReportsConfigured()) return { skipped: true, reason: 'Hugging Face reports storage is active' };
   if (!GDRIVE_WEBHOOK_URL) return { skipped: true, reason: 'GDRIVE_WEBHOOK_URL is not configured' };
+  const key = `${folderPath}/${fileName}`;
   try {
-    const body = JSON.stringify({ action, fileName, folderPath });
-    const headers = { 'Content-Type': 'application/json' };
-    if (GDRIVE_BEARER) headers.Authorization = `Bearer ${GDRIVE_BEARER}`;
-    if (GDRIVE_SIGNING_SECRET) headers['X-Webhook-Signature'] = crypto.createHmac('sha256', GDRIVE_SIGNING_SECRET).update(body).digest('hex');
-    const response = await fetch(GDRIVE_WEBHOOK_URL, { method: 'POST', headers, body });
-    if (!response.ok) throw new Error(`Drive webhook returned HTTP ${response.status}`);
-    const result = await response.json().catch(() => ({}));
-    console.log(`[Google Drive Delete Sync] ${action} ${folderPath ? folderPath + '/' : ''}${fileName}:`, result.result);
+    const result = await withDriveLock(key, () => requestDriveDelete(fileName, folderPath, action));
+    console.log(`[Google Drive Delete Sync] ${action} ${folderPath ? folderPath + '/' : ''}${fileName}:`, result?.result);
     return result;
   } catch (err) {
     console.error(`[Google Drive Delete Error] Failed to delete ${fileName}:`, err.message);
@@ -253,7 +334,7 @@ export async function createVerifiedSqliteSnapshot({ destinationDirectory = path
   }
 }
 
-export async function generateFullBackup() {
+async function runFullBackup() {
   let snapshotPath;
   try {
     const timestamp = timestampForFilename();
@@ -271,7 +352,9 @@ export async function generateFullBackup() {
     ]);
 
     const manifest = await readUploadManifest();
-    const stats = { uploaded: 0, skipped: 0, uploadedBytes: 0, skippedBytes: 0 };
+    const stats = { uploaded: 0, skipped: 0, deleted: 0, uploadedBytes: 0, skippedBytes: 0 };
+    const activeReportKeys = new Set();
+    const driveReportsEnabled = !isHuggingFaceReportsConfigured();
 
     const snapshot = await createVerifiedSqliteSnapshot({ destinationDirectory: dbBackupDir, filePrefix: 'dev-backup' });
     snapshotPath = snapshot.snapshotPath;
@@ -305,6 +388,7 @@ export async function generateFullBackup() {
     });
 
     const competitions = await prisma.competition.findMany();
+    const competitionsById = new Map(competitions.map(competition => [competition.id, competition]));
 
     // Calculate Summary & Leaderboard
     const leaderboard = teams.map(team => {
@@ -369,19 +453,19 @@ export async function generateFullBackup() {
       await uploadIfChanged(manifest, stats, `بيانات_ودرجات_${safeTeamName}.json`, 'application/json', teamDataBuffer, `الفرق_الكشفية/${safeTeamName}`);
 
       // Copy & Upload Team PDF/Video Reports if exists
-      if (team.reports && team.reports.length > 0) {
+      if (driveReportsEnabled && team.reports && team.reports.length > 0) {
         for (const report of team.reports) {
           if (report.fileUrl) {
             const fileNameOnly = path.basename(report.fileUrl);
             const sourceFilePath = path.join(uploadsSourceDir, fileNameOnly);
             try {
               await access(sourceFilePath);
-              const safeReportName = `${String(report.title || 'تقرير').replace(/[/\\?%*:|"<>]/g, '_')}_${fileNameOnly}`;
               const reportBuffer = await readFile(sourceFilePath);
-              await writeFile(path.join(teamReportsFolderPath, safeReportName), reportBuffer);
+              const competitionName = competitionsById.get(report.competitionId)?.name || report.competitionId || 'مسابقة';
+              const driveLocation = getReportDriveLocations({ team, competitionName, report })[0];
+              await writeFile(path.join(teamReportsFolderPath, driveLocation.fileName), reportBuffer);
 
-              // Upload Team Report to Google Drive folder: الفرق_الكشفية/اسم_الفريق/التقارير_المرفوعة
-              await uploadIfChanged(manifest, stats, safeReportName, 'application/pdf', reportBuffer, `الفرق_الكشفية/${safeTeamName}/التقارير_المرفوعة`);
+              await uploadIfChanged(manifest, stats, driveLocation.fileName, driveMimeType(fileNameOnly), reportBuffer, driveLocation.folderPath, activeReportKeys);
             } catch (fileError) {
               if (fileError.code !== 'ENOENT') throw fileError;
             }
@@ -390,9 +474,10 @@ export async function generateFullBackup() {
       }
     }
 
+    if (driveReportsEnabled) await pruneStaleReportUploads(manifest, activeReportKeys, stats);
     await writeUploadManifest(manifest);
 
-    console.log(`[Backup] completed: uploaded ${stats.uploaded}, unchanged ${stats.skipped}`);
+    console.log(`[Backup] completed: uploaded ${stats.uploaded}, unchanged ${stats.skipped}, deleted ${stats.deleted}`);
     return {
       success: true,
       timestamp,
@@ -401,6 +486,7 @@ export async function generateFullBackup() {
       gdriveSynced: Boolean(GDRIVE_WEBHOOK_URL),
       uploaded: stats.uploaded,
       unchanged: stats.skipped,
+      deleted: stats.deleted,
       uploadedBytes: stats.uploadedBytes,
       savedBytes: stats.skippedBytes,
     };
@@ -410,6 +496,14 @@ export async function generateFullBackup() {
     console.error('[Backup Error]:', err);
     return { success: false, error: err.message };
   }
+}
+
+export function generateFullBackup() {
+  if (fullBackupPromise) return fullBackupPromise;
+  fullBackupPromise = runFullBackup().finally(() => {
+    fullBackupPromise = undefined;
+  });
+  return fullBackupPromise;
 }
 
 // Allow CLI standalone execution

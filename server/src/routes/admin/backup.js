@@ -1,5 +1,8 @@
+import path from 'node:path';
 import { Router } from 'express';
+import prisma from '../../db.js';
 import { generateFullBackup } from '../../backup-exporter.js';
+import { isHuggingFaceReportsConfigured, syncReportsToHuggingFace } from '../../huggingfaceReports.js';
 import { syncGithubBackup } from '../../githubBackup.js';
 
 const router = Router();
@@ -18,6 +21,27 @@ router.post('/backup/github', async (req, res) => {
   } catch (err) {
     req.log.error({ err }, 'admin GitHub backup trigger failed');
     res.status(500).json({ success: false, error: 'فشل في مزامنة النسخة الخاصة', requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
+});
+
+router.post('/backup/huggingface-reports', async (req, res) => {
+  if (!isHuggingFaceReportsConfigured()) {
+    return res.status(503).json({ success: false, error: 'Hugging Face reports storage is not configured' });
+  }
+  try {
+    const reports = await prisma.report.findMany({
+      where: { fileUrl: { not: '' } },
+      include: {
+        team: { select: { id: true, username: true, label: true } },
+        competition: { select: { name: true } },
+      },
+      orderBy: { uploadedAt: 'asc' },
+    });
+    const result = await syncReportsToHuggingFace(reports, path.join(process.cwd(), 'uploads'));
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, 'admin Hugging Face reports sync failed');
+    res.status(500).json({ success: false, error: 'فشل في مزامنة التقارير إلى Hugging Face' });
   }
 });
 

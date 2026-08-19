@@ -79,6 +79,34 @@ export function safeDriveFileName(competitionName, originalName, storedName) {
     return `${safeDriveNamePart(competitionName, 'مسابقة')} - ${safeDriveNamePart(readableBase, 'report')} - ${safeDriveNamePart(uniqueBase, 'report')}${ext}`;
 }
 
+export function safeDriveTeamName(team) {
+    return String(team?.label || team?.username || team?.id || 'فريق').replace(/[/\\?%*:|"<>]/g, '_');
+}
+
+export function reportDriveFolderPath(team) {
+    return `الفرق_الكشفية/${safeDriveTeamName(team)}/التقارير_المرفوعة`;
+}
+
+export function safeDriveReportFileName(competitionName, reportId, storedName) {
+    const stored = path.basename(String(storedName || 'report.txt'));
+    const ext = path.extname(stored).toLowerCase() || '.txt';
+    return `${safeDriveNamePart(competitionName, 'مسابقة')} - report-${safeDriveNamePart(reportId, 'unknown')}${ext}`;
+}
+
+export function getReportDriveLocations({ team, competitionName, report }) {
+    const storedName = path.basename(String(report?.fileUrl || report?.fileName || 'report.txt'));
+    const originalName = path.basename(String(report?.fileName || storedName));
+    const folderPath = reportDriveFolderPath(team);
+    const legacyTeamName = `Team_${String(team?.username || 'team')}_${String(team?.label || team?.username || 'فريق').replace(/[/\\?%*:|"<>]/g, '_')}`;
+    const locations = [
+        { fileName: safeDriveReportFileName(competitionName, report?.id, storedName), folderPath },
+        { fileName: safeDriveFileName(competitionName, originalName, storedName), folderPath },
+        { fileName: `${String(report?.title || 'تقرير').replace(/[/\\?%*:|"<>]/g, '_')}_${storedName}`, folderPath },
+        { fileName: storedName, folderPath: `03_TEAMS_DATA/${legacyTeamName}/reports` },
+    ];
+    return [...new Map(locations.map(location => [`${location.folderPath}/${location.fileName}`, location])).values()];
+}
+
 export function validateBufferUpload(buffer, fileName, mimeType) {
     if (!Buffer.isBuffer(buffer) || !buffer.length || buffer.length > MAX_UPLOAD_BYTES) throw new Error('الملف فارغ أو أكبر من الحد المسموح');
     const ext = path.extname(String(fileName || '')).toLowerCase();

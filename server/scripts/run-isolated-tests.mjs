@@ -103,6 +103,10 @@ try {
     ]);
 
     await run(process.execPath, [
+        path.join(scriptDirectory, 'unit-huggingfaceReports.mjs')
+    ]);
+
+    await run(process.execPath, [
         path.join(scriptDirectory, 'unit-ensure-env.mjs')
     ]);
 
