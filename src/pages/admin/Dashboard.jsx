@@ -97,7 +97,11 @@ const Dashboard = () => {
         alert(res.error || 'حدث خطأ أثناء النسخ الاحتياطي');
       }
     } catch (e) {
-      alert('فشل في تشغيل المزامنة والنسخ الاحتياطي: ' + (e.message || ''));
+      if (e.status === 409) {
+        alert(e.message || 'النسخ الاحتياطي يعمل بالفعل، انتظر حتى يكتمل.');
+      } else {
+        alert('فشل في تشغيل المزامنة والنسخ الاحتياطي: ' + (e.message || ''));
+      }
     } finally {
       setBackupLoading(false);
     }
