@@ -1,6 +1,6 @@
 ALTER TABLE "Judge" ADD COLUMN "judgeDeviceId" TEXT;
 
-CREATE TABLE IF NOT EXISTS "JudgeTeamClaim" (
+CREATE TABLE "JudgeTeamClaim" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "competitionId" TEXT NOT NULL,
     "teamId" TEXT NOT NULL,
@@ -13,6 +13,6 @@ CREATE TABLE IF NOT EXISTS "JudgeTeamClaim" (
     CONSTRAINT "JudgeTeamClaim_judgeId_fkey" FOREIGN KEY ("judgeId") REFERENCES "Judge" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS "JudgeTeamClaim_competitionId_teamId_key" ON "JudgeTeamClaim"("competitionId", "teamId");
-CREATE INDEX IF NOT EXISTS "JudgeTeamClaim_judgeId_competitionId_idx" ON "JudgeTeamClaim"("judgeId", "competitionId");
-CREATE INDEX IF NOT EXISTS "JudgeTeamClaim_expiresAt_idx" ON "JudgeTeamClaim"("expiresAt");
+CREATE UNIQUE INDEX "JudgeTeamClaim_competitionId_teamId_key" ON "JudgeTeamClaim"("competitionId", "teamId");
+CREATE INDEX "JudgeTeamClaim_judgeId_competitionId_idx" ON "JudgeTeamClaim"("judgeId", "competitionId");
+CREATE INDEX "JudgeTeamClaim_expiresAt_idx" ON "JudgeTeamClaim"("expiresAt");
