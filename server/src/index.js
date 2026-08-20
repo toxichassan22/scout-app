@@ -233,15 +233,15 @@ export async function startServer(port = PORT) {
   }
   try {
     await prisma.agendaItem.updateMany({
-      where: { title: { in: ['تكملة المجال الرياضي', 'تكمية المجال الرياضي'] } },
-      data: { title: 'المجال الرياضي' },
+      where: { id: 'agenda-official-11' },
+      data: { title: 'تكملة المجال الرياضي' },
     });
     await prisma.competition.updateMany({
-      where: { name: { in: ['تكملة المجال الرياضي', 'تكمية المجال الرياضي'] } },
-      data: { name: 'المجال الرياضي' },
+      where: { id: 'comp-schedule-11' },
+      data: { name: 'تكملة المجال الرياضي' },
     });
   } catch (err) {
-    logger.warn({ err }, 'failed to normalize sports agenda title');
+    logger.warn({ err }, 'failed to preserve sports continuation title');
   }
   try {
     await ensureActivityCatalog();

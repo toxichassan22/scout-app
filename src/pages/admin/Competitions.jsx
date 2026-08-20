@@ -50,9 +50,10 @@ const AdminCompetitions = () => {
     try {
       const [rows, agenda] = await Promise.all([getAdminCompetitions(), getAgenda()]);
       const validRows = Array.isArray(rows) ? rows : (rows?.items || rows?.data || []);
-      setCompetitions(validRows);
+      const scheduledRows = validRows.filter(item => item?.schedule);
+      setCompetitions(scheduledRows);
       setZones(Array.isArray(agenda?.zones) ? agenda.zones : (Array.isArray(agenda) ? agenda : []));
-      setDrafts(Object.fromEntries(validRows.map(item => {
+      setDrafts(Object.fromEntries(scheduledRows.map(item => {
         const schedule = item?.schedule || {};
         return [item.id, {
           name: item?.name || '',

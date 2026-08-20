@@ -4,7 +4,7 @@ import { OFFICIAL_AGENDA, OFFICIAL_AGENDA_IDS, OFFICIAL_ZONES } from '../src/age
 import { syncOfficialCompetitionAgendaLinks, syncOfficialReportCatalog } from '../src/reportCatalog.js';
 
 const SYNC_KEY = 'official_agenda_version';
-const SYNC_VERSION = '20260810-program-v6-competition-catalog';
+const SYNC_VERSION = '20260820-final-program-v2';
 const explicitlyAllowed = process.env.SYNC_OFFICIAL_AGENDA === 'true';
 const festivalDate = process.env.FESTIVAL_DATE || '2026-08-21';
 

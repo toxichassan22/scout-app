@@ -47,6 +47,7 @@ Object.assign(OFFICIAL_CRITERIA_BY_SLUG, {
   exhibition: OFFICIAL_CRITERIA_BY_SLUG.report_exhibition,
   art_workshop: OFFICIAL_CRITERIA_BY_SLUG.report_art_workshop,
   knots: OFFICIAL_CRITERIA_BY_SLUG.report_knots,
+  report_knots: OFFICIAL_CRITERIA_BY_SLUG.report_knots,
   scout_model: OFFICIAL_CRITERIA_BY_SLUG.report_scout_model,
   innovation: OFFICIAL_CRITERIA_BY_SLUG.report_science_ideas,
   model_presentation: OFFICIAL_CRITERIA_BY_SLUG.report_model_presentation,
