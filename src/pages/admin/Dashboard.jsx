@@ -220,93 +220,110 @@ const Dashboard = () => {
           </div>
         </header>
 
-        {/* Control & Emergency Bar */}
-        <section className="mb-8 p-5 bg-slate-900/80 border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <ShieldAlert size={24} className="text-amber-400" />
-            <div>
-              <h2 className="text-base font-bold text-slate-100">أدوات السيطرة والمزامنة السريعة</h2>
-              <p className="text-xs text-slate-400">تجميد المهرجان في الطوارئ، المزامنة الفورية، استوديو الـ GPU، وتصفير التجارب</p>
+        {/* Sleek Admin Quick Control Center */}
+        <section className="mb-8 rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-slate-900/90 p-4 sm:p-5 backdrop-blur-md shadow-xl">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            {/* Title & Status */}
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <ShieldAlert size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-black text-slate-100">غرفة السيطرة والتحكم السريع</h2>
+                  {gpuState === 'running' && (
+                    <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      GPU متاح
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400">مفاتيح الطوارئ، لوحة الصدارة، المزامنة السحابية، وتصفير التجارب</p>
+              </div>
             </div>
-          </div>
 
-          <div className="flex items-center flex-wrap gap-3">
-            <Link
-              to="/admin/ai-studio"
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black transition border shadow-sm ${
-                gpuState === 'running'
-                  ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 shadow-emerald-500/20'
-                  : gpuState === 'pending'
-                  ? 'border-amber-500/40 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 animate-pulse'
-                  : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20'
-              }`}
-            >
-              <Sparkles size={16} />
-              <span>استوديو الذكاء الاصطناعي (GPU)</span>
-              <span className={`h-2 w-2 rounded-full ${gpuState === 'running' ? 'bg-emerald-400 animate-ping' : gpuState === 'pending' ? 'bg-amber-400' : 'bg-red-400'}`} />
-            </Link>
+            {/* Action Buttons Group */}
+            <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+              {/* Emergency Freeze Toggle */}
+              <button
+                type="button"
+                onClick={handleFreezeToggle}
+                className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition shadow-sm ${
+                  isFrozen
+                    ? 'bg-red-500 text-white shadow-red-500/30 animate-pulse ring-2 ring-red-400'
+                    : 'border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                }`}
+                title="إيقاف أو استئناف كل أنشطة الفرق والعدادات فوراً"
+              >
+                <Snowflake size={15} />
+                <span>{isFrozen ? 'المهرجان مجمّد (استئناف ▶️)' : 'تجميد الطوارئ 🚨'}</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={handleFreezeToggle}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black transition shadow-lg ${
-                isFrozen
-                  ? 'bg-amber-400 text-slate-950 shadow-amber-400/20 animate-pulse'
-                  : 'border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
-              }`}
-            >
-              <Snowflake size={16} />
-              {isFrozen ? 'استئناف المهرجان ▶️' : 'تجميد الطوارئ 🚨'}
-            </button>
+              {/* Leaderboard Visibility Toggle */}
+              <button
+                type="button"
+                onClick={handleLeaderboardVisibility}
+                className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition shadow-sm ${
+                  leaderboardVisible
+                    ? 'border border-emerald-500/40 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+                    : 'border border-slate-700 bg-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                }`}
+                title="التحكم في إظهار أو إخفاء أسماء الفرق على الشاشة الكبيرة"
+              >
+                <Trophy size={15} />
+                <span>{leaderboardVisible ? 'النتائج: ظاهرة للجمهور 👁️' : 'النتائج: مخفية 🔒'}</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={handleLeaderboardVisibility}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black transition ${leaderboardVisible ? 'bg-emerald-400 text-slate-950' : 'border border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20'}`}
-            >
-              <Trophy size={16} />
-              {leaderboardVisible ? 'إخفاء أسماء الفرق' : 'إظهار أسماء الفرق'}
-            </button>
+              {/* Cloud Sync Actions (Unified Group) */}
+              <div className="flex items-center rounded-xl border border-sky-500/25 bg-sky-500/10 p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={handleManualBackup}
+                  disabled={backupLoading}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-bold text-sky-200 transition hover:bg-sky-500/20 disabled:opacity-50"
+                  title="نسخ احتياطي فوري لقاعدة البيانات إلى السيرفر وGoogle Drive"
+                >
+                  <Database size={14} />
+                  <span>{backupLoading ? 'جارٍ النسخ...' : 'نسخ احتياطي 💾'}</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={handleGithubBackup}
-              disabled={githubBackupLoading}
-              className="flex items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2.5 text-xs font-black text-violet-300 transition hover:bg-violet-500/20 disabled:opacity-50"
-            >
-              <Database size={16} />
-              {githubBackupLoading ? 'جارٍ مزامنة النسخة الخاصة...' : 'مزامنة GitHub Private'}
-            </button>
+                <span className="h-4 w-px bg-sky-500/20 my-auto" />
 
-            <button
-              type="button"
-              onClick={handleHuggingFaceSync}
-              disabled={huggingFaceLoading}
-              className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs font-black text-amber-300 transition hover:bg-amber-500/20 disabled:opacity-50"
-            >
-              <Database size={16} />
-              {huggingFaceLoading ? 'جارٍ رفع التقارير إلى HF...' : 'مزامنة التقارير إلى HF'}
-            </button>
+                <button
+                  type="button"
+                  onClick={handleGithubBackup}
+                  disabled={githubBackupLoading}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-bold text-sky-300 transition hover:bg-sky-500/20 disabled:opacity-50"
+                  title="مزامنة التعديلات إلى مستودع GitHub الخاص"
+                >
+                  <span>{githubBackupLoading ? '...' : 'GitHub'}</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={handleManualBackup}
-              disabled={backupLoading}
-              className="flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2.5 text-xs font-black text-cyan-300 transition hover:bg-cyan-500/20 disabled:opacity-50"
-            >
-              <Database size={16} />
-              {backupLoading ? 'جارٍ النسخ...' : 'مزامنة احتياطية الآن 💾'}
-            </button>
+                <span className="h-4 w-px bg-sky-500/20 my-auto" />
 
-            <button
-              type="button"
-              onClick={handleCleanSlate}
-              disabled={cleanSlateLoading}
-              className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-xs font-black text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
-            >
-              <RefreshCw size={16} />
-              {cleanSlateLoading ? 'جارٍ المسح...' : 'تصفير تجارب الاختبار 🧹'}
-            </button>
+                <button
+                  type="button"
+                  onClick={handleHuggingFaceSync}
+                  disabled={huggingFaceLoading}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-bold text-sky-300 transition hover:bg-sky-500/20 disabled:opacity-50"
+                  title="رفع ومزامنة تقارير الفرق إلى Hugging Face"
+                >
+                  <span>{huggingFaceLoading ? '...' : 'HF'}</span>
+                </button>
+              </div>
+
+              {/* Clean Slate Button (Danger Zone - compact) */}
+              <button
+                type="button"
+                onClick={handleCleanSlate}
+                disabled={cleanSlateLoading}
+                className="flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs font-bold text-red-300/80 transition hover:border-red-500/40 hover:bg-red-500/15 hover:text-red-200 disabled:opacity-50"
+                title="تصفير ومسح كل الدرجات والتقارير التجريبية قبل بدء المهرجان الرسمي"
+              >
+                <RefreshCw size={14} className={cleanSlateLoading ? 'animate-spin' : ''} />
+                <span>{cleanSlateLoading ? 'جارٍ التصفير...' : 'تصفير التجارب 🧹'}</span>
+              </button>
+            </div>
           </div>
         </section>
 
