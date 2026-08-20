@@ -21,21 +21,25 @@ const catalogEntry = (id, slug, name, field, description) => ({
 });
 
 export const OFFICIAL_REPORT_CATALOG = [
-  catalogEntry('comp-report-catalog-01', 'report-scientific-research', 'بحث ثلاث أفكار لمبتكرات علمية', 'المجال العلمي', 'بحث وتقديم ثلاث أفكار لمبتكرات علمية.'),
-  catalogEntry('comp-report-catalog-02', 'report-ai-models', 'أحد موديلات الذكاء الاصطناعي', 'المجال العلمي', 'عرض أحد موديلات الذكاء الاصطناعي.'),
+  catalogEntry('comp-report-catalog-01', 'report-scientific-research', 'البحث العلمي', 'المجال العلمي', 'بحث علمي موثق بالمصادر والنتائج.'),
+  catalogEntry('comp-report-catalog-02', 'report-ai-models', 'موديلات الذكاء الاصطناعي', 'المجال العلمي', 'عرض أو تطبيق لنموذج من نماذج الذكاء الاصطناعي.'),
   catalogEntry('comp-report-catalog-03', 'report-smart-scout', 'الكاشف الذكي', 'المجال العلمي', 'فكرة أو نموذج ذكي يخدم العمل الكشفي.'),
   catalogEntry('comp-report-catalog-04', 'report-earth-magazine', 'المجلة الأرضية', 'المجال الكشفي', 'توثيق المجلة الأرضية ومحتواها الكشفي.'),
-  catalogEntry('comp-report-catalog-05', 'report-scout-model', 'النموذج الكشفي', 'المجال الكشفي', 'تنفيذ وعرض نموذج كشفي.'),
-  catalogEntry('comp-report-catalog-06', 'report-reels', 'عرض تقديمي كوميدي عن مهارة كشفية', 'المجال الكشفي', 'عرض تقديمي كوميدي عن مهارة كشفية.'),
-  catalogEntry('comp-report-catalog-07', 'report-campfire', 'حفل الختام والسمر', 'المجال الفني', 'حفل الختام والسمر.'),
+  catalogEntry('comp-report-catalog-05', 'report-scout-model', 'النموذج', 'المجال الكشفي', 'تنفيذ وعرض نموذج كشفي.'),
+  catalogEntry('comp-report-catalog-06', 'report-reels', 'ريلز', 'المجال الكشفي', 'فيديو قصير يوثق فكرة أو نشاطاً كشفياً.'),
+  catalogEntry('comp-report-catalog-07', 'report-campfire', 'السمر', 'المجال الفني', 'حفل الختام والسمر.'),
   catalogEntry('comp-report-catalog-08', 'report-poster', 'الملصق', 'المجال الفني', 'تصميم ملصق فني مرتبط بالكشافة.'),
-  catalogEntry('comp-report-catalog-09', 'report-exhibition', 'نصب المعرض', 'المجال الفني', 'مسابقة تجهيز ونصب المعرض الفني.'),
+  catalogEntry('comp-report-catalog-09', 'report-exhibition', 'المعرض', 'المجال الفني', 'مسابقة تجهيز ونصب المعرض الفني.'),
   catalogEntry('comp-report-catalog-10', 'report-art-workshop', 'الورشة الفنية', 'المجال الفني', 'تقرير ومخرجات الورشة الفنية.'),
+  catalogEntry('comp-report-catalog-11', 'report-video', 'الفيديو', 'المجال الثقافي', 'فيديو توثيقي موثق من الفريق.'),
   catalogEntry('comp-report-catalog-16', 'report-carnival', 'الكرنفال', 'المجال الثقافي', 'تقرير مشاركة الفريق في الكرنفال.'),
-  catalogEntry('comp-report-catalog-12', 'report-surah-al-kahf', 'تسميع القرآن', 'المجال الديني', 'تسميع وحفظ سورة الكهف.'),
-  catalogEntry('comp-report-catalog-13', 'report-hadith', 'الأحاديث', 'المجال الديني', 'تقرير حفظ وتسميع الأحاديث.'),
-  catalogEntry('comp-report-catalog-14', 'report-worksheet', 'ورقة عمل على خطى الأنبياء', 'المجال الديني', 'ورقة عمل على خطى الأنبياء.'),
-  catalogEntry('comp-report-catalog-15', 'report-tilawa', 'مهرجان التلاوة', 'المجال الديني', 'مشاركة الفريق في مهرجان التلاوة.'),
+  catalogEntry('comp-report-catalog-12', 'report-surah-al-kahf', 'سورة الكهف', 'المجال الديني', 'تقرير تسميع وحفظ سورة الكهف.'),
+  catalogEntry('comp-report-catalog-13', 'report-hadith', 'أحاديث', 'المجال الديني', 'تقرير حفظ وتسميع الأحاديث.'),
+  catalogEntry('comp-report-catalog-14', 'report-worksheet', 'ورقة عمل', 'المجال الديني', 'ورقة عمل دينية موثقة ومنظمة.'),
+  catalogEntry('comp-report-catalog-15', 'report-tilawa', 'دولة التلاوة', 'المجال الديني', 'تقرير مشاركة الفريق في دولة التلاوة.'),
+];
+
+export const OFFICIAL_JUDGE_COMPETITION_CATALOG = [
   catalogEntry('comp-report-catalog-17', 'report-knots', 'عقد وربطات', 'المجال الكشفي', 'إتقان العقد والربطات الكشفية.'),
   catalogEntry('comp-schedule-6', 'sports-1', 'المجال الرياضي', 'المجال الرياضي', 'مسابقة المجال الرياضي في الفترة الأولى.'),
   catalogEntry('comp-schedule-11', 'sports-2', 'تكملة المجال الرياضي', 'المجال الرياضي', 'تكملة مسابقة المجال الرياضي في الفترة الثانية.'),
@@ -61,17 +65,20 @@ Object.entries({
   'comp-report-21': 'comp-report-catalog-06',
   'comp-report-23': 'comp-report-catalog-15',
   'comp-report-24': 'comp-report-catalog-07',
+  video_design: 'comp-video-1',
+  'comp-video-1': 'comp-video-1',
 }).forEach(([legacyId, canonicalId]) => OFFICIAL_REPORT_ID_BY_IDENTIFIER.set(legacyId, canonicalId));
 
 export const OFFICIAL_REPORT_IDS = OFFICIAL_REPORT_CATALOG.map(report => report.id);
+export const OFFICIAL_UPLOAD_COMPETITION_IDS = [...new Set([...OFFICIAL_REPORT_IDS, 'comp-video-1'])];
 
 export function resolveOfficialReportId(identifier) {
   const value = String(identifier ?? '').trim();
   return OFFICIAL_REPORT_ID_BY_IDENTIFIER.get(value) || value;
 }
 
-export async function syncOfficialReportCatalog(prisma) {
-  for (const report of OFFICIAL_REPORT_CATALOG) {
+async function syncCompetitionCatalog(prisma, catalog) {
+  for (const report of catalog) {
     const data = { ...report };
     delete data.field;
     const { id, ...competitionData } = data;
@@ -93,6 +100,9 @@ export async function syncOfficialReportCatalog(prisma) {
     });
   }
 }
+
+export const syncOfficialReportCatalog = prisma => syncCompetitionCatalog(prisma, OFFICIAL_REPORT_CATALOG);
+export const syncOfficialJudgeCompetitionCatalog = prisma => syncCompetitionCatalog(prisma, OFFICIAL_JUDGE_COMPETITION_CATALOG);
 
 const OFFICIAL_PROGRAM_SYNC_KEY = 'official_program_version';
 export const OFFICIAL_PROGRAM_VERSION = '20260820-final-program-v2';
@@ -164,17 +174,6 @@ export async function syncOfficialProgramSchedule(prisma, { force = false } = {}
         },
       });
     }
-
-    await tx.competition.updateMany({
-      where: { id: 'comp-report-catalog-11' },
-      data: {
-        type: 'schedule_only',
-        isOpen: false,
-        passcode: null,
-        entryCode: null,
-        criteria: '[]',
-      },
-    });
 
     await tx.systemSetting.upsert({
       where: { key: OFFICIAL_PROGRAM_SYNC_KEY },

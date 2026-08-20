@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../src/db.js';
 import { OFFICIAL_AGENDA, OFFICIAL_ZONES } from '../src/agendaCanonical.js';
 import { loadArabCountries, loadTwoTruthsQuestions } from '../src/workbook.js';
-import { syncOfficialCompetitionAgendaLinks, syncOfficialReportCatalog } from '../src/reportCatalog.js';
+import { syncOfficialCompetitionAgendaLinks, syncOfficialJudgeCompetitionCatalog, syncOfficialReportCatalog } from '../src/reportCatalog.js';
 import { buildGeographyQuestions } from '../src/geographyQuestions.js';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -524,6 +524,7 @@ async function seed() {
   }
 
   await syncOfficialReportCatalog(prisma);
+  await syncOfficialJudgeCompetitionCatalog(prisma);
   await syncOfficialCompetitionAgendaLinks(prisma);
   console.log('[Seed] Core data verified with 8 zones and ' + OFFICIAL_AGENDA.length + ' complete agenda items.');
 }

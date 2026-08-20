@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
 import prisma, { databaseReady } from '../src/db.js';
 import { server, startServer } from '../src/index.js';
-import { OFFICIAL_REPORT_IDS } from '../src/reportCatalog.js';
+import { OFFICIAL_UPLOAD_COMPETITION_IDS } from '../src/reportCatalog.js';
 
 await databaseReady;
 const suffix = Date.now().toString();
@@ -48,7 +48,7 @@ try {
   let result;
 
   result = await request(base, 'GET', '/api/admin/competitions?limit=100', adminToken);
-  const reportCompetitions = JSON.parse(result.text).data.filter(competition => OFFICIAL_REPORT_IDS.includes(competition.id));
+  const reportCompetitions = JSON.parse(result.text).data.filter(competition => OFFICIAL_UPLOAD_COMPETITION_IDS.includes(competition.id));
   assert(reportCompetitions.length >= 2, 'report competitions should be available');
   const selectedCompetitionIds = reportCompetitions.slice(0, 2).map(competition => competition.id);
   result = await request(base, 'PATCH', `/api/admin/report-permissions/${team.id}/bulk`, adminToken, { competitionIds: selectedCompetitionIds, canSubmit: true });

@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import prisma, { databaseReady } from '../src/db.js';
 import { OFFICIAL_AGENDA, OFFICIAL_AGENDA_IDS, OFFICIAL_ZONES } from '../src/agendaCanonical.js';
-import { syncOfficialCompetitionAgendaLinks, syncOfficialReportCatalog } from '../src/reportCatalog.js';
+import { syncOfficialCompetitionAgendaLinks, syncOfficialJudgeCompetitionCatalog, syncOfficialReportCatalog } from '../src/reportCatalog.js';
 
 const SYNC_KEY = 'official_agenda_version';
 const SYNC_VERSION = '20260820-final-program-v2';
@@ -237,6 +237,7 @@ try {
   });
 
   await syncOfficialReportCatalog(prisma);
+  await syncOfficialJudgeCompetitionCatalog(prisma);
   await syncOfficialCompetitionAgendaLinks(prisma);
   console.log(`[agenda-sync] applied ${SYNC_VERSION}: ${OFFICIAL_AGENDA.length} agenda rows and a complete admin competition catalog.`);
 } finally {

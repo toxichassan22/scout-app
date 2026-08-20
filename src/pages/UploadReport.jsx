@@ -10,7 +10,7 @@ import { getMyReportPermissions, getMyReports, resubmitTeamReport, uploadTeamRep
 import { formatDateTime12 } from '../utils/timeFormat';
 
 const REPORT_FIELD_GROUPS = [
-  { key: 'scientific', label: 'المجال العلمي', slugs: ['report-scientific-research', 'report-ai-models', 'report-smart-scout'] },
+  { key: 'scientific', label: 'المجال العلمي', slugs: ['report-scientific-research', 'report-ai-models', 'report-smart-scout', 'video_design'] },
   { key: 'scouting', label: 'المجال الكشفي', slugs: ['report-earth-magazine', 'report-scout-model', 'report-reels'] },
   { key: 'artistic', label: 'المجال الفني', slugs: ['report-campfire', 'report-poster', 'report-exhibition', 'report-art-workshop'] },
   { key: 'cultural', label: 'المجال الثقافي', slugs: ['report-video', 'report-carnival'] },

@@ -13,7 +13,7 @@ import { isEmergencyFrozen } from '../freeze.js';
 import { validate, zString, zId } from '../middleware/validate.js';
 import { idempotent } from '../middleware/idempotent.js';
 import { parsePagination, paginatedResponse } from '../pagination.js';
-import { OFFICIAL_REPORT_IDS, resolveOfficialReportId } from '../reportCatalog.js';
+import { OFFICIAL_UPLOAD_COMPETITION_IDS, resolveOfficialReportId } from '../reportCatalog.js';
 import { requestDataBackup } from '../backupScheduler.js';
 import { requestGithubBackup } from '../githubBackup.js';
 
@@ -181,7 +181,7 @@ function handleUploadError(err, res, req) {
 
 // Team uploads a report (base64 file optional)
 router.get('/permissions', authenticateToken, requireRole(['team']), async (req, res) => {
-  const competitions = await prisma.competition.findMany({ where: { id: { in: OFFICIAL_REPORT_IDS } }, orderBy: { createdAt: 'asc' }, select: safeCompetitionSelect });
+  const competitions = await prisma.competition.findMany({ where: { id: { in: OFFICIAL_UPLOAD_COMPETITION_IDS } }, orderBy: { createdAt: 'asc' }, select: safeCompetitionSelect });
   const permissions = await prisma.reportPermission.findMany({ where: { teamId: req.user.id } });
   const reports = await prisma.report.findMany({ where: { teamId: req.user.id, competitionId: { not: null } }, select: { competitionId: true, uploadedAt: true } });
   const byComp = Object.fromEntries(permissions.map(p => [p.competitionId, p]));

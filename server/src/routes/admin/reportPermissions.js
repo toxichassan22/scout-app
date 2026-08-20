@@ -3,18 +3,18 @@ import prisma from '../../db.js';
 import { z } from 'zod';
 import { validate, zString, zId, zBoolean } from '../../middleware/validate.js';
 import { parsePagination, paginatedResponse } from '../../pagination.js';
-import { OFFICIAL_REPORT_IDS } from '../../reportCatalog.js';
+import { OFFICIAL_UPLOAD_COMPETITION_IDS } from '../../reportCatalog.js';
 
 const safeTeamSelect = { id: true, username: true, label: true, maxDevices: true, authVersion: true, createdAt: true };
 const safeCompetitionSelect = { id: true, name: true, slug: true, type: true, description: true, isOpen: true, passcode: true, entryCode: true, duration: true, criteria: true, createdAt: true };
 
 const router = Router();
-const reportCompetitionWhere = { id: { in: OFFICIAL_REPORT_IDS } };
+const reportCompetitionWhere = { id: { in: OFFICIAL_UPLOAD_COMPETITION_IDS } };
 
 const bulkPermissionSchema = {
   params: { teamId: zId('الفريق') },
   body: {
-    competitionIds: z.array(zId('المسابقة')).min(1, { message: 'اختر مسابقة واحدة على الأقل' }).max(OFFICIAL_REPORT_IDS.length, { message: 'عدد المسابقات أكبر من الحد المسموح' }),
+    competitionIds: z.array(zId('المسابقة')).min(1, { message: 'اختر مسابقة واحدة على الأقل' }).max(OFFICIAL_UPLOAD_COMPETITION_IDS.length, { message: 'عدد المسابقات أكبر من الحد المسموح' }),
     canSubmit: zBoolean('canSubmit', { optional: true }),
     deadline: zString('الموعد النهائي', { max: 50 }).optional().nullable(),
     reopen: zBoolean('reopen', { optional: true }),
@@ -88,7 +88,7 @@ router.patch('/report-permissions/:teamId/bulk', validate(bulkPermissionSchema),
   try {
     const { competitionIds, canSubmit, deadline, reopen } = req.body;
     const uniqueCompetitionIds = [...new Set(competitionIds)];
-    if (uniqueCompetitionIds.some(competitionId => !OFFICIAL_REPORT_IDS.includes(competitionId))) {
+    if (uniqueCompetitionIds.some(competitionId => !OFFICIAL_UPLOAD_COMPETITION_IDS.includes(competitionId))) {
       return res.status(400).json({ success: false, error: 'توجد مسابقة غير صالحة ضمن الاختيار' });
     }
     const [team, competitions] = await Promise.all([
