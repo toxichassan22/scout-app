@@ -1,3 +1,6 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -5,7 +8,7 @@ import prisma, { databaseReady } from '../src/db.js';
 import { createMemoryRateLimiter, JWT_SECRET, securityHeaders } from '../src/security.js';
 import { verifyAuthenticatedUser } from '../src/middleware/auth.js';
 import { canJoinRoom } from '../src/middleware/socketAuth.js';
-import { MAX_UPLOAD_BYTES, safeDriveFileName, validateBase64Upload } from '../src/uploadSecurity.js';
+import { MAX_UPLOAD_BYTES, safeDriveFileName, validateBase64Upload, validateFileUpload } from '../src/uploadSecurity.js';
 import { isAllowedVideoUrl } from '../src/routes/competitions.js';
 import { normalizeArabicText } from '../src/textNormalization.js';
 import { emitLeaderboardUpdate, joinPublicRealtimeRooms, LEADERBOARD_ROOM } from '../src/realtime.js';
@@ -59,7 +62,16 @@ assert.equal(validDocx.mime, 'application/vnd.openxmlformats-officedocument.word
 assert.throws(() => validateBase64Upload('%%%not-base64%%%', 'report.pdf', 'application/pdf'));
 assert.throws(() => validateBase64Upload(`data:application/pdf;base64,${pdf.toString('base64')}`, '../report.exe'));
 assert.throws(() => validateBase64Upload(`data:image/png;base64,${officeZip.toString('base64')}`, 'image.png'));
-assert(MAX_UPLOAD_BYTES > 0);
+const uploadFixtureDir = await mkdtemp(path.join(os.tmpdir(), 'scout-upload-security-'));
+try {
+    const pptxFixturePath = path.join(uploadFixtureDir, 'presentation.pptx');
+    await writeFile(pptxFixturePath, officeZip);
+    const streamed = await validateFileUpload(pptxFixturePath, 'presentation.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+    assert.equal(streamed.ext, '.pptx');
+} finally {
+    await rm(uploadFixtureDir, { recursive: true, force: true });
+}
+assert(MAX_UPLOAD_BYTES >= 50 * 1024 * 1024 * 1024);
 const driveFileName = safeDriveFileName('البحث العلمي / 2026', '../ملف نهائي.pdf', '1786-report-final.pdf');
 assert(driveFileName.startsWith('البحث_العلمي_2026 - ملف_نهائي - 1786-report-final'));
 assert(driveFileName.endsWith('.pdf'));

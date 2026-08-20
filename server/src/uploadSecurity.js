@@ -1,7 +1,12 @@
 import path from 'node:path';
 import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
 
-export const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES) || 50 * 1024 * 1024;
+const DEFAULT_MAX_UPLOAD_BYTES = 50 * 1024 * 1024 * 1024;
+const configuredMaxUploadBytes = Number(process.env.MAX_UPLOAD_BYTES);
+export const MAX_UPLOAD_BYTES = Number.isFinite(configuredMaxUploadBytes) && configuredMaxUploadBytes > 0
+    ? Math.max(configuredMaxUploadBytes, DEFAULT_MAX_UPLOAD_BYTES)
+    : DEFAULT_MAX_UPLOAD_BYTES;
 export const UPLOAD_TYPES = Object.freeze({
     '.pdf': ['application/pdf'],
     '.pptx': ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip', 'application/octet-stream'],
@@ -91,6 +96,23 @@ export function getReportDriveLocations({ team, competitionName, report }) {
         { fileName: storedName, folderPath: `03_TEAMS_DATA/${legacyTeamName}/reports` },
     ];
     return [...new Map(locations.map(location => [`${location.folderPath}/${location.fileName}`, location])).values()];
+}
+
+export async function validateFileUpload(filePath, fileName, mimeType) {
+    const ext = path.extname(String(fileName || '')).toLowerCase();
+    if (!UPLOAD_TYPES[ext]) throw new Error('امتداد الملف غير مسموح');
+    if (!UPLOAD_TYPES[ext].includes(mimeType)) throw new Error('نوع الملف لا يطابق امتداده');
+    const stats = await fs.stat(filePath);
+    if (!stats.isFile() || stats.size <= 0 || stats.size > MAX_UPLOAD_BYTES) throw new Error('الملف فارغ أو أكبر من الحد المسموح');
+    const handle = await fs.open(filePath, 'r');
+    try {
+        const header = Buffer.alloc(16);
+        await handle.read(header, 0, header.length, 0);
+        if (!MAGIC[ext](header)) throw new Error('محتوى الملف لا يطابق نوعه');
+    } finally {
+        await handle.close();
+    }
+    return { mime: mimeType, ext, size: stats.size };
 }
 
 export function validateBufferUpload(buffer, fileName, mimeType) {

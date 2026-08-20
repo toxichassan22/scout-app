@@ -515,6 +515,16 @@ export const uploadTeamReport = (data) =>
     body: JSON.stringify(data),
   });
 
+export const uploadTeamReportFile = ({ title, content, competitionId, file }) => {
+  const formData = new FormData();
+  formData.append('title', title || '');
+  formData.append('content', content || '');
+  formData.append('competitionId', String(competitionId));
+  formData.append('fileName', file.name);
+  formData.append('file', file, file.name);
+  return apiFetch('/reports/upload', { method: 'POST', body: formData });
+};
+
 export const resubmitTeamReport = (id, data) =>
   apiFetch(`/reports/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 

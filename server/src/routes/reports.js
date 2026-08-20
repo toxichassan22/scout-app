@@ -7,7 +7,7 @@ import logger from '../logger.js';
 import prisma from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { deleteFromGoogleDrive, queueUploadToGoogleDrive } from '../backup-exporter.js';
-import { getReportDriveLocations, MAX_UPLOAD_BYTES, safeStoredName, validateBase64Upload, validateBufferUpload, UPLOAD_TYPES } from '../uploadSecurity.js';
+import { getReportDriveLocations, MAX_UPLOAD_BYTES, safeStoredName, validateBase64Upload, validateFileUpload, UPLOAD_TYPES } from '../uploadSecurity.js';
 import { isHuggingFaceReportsConfigured, syncReportToHuggingFace } from '../huggingfaceReports.js';
 import { isEmergencyFrozen } from '../freeze.js';
 import { validate, zString, zId } from '../middleware/validate.js';
@@ -247,8 +247,7 @@ router.post('/upload', authenticateToken, requireRole(['team']), idempotent('rep
     let displayName;
 
     if (file) {
-      const buffer = await fs.readFile(file.path);
-      validateBufferUpload(buffer, file.originalname, file.mimetype);
+      await validateFileUpload(file.path, file.originalname, file.mimetype);
       storedName = file.filename;
       fileUrl = `/uploads/${storedName}`;
       displayName = file.originalname;

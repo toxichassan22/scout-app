@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
-import { getMyReportPermissions, getMyReports, resubmitTeamReport, uploadTeamReport } from '../services/api';
+import { getMyReportPermissions, getMyReports, resubmitTeamReport, uploadTeamReport, uploadTeamReportFile } from '../services/api';
 import { formatDateTime12 } from '../utils/timeFormat';
 
 const REPORT_FIELD_GROUPS = [
@@ -85,17 +85,17 @@ const UploadReport = () => {
     return `متاح حتى ${formatDateTime12(activePermission.deadline)}`;
   };
 
-  const MAX_FILE_SIZE_MB = 50;
+  const MAX_FILE_SIZE_GB = 50;
   const ALLOWED_EXTENSIONS = ['pdf', 'pptx', 'docx'];
 
   const pickFile = (file) => {
     if (!file) return;
     setError('');
 
-    // Check size limit (50MB)
-    const fileSizeMB = file.size / (1024 * 1024);
-    if (fileSizeMB > MAX_FILE_SIZE_MB) {
-      setError(`حجم الملف كبير جداً (${fileSizeMB.toFixed(1)}MB). الحد الأقصى المسموح به هو 50MB.`);
+    // Check size limit (50GB)
+    const fileSizeGB = file.size / (1024 ** 3);
+    if (fileSizeGB > MAX_FILE_SIZE_GB) {
+      setError(`حجم الملف كبير جداً (${fileSizeGB.toFixed(2)}GB). الحد الأقصى المسموح به هو 50GB.`);
       return;
     }
 
@@ -128,30 +128,21 @@ const UploadReport = () => {
     setSubmitting(true);
 
     try {
-      let fileBase64 = null;
-      if (fileInput) {
-        fileBase64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = (err) => reject(err);
-          reader.readAsDataURL(fileInput);
-        });
-      }
-
+      const reportPayload = {
+        title: reportTitle || comp.name,
+        content: reportContent || `تقرير مسابقة ${comp.name} لفرقة ${teamName}`,
+        competitionId: String(comp.id),
+      };
       if (existingReport) {
         await resubmitTeamReport(existingReport.id, {
-          title: reportTitle || comp.name,
-          content: reportContent || `تقرير مسابقة ${comp.name} لفرقة ${teamName}`,
+          title: reportPayload.title,
+          content: reportPayload.content,
           fileName: existingReport.fileName
         });
+      } else if (fileInput) {
+        await uploadTeamReportFile({ ...reportPayload, file: fileInput });
       } else {
-        await uploadTeamReport({
-          title: reportTitle || comp.name,
-          content: reportContent || `تقرير مسابقة ${comp.name} لفرقة ${teamName}`,
-          competitionId: String(comp.id),
-          fileName: fileInput ? fileInput.name : '',
-          fileBase64,
-        });
+        await uploadTeamReport({ ...reportPayload, fileName: '' });
       }
 
       // 2️⃣ Local state persistence
@@ -427,7 +418,7 @@ const UploadReport = () => {
                 <>
                   <UploadCloud size={40} className="text-[#a78bfa]" />
                   <p className="text-sm font-black text-white">اسحب الملف هنا أو اضغط للتصفح</p>
-                  <p className="text-[11px] text-[#6e6889]">يدعم ملفات PDF وPPTX وDOCX حتى 50MB</p>
+                  <p className="text-[11px] text-[#6e6889]">يدعم ملفات PDF وPPTX وDOCX حتى 50GB</p>
                 </>
               )}
             </label>
