@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { commit, downloadFile } from '@huggingface/hub';
 
 const repoId = String(process.env.HF_REPORTS_REPO || '').trim();
@@ -25,6 +26,12 @@ let bulkSyncStatus = {
 
 function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
+async function sha256File(filePath) {
+  const hash = crypto.createHash('sha256');
+  for await (const chunk of createReadStream(filePath)) hash.update(chunk);
+  return hash.digest('hex');
 }
 
 function safePathPart(value, fallback) {
@@ -130,13 +137,20 @@ export function getHuggingFaceReportLocation({ team, competitionName, report }) 
 
 export async function syncReportToHuggingFace({ team, competitionName, report, filePath, previousReport }) {
   if (!isHuggingFaceReportsConfigured()) return { skipped: true, reason: 'HF_REPORTS_REPO or HF_REPORTS_TOKEN is not configured' };
-  const fileBuffer = await readFile(filePath);
+  const contentHash = await sha256File(filePath);
   const location = reportLocation({ team, competitionName, report });
   const previousLocation = previousReport ? reportLocation({ team, competitionName, report: previousReport }) : null;
   const legacyLocations = [legacyReadableReportLocation({ team, report }), legacyReportLocation({ team, report })]
     .filter((candidate, index, list) => candidate.metadataPath !== location.metadataPath && list.findIndex(item => item.metadataPath === candidate.metadataPath) === index);
-  const mimeType = String(report.fileName || '').toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream';
-  const metadata = publicMetadata({ team, competitionName, report, filePath: location.filePath, contentHash: sha256(fileBuffer), mimeType });
+  const ext = path.extname(String(report.fileName || '')).toLowerCase();
+  const mimeType = ext === '.pdf'
+    ? 'application/pdf'
+    : ext === '.pptx'
+      ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      : ext === '.docx'
+        ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        : 'application/octet-stream';
+  const metadata = publicMetadata({ team, competitionName, report, filePath: location.filePath, contentHash, mimeType });
 
   return withOperationLock(async () => {
     const remoteMetadata = await readRemoteMetadata(location.metadataPath);
@@ -151,7 +165,7 @@ export async function syncReportToHuggingFace({ team, competitionName, report, f
     const operations = [];
 
     if (contentChanged) {
-      operations.push({ operation: 'addOrUpdate', path: location.filePath, content: new Blob([fileBuffer]) });
+      operations.push({ operation: 'addOrUpdate', path: location.filePath, content: pathToFileURL(filePath) });
     }
     if (metadataChanged || contentChanged || !remoteMetadata) {
       operations.push({ operation: 'addOrUpdate', path: location.metadataPath, content: new Blob([JSON.stringify(metadata, null, 2)]) });
