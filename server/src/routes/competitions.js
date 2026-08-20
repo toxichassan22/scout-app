@@ -121,8 +121,16 @@ router.post('/:idOrSlug/scan', authenticateToken, requireRole(['team']), validat
       scannedQr = parsedUrl.searchParams.get('qr') || parsedUrl.searchParams.get('code') || scannedQr;
     } catch {}
 
-    if (scannedQr !== expectedQr && scannedQr !== competition.slug) {
-      return res.status(403).json({ error: 'رمز الـ QR الممسوح غير تابع لهذه المسابقة' });
+    scannedQr = decodeURIComponent(scannedQr).trim();
+    const validQrs = [
+      expectedQr.toLowerCase(),
+      `scout-qr-${competition.slug}`.toLowerCase(),
+      `scout-qr-${competition.slug.replace(/_/g, '-')}`.toLowerCase(),
+      `scout-qr-${competition.slug.replace(/-/g, '_')}`.toLowerCase(),
+    ];
+
+    if (!validQrs.includes(scannedQr.toLowerCase())) {
+      return res.status(403).json({ error: 'رمز الـ QR الممسوح غير صحيح أو غير تابع لهذه المسابقة' });
     }
     await prisma.competitionAccess.upsert({
       where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } },

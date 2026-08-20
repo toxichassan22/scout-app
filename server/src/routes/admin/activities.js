@@ -23,6 +23,7 @@ const stageInput = z.strictObject({
   task: z.string().trim().max(2000).optional().default(''),
   requiresSawaed: z.boolean(),
   clue: z.string().trim().max(500).optional().default(''),
+  qrCode: z.string().trim().max(200).optional().nullable(),
 });
 const updateStagesSchema = { body: z.strictObject({ stages: z.array(stageInput).min(1).max(50) }) };
 
@@ -43,6 +44,7 @@ router.put('/activities/easter-egg/stages', validate(updateStagesSchema), async 
     if (ids.has(id)) return res.status(400).json({ error: `معرّف المرحلة مكرر: ${id}` });
     const clueText = (input.clue || '').trim();
     const taskText = (input.task || '').trim();
+    const qrCodeText = (input.qrCode || '').trim();
     if (!input.requiresSawaed && index < req.body.stages.length - 1 && !clueText) {
       return res.status(400).json({ error: `المرحلة ${index + 1} تحتاج تلميح (Clue) لأنها بحث ذاتي بدون سواعد` });
     }
@@ -57,6 +59,7 @@ router.put('/activities/easter-egg/stages', validate(updateStagesSchema), async 
       task: taskText || clueText || 'ابحثوا عن QR المرحلة التالية',
       requiresSawaed: input.requiresSawaed,
       clue: clueText,
+      ...(qrCodeText ? { qrCode: qrCodeText } : {}),
     });
   }
   const currentConfig = parseJson(activity.config, {});

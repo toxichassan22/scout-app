@@ -508,3 +508,90 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #38bdf8;
 }
+
+/* ═══════════════════════════════════════════
+   PRINT STYLESHEET — تنسيقات الطباعة والتصدير
+═══════════════════════════════════════════ */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  *,
+  *::before,
+  *::after {
+    background-color: transparent !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  html,
+  body,
+  #root,
+  .app-shell,
+  .page-shell,
+  main {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    min-height: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Force all typography in print to dark slate / black */
+  h1, h2, h3, h4, h5, h6, p, span, div, strong, label {
+    color: #0f172a !important;
+  }
+
+  /* Elements to hide during print */
+  nav,
+  .print\:hidden,
+  .print-hidden,
+  button:not(.print-include),
+  .admin-back-link,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Elements to show only during print */
+  .print-only,
+  .print\:block {
+    display: block !important;
+  }
+
+  .print\:flex {
+    display: flex !important;
+  }
+
+  .print\:grid {
+    display: grid !important;
+  }
+
+  /* QR printable cards formatting */
+  .qr-printable-card {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    background: #ffffff !important;
+    border: 2px dashed #334155 !important;
+    border-radius: 16px !important;
+    padding: 16px !important;
+    margin-bottom: 20px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  /* Ensure QR code SVGs render cleanly with crisp black and white modules */
+  svg,
+  svg rect,
+  svg path {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+}

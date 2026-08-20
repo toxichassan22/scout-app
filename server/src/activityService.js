@@ -34,6 +34,7 @@ export function normalizeEasterEggStages(stages) {
     task: String(stage.task || ''),
     requiresSawaed: stage.requiresSawaed !== false,
     clue: String(stage.clue || ''),
+    qrCode: stage.qrCode ? String(stage.qrCode).trim() : undefined,
   }));
 }
 
@@ -101,14 +102,33 @@ function qrSignature(stageId) {
 
 export function getEasterEggQrPayload(stageOrIndex, stages = EASTER_EGG_STAGES) {
   const stage = typeof stageOrIndex === 'number' ? stages[stageOrIndex] : stageOrIndex;
-  return stage ? `SCOUT-EASTER:${stage.id}:${qrSignature(stage.id)}` : '';
+  if (!stage) return '';
+  if (stage.qrCode) return String(stage.qrCode).trim();
+  return `SCOUT-EASTER:${stage.id}:${qrSignature(stage.id)}`;
 }
 
 export function matchesEasterEggQr(value, stage) {
-  const provided = String(value || '').trim();
+  let provided = String(value || '').trim();
+  if (!provided || !stage) return false;
+  try {
+    const parsed = new URL(provided);
+    provided = parsed.searchParams.get('qr') || parsed.searchParams.get('code') || provided;
+  } catch {}
+  provided = decodeURIComponent(provided).trim();
+
   const expected = getEasterEggQrPayload(stage);
-  if (!provided || provided.length !== expected.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+  if (provided === expected) return true;
+  if (provided.toLowerCase() === expected.toLowerCase()) return true;
+
+  if (stage.qrCode && provided.toLowerCase() === String(stage.qrCode).trim().toLowerCase()) return true;
+  if (stage.qrValue && provided.toLowerCase() === String(stage.qrValue).trim().toLowerCase()) return true;
+
+  if (provided.length === expected.length) {
+    try {
+      if (crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected))) return true;
+    } catch {}
+  }
+  return false;
 }
 
 
