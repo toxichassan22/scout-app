@@ -108,8 +108,8 @@ const App = memo(function App() {
           <Route path="/upload-report" element={<ProtectedRoute allowedRoles={['team']}><UploadReport /></ProtectedRoute>} />
           <Route path="/news" element={<ProtectedRoute allowedRoles={['team']}><News /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute allowedRoles={['team']}><Profile /></ProtectedRoute>} />
-          <Route path="/ai-studio" element={<ProtectedRoute allowedRoles={['team', 'admin']}><AiStudio /></ProtectedRoute>} />
-          <Route path="/activities/ai-studio" element={<ProtectedRoute allowedRoles={['team', 'admin']}><AiStudio /></ProtectedRoute>} />
+          <Route path="/ai-studio" element={<Navigate to="/activities" replace />} />
+          <Route path="/activities/ai-studio" element={<Navigate to="/activities" replace />} />
 
           {/* Competition Entry and Play */}
           <Route path="/competition-entry/:slug" element={<ProtectedRoute allowedRoles={['team']}><CompetitionEntry /></ProtectedRoute>} />
