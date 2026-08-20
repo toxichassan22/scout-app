@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Clock3, Gamepad2, Play, QrCode, Trophy, Users } from 'lucide-react';
+import { ChevronLeft, Clock3, Gamepad2, Play, QrCode, Sparkles, Trophy, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
