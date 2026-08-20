@@ -92,6 +92,12 @@ const UploadReport = () => {
     if (!file) return;
     setError('');
 
+    // Check zero-size
+    if (file.size === 0) {
+      setError('الملف المختار فارغ (0 بايت). إذا أنشأت الملف للتو، يرجى فتحه والضغط على حفظ (Save) في PowerPoint ثم إعادة اختياره.');
+      return;
+    }
+
     // Check size limit (50GB)
     const fileSizeGB = file.size / (1024 ** 3);
     if (fileSizeGB > MAX_FILE_SIZE_GB) {
