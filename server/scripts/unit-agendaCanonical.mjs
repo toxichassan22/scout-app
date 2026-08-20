@@ -15,6 +15,10 @@ assert.equal(closing?.endTime, '20:30', 'closing should end at 20:30');
 assert.equal(OFFICIAL_AGENDA.find(item => item.title === 'تجمع واستقبال الوفود')?.zoneId, 'zone-5', 'arrival should be at camp');
 assert.equal(OFFICIAL_AGENDA.find(item => item.title === 'تحية العلم وافتتاح المهرجان')?.zoneId, 'zone-5', 'opening should be at camp');
 assert.equal(OFFICIAL_AGENDA.find(item => item.id === 'agenda-official-11')?.title, 'المجال الرياضي', 'sports continuation should use the current title');
+assert.equal(OFFICIAL_AGENDA.find(item => item.id === 'agenda-official-6')?.competitionId, 'comp-schedule-6', 'sports competition should be judgeable');
+assert.equal(OFFICIAL_AGENDA.find(item => item.id === 'agenda-official-23')?.competitionId, 'comp-schedule-23', 'cipher competition should be judgeable');
+assert.equal(OFFICIAL_AGENDA.find(item => item.id === 'agenda-official-18')?.type, 'competition', 'exhibition setup should be a competition');
+assert.equal(OFFICIAL_AGENDA.find(item => item.id === 'agenda-official-29-video')?.type, 'competition', 'documentary video should be a competition');
 
 const sampleItem = OFFICIAL_AGENDA[0];
 const festivalDate = '2026-08-21';

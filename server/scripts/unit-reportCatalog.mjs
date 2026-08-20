@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { OFFICIAL_REPORT_CATALOG, OFFICIAL_REPORT_IDS, resolveOfficialReportId, syncOfficialReportCatalog } from '../src/reportCatalog.js';
 
-assert.equal(OFFICIAL_REPORT_CATALOG.length, 16);
-assert.equal(new Set(OFFICIAL_REPORT_IDS).size, 16);
+assert.equal(OFFICIAL_REPORT_CATALOG.length, 19);
+assert.equal(new Set(OFFICIAL_REPORT_IDS).size, 19);
 assert.deepEqual(
   OFFICIAL_REPORT_CATALOG.reduce((counts, report) => ({ ...counts, [report.field]: (counts[report.field] || 0) + 1 }), {}),
-  { 'المجال العلمي': 3, 'المجال الكشفي': 3, 'المجال الفني': 4, 'المجال الثقافي': 2, 'المجال الديني': 4 },
+  { 'المجال العلمي': 3, 'المجال الكشفي': 3, 'المجال الفني': 4, 'المجال الثقافي': 3, 'المجال الديني': 4, 'المجال الرياضي': 2 },
 );
-assert.equal(new Set(OFFICIAL_REPORT_CATALOG.map(report => report.slug)).size, 16);
+assert.equal(new Set(OFFICIAL_REPORT_CATALOG.map(report => report.slug)).size, 19);
 assert.equal(resolveOfficialReportId('report-ai-models'), 'comp-report-catalog-02');
 assert.equal(resolveOfficialReportId('comp-report-17'), 'comp-report-catalog-02');
 assert.equal(resolveOfficialReportId('report_model_presentation'), 'comp-report-catalog-02');
@@ -18,8 +18,10 @@ await syncOfficialReportCatalog({
     upsert: async args => { upserts.push(args); },
   },
 });
-assert.equal(upserts.length, 16);
+assert.equal(upserts.length, 19);
 assert.equal(upserts.every(({ create }) => create.type === 'manual_judged' && !('field' in create)), true);
 assert.equal(OFFICIAL_REPORT_CATALOG.some(report => report.id === 'comp-report-catalog-16' && report.slug === 'report-carnival' && report.name === 'الكرنفال'), true);
+assert.equal(OFFICIAL_REPORT_CATALOG.some(report => report.id === 'comp-schedule-6' && report.slug === 'sports-1' && report.name === 'المجال الرياضي'), true);
+assert.equal(OFFICIAL_REPORT_CATALOG.some(report => report.id === 'comp-schedule-23' && report.slug === 'king-ciphers' && report.name === 'كينج الشفرات'), true);
 
-console.log('report catalog unit tests passed: 16 grouped reports and safe upserts');
+console.log('report catalog unit tests passed: 19 grouped reports and safe upserts');

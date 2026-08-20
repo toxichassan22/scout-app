@@ -28,14 +28,17 @@ export const OFFICIAL_REPORT_CATALOG = [
   catalogEntry('comp-report-catalog-06', 'report-reels', 'ريلز', 'المجال الكشفي', 'فيديو قصير يوثق فكرة أو نشاطاً كشفياً.'),
   catalogEntry('comp-report-catalog-07', 'report-campfire', 'السمر', 'المجال الفني', 'تقرير ومخرجات فقرة السمر.'),
   catalogEntry('comp-report-catalog-08', 'report-poster', 'الملصق', 'المجال الفني', 'تصميم ملصق فني مرتبط بالكشافة.'),
-  catalogEntry('comp-report-catalog-09', 'report-exhibition', 'المعرض', 'المجال الفني', 'توثيق وتجهيز المعرض الفني.'),
+  catalogEntry('comp-report-catalog-09', 'report-exhibition', 'نصب المعرض', 'المجال الفني', 'مسابقة تجهيز ونصب المعرض الفني.'),
   catalogEntry('comp-report-catalog-10', 'report-art-workshop', 'الورشة الفنية', 'المجال الفني', 'تقرير ومخرجات الورشة الفنية.'),
-  catalogEntry('comp-report-catalog-11', 'report-video', 'الفيديو', 'المجال الثقافي', 'فيديو ثقافي موثق من الفريق.'),
+  catalogEntry('comp-report-catalog-11', 'report-video', 'نشر الفيديو التوثيقي', 'المجال الثقافي', 'مسابقة نشر الفيديو التوثيقي للمهرجان.'),
   catalogEntry('comp-report-catalog-16', 'report-carnival', 'الكرنفال', 'المجال الثقافي', 'تقرير مشاركة الفريق في الكرنفال.'),
   catalogEntry('comp-report-catalog-12', 'report-surah-al-kahf', 'سورة الكهف', 'المجال الديني', 'تقرير تسميع وحفظ سورة الكهف.'),
   catalogEntry('comp-report-catalog-13', 'report-hadith', 'أحاديث', 'المجال الديني', 'تقرير حفظ وتسميع الأحاديث.'),
   catalogEntry('comp-report-catalog-14', 'report-worksheet', 'ورقة عمل', 'المجال الديني', 'ورقة عمل دينية موثقة ومنظمة.'),
   catalogEntry('comp-report-catalog-15', 'report-tilawa', 'دولة التلاوة', 'المجال الديني', 'تقرير مشاركة الفريق في دولة التلاوة.'),
+  catalogEntry('comp-schedule-6', 'sports-1', 'المجال الرياضي', 'المجال الرياضي', 'مسابقة المجال الرياضي في الفترة الأولى.'),
+  catalogEntry('comp-schedule-11', 'sports-2', 'المجال الرياضي', 'المجال الرياضي', 'مسابقة المجال الرياضي في الفترة الثانية.'),
+  catalogEntry('comp-schedule-23', 'king-ciphers', 'كينج الشفرات', 'المجال الثقافي', 'مسابقة حل الشفرات الكشفية.'),
 ];
 
 const OFFICIAL_REPORT_ID_BY_IDENTIFIER = new Map(
@@ -71,6 +74,24 @@ export async function syncOfficialReportCatalog(prisma) {
       where: { id },
       update,
       create: { id, ...competitionData, criteria: officialCriteria },
+    });
+  }
+}
+
+export const OFFICIAL_AGENDA_COMPETITION_LINKS = [
+  { agendaId: 'agenda-official-6', competitionId: 'comp-schedule-6', title: 'المجال الرياضي' },
+  { agendaId: 'agenda-official-11', competitionId: 'comp-schedule-11', title: 'المجال الرياضي' },
+  { agendaId: 'agenda-official-18', competitionId: 'comp-report-catalog-09', title: 'نصب المعرض' },
+  { agendaId: 'agenda-official-23', competitionId: 'comp-schedule-23', title: 'كينج الشفرات' },
+  { agendaId: 'agenda-official-29-video', competitionId: 'comp-report-catalog-11', title: 'نشر الفيديو التوثيقي' },
+];
+
+export async function syncOfficialCompetitionAgendaLinks(prisma) {
+  if (!prisma?.agendaItem?.updateMany) return;
+  for (const link of OFFICIAL_AGENDA_COMPETITION_LINKS) {
+    await prisma.agendaItem.updateMany({
+      where: { id: link.agendaId },
+      data: { competitionId: link.competitionId, title: link.title, type: 'competition' },
     });
   }
 }

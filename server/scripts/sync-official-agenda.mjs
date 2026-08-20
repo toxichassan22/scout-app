@@ -1,9 +1,10 @@
 import 'dotenv/config';
 import prisma, { databaseReady } from '../src/db.js';
 import { OFFICIAL_AGENDA, OFFICIAL_AGENDA_IDS, OFFICIAL_ZONES } from '../src/agendaCanonical.js';
+import { syncOfficialCompetitionAgendaLinks, syncOfficialReportCatalog } from '../src/reportCatalog.js';
 
 const SYNC_KEY = 'official_agenda_version';
-const SYNC_VERSION = '20260810-program-v5-names';
+const SYNC_VERSION = '20260810-program-v6-competition-catalog';
 const explicitlyAllowed = process.env.SYNC_OFFICIAL_AGENDA === 'true';
 const festivalDate = process.env.FESTIVAL_DATE || '2026-08-21';
 
@@ -22,6 +23,11 @@ const competitionNames = {
   'comp-report-18': 'المجلة الأرضية',
   'comp-report-19': 'الكشاف الذكي',
   'comp-report-21': 'عرض تقديمي كوميدي عن مهارة',
+  'comp-report-catalog-09': 'نصب المعرض',
+  'comp-report-catalog-11': 'نشر الفيديو التوثيقي',
+  'comp-schedule-6': 'المجال الرياضي',
+  'comp-schedule-11': 'المجال الرياضي',
+  'comp-schedule-23': 'كينج الشفرات',
 };
 const competitionSlugs = {
   'comp-digital-1': 'genius',
@@ -42,6 +48,9 @@ const criteriaById = {
     { key: 'editing', label: 'جودة المونتاج والإخراج', maxScore: 40 },
     { key: 'sound', label: 'الهندسة الصوتية والمؤثرات', maxScore: 30 },
   ],
+  'comp-schedule-6': [{ key: 'score', label: 'الدرجة النهائية', maxScore: 100 }],
+  'comp-schedule-11': [{ key: 'score', label: 'الدرجة النهائية', maxScore: 100 }],
+  'comp-schedule-23': [{ key: 'score', label: 'الدرجة النهائية', maxScore: 100 }],
   'comp-report-5': [
     { key: 'memorization', label: 'حسن الحفظ والتثبت', maxScore: 50 },
     { key: 'tajweed', label: 'التجويد والأداء الصوتي', maxScore: 30 },
@@ -227,6 +236,8 @@ try {
     });
   });
 
+  await syncOfficialReportCatalog(prisma);
+  await syncOfficialCompetitionAgendaLinks(prisma);
   console.log(`[agenda-sync] applied ${SYNC_VERSION}: ${OFFICIAL_AGENDA.length} agenda rows and a complete admin competition catalog.`);
 } finally {
   await prisma.$disconnect();

@@ -22,6 +22,9 @@ export const OFFICIAL_CRITERIA_BY_SLUG = {
   report_closing_night: c([['participation', 'مشاركة', 1], ['report', 'تقرير', 1], ['uniform', 'زي', 1], ['timing', 'توقيت', 1], ['traditions', 'تقاليد', 3], ['vocal', 'أداء صوتي جماعي', 10], ['movement', 'أداء حركي جماعي', 10], ['entertainment', 'إمتاع', 5], ['extras', 'إضافات', 3]]),
   closing_night: c([['participation', 'مشاركة', 1], ['report', 'تقرير', 1], ['uniform', 'زي', 1], ['timing', 'توقيت', 1], ['traditions', 'تقاليد', 3], ['vocal', 'أداء صوتي جماعي', 10], ['movement', 'أداء حركي جماعي', 10], ['entertainment', 'إمتاع', 5], ['extras', 'إضافات', 3]]),
   video_design: c([['participation', 'مشاركة', 5], ['quality', 'جودة', 5], ['editing', 'إخراج', 5], ['timing', 'توقيت', 5], ['likes', 'لايك', 5], ['comments', 'تعليق', 5], ['views', 'مشاهدة', 5]]),
+  sports_1: c([['score', 'الدرجة النهائية', 100]]),
+  sports_2: c([['score', 'الدرجة النهائية', 100]]),
+  king_ciphers: c([['score', 'الدرجة النهائية', 100]]),
 };
 
 // Older seeded competitions use shorter slugs. Keep them tied to the same
@@ -54,6 +57,9 @@ Object.assign(OFFICIAL_CRITERIA_BY_SLUG, {
   closing_night: OFFICIAL_CRITERIA_BY_SLUG.report_closing_night,
   calligraphy: OFFICIAL_CRITERIA_BY_SLUG.report_prophets,
   planes: OFFICIAL_CRITERIA_BY_SLUG.report_model_presentation,
+  schedule_6: OFFICIAL_CRITERIA_BY_SLUG.sports_1,
+  schedule_11: OFFICIAL_CRITERIA_BY_SLUG.sports_2,
+  schedule_23: OFFICIAL_CRITERIA_BY_SLUG.king_ciphers,
 });
 
 export function getOfficialCriteria(competition) {
@@ -62,6 +68,10 @@ export function getOfficialCriteria(competition) {
   if (OFFICIAL_CRITERIA_BY_SLUG[slug]) return OFFICIAL_CRITERIA_BY_SLUG[slug];
 
   const name = String(competition.name || '').trim();
+  if (name.includes('المجال الرياضي')) return OFFICIAL_CRITERIA_BY_SLUG.sports_1;
+  if (name.includes('كينج الشفرات')) return OFFICIAL_CRITERIA_BY_SLUG.king_ciphers;
+  if (name.includes('نشر الفيديو')) return OFFICIAL_CRITERIA_BY_SLUG.report_video;
+  if (name.includes('نصب المعرض')) return OFFICIAL_CRITERIA_BY_SLUG.report_exhibition;
   if (name.includes('القرآن') || name.includes('الكهف')) return OFFICIAL_CRITERIA_BY_SLUG.report_quran;
   if (name.includes('الأحاديث') || name.includes('حديث')) return OFFICIAL_CRITERIA_BY_SLUG.report_hadith;
   if (name.includes('الأنبياء') || name.includes('ورقة عمل')) return OFFICIAL_CRITERIA_BY_SLUG.report_prophets;
