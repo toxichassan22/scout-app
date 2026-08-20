@@ -151,16 +151,20 @@ const UploadReport = () => {
         await uploadTeamReport({ ...reportPayload, fileName: '' });
       }
 
-      // 2️⃣ Local state persistence
-      submitEntry(comp.id, teamName, {
-        title: reportTitle || comp.name,
-        content: reportContent || `تقرير مسابقة ${comp.name} لفرقة ${teamName}`,
-        fileName: fileInput ? fileInput.name : '',
-        reportIndex: currentReportNumber,
-        isLate,
-        score: 0,
-        type: 'report',
-      });
+      // 2️⃣ Local state persistence (safe fallback)
+      try {
+        submitEntry(comp.id, teamName, {
+          title: reportTitle || comp.name,
+          content: reportContent || `تقرير مسابقة ${comp.name} لفرقة ${teamName}`,
+          fileName: fileInput ? fileInput.name : '',
+          reportIndex: currentReportNumber,
+          isLate,
+          score: 0,
+          type: 'report',
+        });
+      } catch {
+        // Ignore local storage duplicate conflicts
+      }
 
       setMessage(existingReport ? 'تمت إعادة إرسال التقرير المفتوح بنجاح.' : `تم رفع التقرير رقم #${currentReportNumber} بنجاح وأُرسل للجنة التحكيم ولـ Google Drive!`);
       const [permissionRows, reportRows] = await Promise.all([getMyReportPermissions(), getMyReports()]);

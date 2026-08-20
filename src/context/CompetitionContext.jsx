@@ -164,7 +164,7 @@ export const CompetitionProvider = ({ children }) => {
     if (!competition.isOpen || hasExpired(competition)) return { ok: false, message: 'المسابقة مغلقة حالياً' };
     // QR Code check temporarily disabled for testing
     // if (qrCode && qrCode !== competition.qrCode) return { ok: false, message: 'الكود غير متوافق مع هذه المسابقة' };
-    if (!isVideoComp(competition) && isCompleted(competition.id, teamName)) return { ok: false, message: 'تم تسجيل إجابتك' };
+    if (!isVideoComp(competition) && competition?.type !== 'manual_judged' && isCompleted(competition.id, teamName)) return { ok: false, message: 'تم تسجيل إجابتك' };
 
     // Device lock temporarily disabled for testing
     // const lock = deviceLocks.find((entry) => entry.compId === competition.id && entry.teamName === teamName);
@@ -199,7 +199,7 @@ export const CompetitionProvider = ({ children }) => {
     // Device lock check temporarily disabled for testing
     // const lock = deviceLocks.find((entry) => entry.compId === competition.id && entry.teamName === teamName);
     // if (lock && lock.deviceId !== deviceId) throw new Error('تم تسجيل جهاز آخر لفريقك في هذه المسابقة');
-    if (!isVideoComp(competition) && isCompleted(competition.id, teamName)) throw new Error('تم تسجيل إجابتك');
+    if (!isVideoComp(competition) && competition?.type !== 'manual_judged' && isCompleted(competition.id, teamName)) throw new Error('تم تسجيل إجابتك');
 
     const submission = {
       id: crypto.randomUUID(),
