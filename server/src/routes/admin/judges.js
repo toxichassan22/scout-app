@@ -66,6 +66,61 @@ router.post('/judges/:id/device/reset', validate({ params: { id: zId('المحك
   }
 });
 
+router.patch('/judges/:id', validate({ params: { id: zId('المحكم') } }, { strictBody: false }), async (req, res) => {
+  try {
+    const { name, username, password } = req.body || {};
+    const data = {};
+
+    if (name !== undefined) {
+      const cleanName = typeof name === 'string' ? name.trim() : '';
+      if (!cleanName) {
+        return res.status(400).json({ success: false, error: 'اسم المحكم مطلوب ولا يمكن تركه فارغاً' });
+      }
+      data.name = boundedString(cleanName, 'name', { min: 1, max: 120 });
+    }
+
+    if (username !== undefined) {
+      const cleanUsername = typeof username === 'string' ? username.trim() : '';
+      if (!cleanUsername) {
+        return res.status(400).json({ success: false, error: 'اسم المستخدم مطلوب ولا يمكن تركه فارغاً' });
+      }
+      const existing = await prisma.judge.findFirst({
+        where: {
+          username: cleanUsername,
+          NOT: { id: req.params.id }
+        }
+      });
+      if (existing) {
+        return res.status(400).json({ success: false, error: 'اسم المستخدم مستخدم بالفعل لمحكم آخر' });
+      }
+      data.username = boundedString(cleanUsername, 'username', { min: 1, max: 80 });
+    }
+
+    if (password !== undefined && password !== null && String(password).trim() !== '') {
+      const cleanPassword = boundedString(String(password), 'password', { min: 1, max: 256, trim: false });
+      data.passwordHash = await bcrypt.hash(cleanPassword, 12);
+      data.authVersion = { increment: 1 };
+      data.judgeDeviceId = null;
+    }
+
+    if (Object.keys(data).length === 0) {
+      const current = await prisma.judge.findUnique({ where: { id: req.params.id }, select: safeJudgeSelect });
+      return res.json(current);
+    }
+
+    const updated = await prisma.judge.update({
+      where: { id: req.params.id },
+      data,
+      select: safeJudgeSelect,
+    });
+
+    res.json(updated);
+  } catch (err) {
+    req.log.error({ err }, 'admin update judge failed');
+    res.status(400).json({ success: false, error: 'فشل في تحديث بيانات المحكم: ' + (err.message || ''), requestId: req.requestId, timestamp: new Date().toISOString() });
+  }
+});
+
 router.delete('/judges/:id', validate({ params: { id: zId('المحكم') } }), async (req, res) => {
   try {
     await prisma.judge.delete({ where: { id: req.params.id } });

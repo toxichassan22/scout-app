@@ -109,20 +109,6 @@ router.delete('/judges/:judgeId/assignments/:competitionId', validate({ params: 
     res.status(500).json({ success: false, error: 'فشل في إزالة تعيين المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
 });
-const judgeUpdateSchema = { params: { id: zId('المحكم') }, body: { name: zString('الاسم', { min: 1, max: 120 }).optional(), username: zString('اسم المستخدم', { min: 1, max: 80 }).optional(), password: zString('كلمة السر', { min: 1, max: 256 }).optional() } };
-router.patch('/judges/:id', validate(judgeUpdateSchema), async (req, res) => {
-  try {
-    const { name, username, password } = req.body;
-    const data = {};
-    if (name !== undefined) data.name = name.trim();
-    if (username !== undefined) data.username = username.trim();
-    if (password !== undefined) { data.passwordHash = await bcrypt.hash(password, 12); data.authVersion = { increment: 1 }; }
-    res.json(await prisma.judge.update({ where: { id: req.params.id }, data, select: safeJudgeSelect }));
-  } catch (err) {
-    req.log.error({ err }, 'admin update judge failed');
-    res.status(400).json({ success: false, error: 'فشل في تحديث المحكم', requestId: req.requestId, timestamp: new Date().toISOString() });
-  }
-});
 
 // Score finalization controls
 const scoreUnlockSchema = { params: { id: zId('النتيجة') }, body: {} };
