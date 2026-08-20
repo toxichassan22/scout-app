@@ -1,34 +1,50 @@
-function x({title:e,subtitle:n,cards:o=[]}){if(!o||o.length===0){alert("لا توجد عناصر لطباعتها");return}const i=window.open("","_blank","width=900,height=800");if(!i){alert("يرجى السماح بالنوافذ المنبثقة (Popups) لتتمكن من فتح نافذة الطباعة.");return}const c=o.map((t,g)=>{const r=g+1,b=t.title||`المرحلة ${r}`,f=t.badge||`كود #${r}`,d=t.typeLabel||"",a=t.instruction||"",p=t.qrValue||"",s=t.svgHtml||"";return`
+function m({title:r,subtitle:a,cards:e=[]}){if(!e||e.length===0){alert("لا توجد عناصر لطباعتها");return}const t=window.open("","_blank","width=900,height=800");if(!t){alert("يرجى السماح بالنوافذ المنبثقة (Popups) لتتمكن من فتح نافذة الطباعة.");return}const l=e.map((i,b)=>{const d=b+1,p=i.title||`المرحلة ${d}`,o=i.svgHtml||"",n=i.qrValue||"";if(i.minimal)return`
+        <div class="card card-minimal">
+          <div class="card-header-minimal">
+            <h2 class="card-title-lg">${p}</h2>
+          </div>
+
+          <div class="qr-container-lg">
+            ${o||`<div class="qr-fallback">${n}</div>`}
+          </div>
+
+          <div class="card-footer-minimal">
+            <span class="code-subtle">${n}</span>
+          </div>
+
+          <div class="cut-indicator">✂️ قص من هنا</div>
+        </div>
+      `;const f=i.badge||`كود #${d}`,s=i.typeLabel||"",c=i.instruction||"";return`
       <div class="card">
         <div class="card-header">
           <div class="badge-row">
             <span class="badge-black">${f}</span>
-            ${d?`<span class="badge-outline">${d}</span>`:""}
+            ${s?`<span class="badge-outline">${s}</span>`:""}
           </div>
-          <h2 class="card-title">${b}</h2>
+          <h2 class="card-title">${p}</h2>
         </div>
 
         <div class="qr-container">
-          ${s||`<div class="qr-fallback">${p}</div>`}
+          ${o||`<div class="qr-fallback">${n}</div>`}
         </div>
 
         <div class="card-footer">
-          ${a?`<p class="instruction">${a}</p>`:""}
-          <div class="code-box">${p}</div>
+          ${c?`<p class="instruction">${c}</p>`:""}
+          <div class="code-box">${n}</div>
         </div>
 
         <div class="cut-indicator">✂️ قص من هنا</div>
       </div>
-    `}).join(""),l=`
+    `}).join(""),g=`
     <!DOCTYPE html>
     <html dir="rtl" lang="ar">
     <head>
       <meta charset="UTF-8" />
-      <title>${e||"طباعة أكواد QR"}</title>
+      <title>${r||"طباعة أكواد QR"}</title>
       <style>
         @page {
           size: A4 portrait;
-          margin: 12mm 10mm 12mm 10mm;
+          margin: 10mm 8mm;
         }
         * {
           box-sizing: border-box;
@@ -45,30 +61,30 @@ function x({title:e,subtitle:n,cards:o=[]}){if(!o||o.length===0){alert("لا ت�
         .header {
           text-align: center;
           border-bottom: 2px solid #000;
-          padding-bottom: 12px;
-          margin-bottom: 20px;
+          padding-bottom: 10px;
+          margin-bottom: 16px;
         }
         .header h1 {
-          font-size: 20px;
+          font-size: 18px;
           font-weight: 900;
           color: #000;
-          margin-bottom: 4px;
+          margin-bottom: 2px;
         }
         .header p {
-          font-size: 12px;
+          font-size: 11px;
           color: #444;
           font-weight: bold;
         }
         .grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          gap: 16px;
+          gap: 14px;
           width: 100%;
         }
         .card {
           border: 2px dashed #000000;
           border-radius: 14px;
-          padding: 16px;
+          padding: 14px;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -77,64 +93,98 @@ function x({title:e,subtitle:n,cards:o=[]}){if(!o||o.length===0){alert("لا ت�
           background: #ffffff;
           page-break-inside: avoid;
           break-inside: avoid;
-          min-height: 360px;
+          min-height: 330px;
+        }
+        .card-minimal {
+          min-height: 310px;
+          padding: 16px;
+        }
+        .card-header-minimal {
+          width: 100%;
+          border-bottom: 2px solid #000;
+          padding-bottom: 8px;
+          margin-bottom: 8px;
+        }
+        .card-title-lg {
+          font-size: 20px;
+          font-weight: 900;
+          color: #000000;
+          letter-spacing: -0.5px;
         }
         .card-header {
           width: 100%;
           border-bottom: 1px solid #ccc;
-          padding-bottom: 8px;
+          padding-bottom: 6px;
         }
         .badge-row {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 6px;
+          margin-bottom: 4px;
         }
         .badge-black {
           background: #000000;
           color: #ffffff;
           font-size: 11px;
           font-weight: 900;
-          padding: 3px 10px;
+          padding: 2px 10px;
           border-radius: 999px;
         }
         .badge-outline {
           border: 1px solid #000000;
           font-size: 10px;
           font-weight: bold;
-          padding: 2px 8px;
+          padding: 2px 6px;
           border-radius: 4px;
         }
         .card-title {
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 900;
           color: #000000;
-          margin-top: 4px;
+          margin-top: 2px;
           line-height: 1.3;
         }
-        .qr-container {
-          margin: 12px 0;
+        .qr-container, .qr-container-lg {
+          margin: 8px 0;
           display: flex;
           justify-content: center;
           align-items: center;
           background: #ffffff;
         }
         .qr-container svg {
-          width: 175px !important;
-          height: 175px !important;
+          width: 160px !important;
+          height: 160px !important;
+          display: block;
+        }
+        .qr-container-lg svg {
+          width: 185px !important;
+          height: 185px !important;
           display: block;
         }
         .card-footer {
           width: 100%;
           border-top: 1px solid #ccc;
-          padding-top: 8px;
+          padding-top: 6px;
+        }
+        .card-footer-minimal {
+          width: 100%;
+          text-align: center;
+          margin-top: 2px;
+        }
+        .code-subtle {
+          font-family: 'Courier New', Courier, monospace;
+          font-size: 9px;
+          font-weight: bold;
+          color: #666;
+          direction: ltr;
+          display: inline-block;
         }
         .instruction {
           font-size: 11px;
           font-weight: bold;
           color: #222;
-          margin-bottom: 4px;
-          line-height: 1.3;
+          margin-bottom: 3px;
+          line-height: 1.2;
         }
         .code-box {
           font-family: 'Courier New', Courier, monospace;
@@ -143,27 +193,27 @@ function x({title:e,subtitle:n,cards:o=[]}){if(!o||o.length===0){alert("لا ت�
           color: #333;
           direction: ltr;
           background: #f1f5f9;
-          padding: 4px 6px;
+          padding: 3px 6px;
           border-radius: 4px;
           word-break: break-all;
         }
         .cut-indicator {
-          margin-top: 8px;
+          margin-top: 6px;
           font-size: 9px;
           color: #888;
           border-top: 1px dotted #bbb;
           width: 100%;
-          padding-top: 4px;
+          padding-top: 3px;
         }
         .no-print-bar {
           background: #0f172a;
           color: #fff;
-          padding: 12px 20px;
+          padding: 10px 18px;
           display: flex;
           justify-content: space-between;
           align-items: center;
           border-radius: 10px;
-          margin-bottom: 15px;
+          margin-bottom: 14px;
         }
         .print-btn {
           background: #f59e0b;
@@ -187,27 +237,26 @@ function x({title:e,subtitle:n,cards:o=[]}){if(!o||o.length===0){alert("لا ت�
     </head>
     <body>
       <div class="no-print-bar">
-        <span>جاهز للطباعة — تم إعداد الكروت بتنسيق A4 نقي وعالي الجودة</span>
+        <span>جاهز للطباعة — كروت A4 نقية وواضحة</span>
         <button class="print-btn" onclick="window.print()">🖨️ طباعة الآن (Print)</button>
       </div>
 
       <div class="header">
-        <h1>${e||"المخيم الكشفي الرقمي"}</h1>
-        ${n?`<p>${n}</p>`:""}
+        <h1>${r||"المخيم الكشفي الرقمي"}</h1>
+        ${a?`<p>${a}</p>`:""}
       </div>
 
       <div class="grid">
-        ${c}
+        ${l}
       </div>
 
       <script>
-        // Auto trigger print dialog once loaded
         window.addEventListener('load', () => {
           setTimeout(() => {
             window.print();
-          }, 400);
+          }, 350);
         });
       <\/script>
     </body>
     </html>
-  `;i.document.open(),i.document.write(l),i.document.close()}export{x as p};
+  `;t.document.open(),t.document.write(g),t.document.close()}export{m as p};

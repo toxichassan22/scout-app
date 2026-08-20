@@ -131,21 +131,18 @@ const ActivitySetup = () => {
   const handlePrint = () => {
     if (!stages || stages.length === 0) return;
     
-    // Extract SVG HTML from rendered QR codes
+    // Minimal cards for Easter Egg — only stage title & big QR
     const cards = stages.map((stage, index) => {
       const num = String(index + 1).padStart(2, '0');
-      const isSawaed = Boolean(stage.requiresSawaed);
       const qrVal = stage.qrCode || stage.qrValue || `SCOUT-EASTER:${stage.id || `stage-${num}`}`;
       const svgEl = document.getElementById(`easter-qr-svg-${index}`);
       const svgHtml = svgEl ? svgEl.outerHTML : '';
 
       return {
-        title: stage.title || `المرحلة #${index + 1}`,
-        badge: `المرحلة ${index + 1}`,
-        typeLabel: isSawaed ? '🛡️ تسليم سواعد' : '📍 كود معلّق',
-        instruction: isSawaed ? 'المهمة: تسليم من السواعد بعد أداء التحدي' : 'طريقة الوصول: ابحثوا عن الكود في المكان المخصص',
+        title: stage.title || `المرحلة ${index + 1}`,
         qrValue: qrVal,
         svgHtml: svgHtml,
+        minimal: true,
       };
     });
 
@@ -398,7 +395,7 @@ const ActivitySetup = () => {
         )}
 
         {/* ═══════════════════════════════════════════════════════════════════
-            DEDICATED IN-PAGE PRINT SHEET (Fallback for Ctrl+P)
+            DEDICATED IN-PAGE PRINT SHEET (Minimalist)
            ═══════════════════════════════════════════════════════════════════ */}
         <section className="hidden print:block print:w-full print:bg-white print:text-black">
           <div className="mb-6 text-center border-b-2 border-black pb-4">
@@ -408,7 +405,6 @@ const ActivitySetup = () => {
 
           <div className="qr-printable-grid">
             {stages.map((stage, index) => {
-              const isSawaed = Boolean(stage.requiresSawaed);
               const num = String(index + 1).padStart(2, '0');
               const qrVal = stage.qrCode || stage.qrValue || `SCOUT-EASTER:${stage.id || `stage-${num}`}`;
 
@@ -416,33 +412,25 @@ const ActivitySetup = () => {
                 <div
                   key={stage.id || index}
                   className="qr-printable-card"
+                  style={{ padding: '16px' }}
                 >
-                  <div style={{ width: '100%', borderBottom: '1px solid #ccc', paddingBottom: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ background: '#000', color: '#fff', fontSize: '11px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '999px' }}>
-                        المرحلة {index + 1}
-                      </span>
-                      <span style={{ border: '1px solid #000', fontSize: '10px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>
-                        {isSawaed ? '🛡️ تسليم سواعد' : '📍 كود معلّق'}
-                      </span>
-                    </div>
-                    <h2 style={{ fontSize: '14px', fontWeight: 'bold', marginTop: '6px', color: '#000' }}>{stage.title || `المرحلة #${index + 1}`}</h2>
+                  <div style={{ width: '100%', borderBottom: '2px solid #000', paddingBottom: '8px', marginBottom: '8px' }}>
+                    <h2 style={{ fontSize: '20px', fontWeight: '900', color: '#000', margin: 0 }}>
+                      {stage.title || `المرحلة ${index + 1}`}
+                    </h2>
                   </div>
 
-                  <div style={{ margin: '10px 0', display: 'flex', justifyContent: 'center' }}>
-                    <QRCodeSVG value={qrVal} size={160} bgColor="#ffffff" fgColor="#000000" level="H" />
+                  <div style={{ margin: '12px 0', display: 'flex', justifyContent: 'center' }}>
+                    <QRCodeSVG value={qrVal} size={185} bgColor="#ffffff" fgColor="#000000" level="H" />
                   </div>
 
-                  <div style={{ width: '100%', borderTop: '1px solid #ccc', paddingTop: '6px', textAlign: 'center' }}>
-                    <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#000' }}>
-                      {isSawaed ? 'المهمة: تسليم من السواعد بعد أداء التحدي' : 'طريقة الوصول: ابحثوا عن الكود في المكان المخصص'}
-                    </p>
-                    <div style={{ fontFamily: 'monospace', fontSize: '9px', fontWeight: 'bold', color: '#333', background: '#f1f5f9', padding: '3px 6px', borderRadius: '4px', marginTop: '4px', wordBreak: 'break-all' }} dir="ltr">
+                  <div style={{ width: '100%', textAlign: 'center', marginTop: '4px' }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: '9px', fontWeight: 'bold', color: '#666' }} dir="ltr">
                       {qrVal}
-                    </div>
+                    </span>
                   </div>
                   
-                  <div style={{ marginTop: '6px', fontSize: '8px', color: '#888', borderTop: '1px dotted #ccc', width: '100%', paddingTop: '3px' }}>
+                  <div style={{ marginTop: '8px', fontSize: '9px', color: '#888', borderTop: '1px dotted #ccc', width: '100%', paddingTop: '4px' }}>
                     ✂️ قص من هنا
                   </div>
                 </div>
