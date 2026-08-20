@@ -43,7 +43,7 @@ export const OFFICIAL_AGENDA = [
     item({ id: 'agenda-official-6', period: 'period-1', order: 7, title: 'المجال الرياضي', type: 'competition', zoneId: zone.field, startTime: '10:30', endTime: '11:30', competitionId: 'comp-schedule-6' }),
     item({ id: 'agenda-official-7', period: 'period-1', order: 8, title: 'الملصق', type: 'competition', zoneId: zone.behindMosque, startTime: '10:30', endTime: '11:30', competitionId: 'comp-report-catalog-08' }),
     item({ id: 'agenda-official-8', period: 'period-1', order: 9, title: 'رحالة العالم الذكي', type: 'competition', zoneId: zone.secondFloor, startTime: '10:30', endTime: '11:30', competitionId: 'comp-digital-3', locationNote: 'الدور الثاني' }),
-    item({ id: 'agenda-official-9', period: 'period-1', order: 10, title: 'تصميم فيديو دقيقتين', type: 'competition', zoneId: zone.secondFloor, startTime: '10:30', endTime: '11:30', competitionId: 'comp-video-1', locationNote: 'الدور الثالث' }),
+    item({ id: 'agenda-official-9', period: 'period-1', order: 10, title: 'الفيديو (تصميم فيديو دقيقتين)', type: 'competition', zoneId: zone.secondFloor, startTime: '10:30', endTime: '11:30', competitionId: 'comp-video-1', locationNote: 'الدور الثالث' }),
     item({ id: 'agenda-official-10', period: 'period-1', order: 11, title: 'عقد وربطات', type: 'competition', zoneId: zone.camp, startTime: '10:30', endTime: '11:30', competitionId: 'comp-report-catalog-17' }),
 
     item({ id: 'agenda-official-11', period: 'period-2', order: 12, title: 'تكملة المجال الرياضي', type: 'competition', zoneId: zone.field, startTime: '11:30', endTime: '13:00', competitionId: 'comp-schedule-11' }),
@@ -63,7 +63,7 @@ export const OFFICIAL_AGENDA = [
     item({ id: 'agenda-official-22', period: 'period-3', order: 25, title: 'الكاشف الذكي', type: 'competition', zoneId: zone.behindMosque, startTime: '14:00', endTime: '16:00', competitionId: 'comp-report-catalog-03', locationNote: 'خلف المسجد' }),
 
     item({ id: 'agenda-official-28', period: 'period-4', order: 26, title: 'الخدمة العامة', type: 'workshop', zoneId: zone.camp, startTime: '16:00', endTime: '17:30' }),
-    item({ id: 'agenda-official-27', period: 'period-4', order: 27, title: 'عرض تقديمي كوميدي عن مهارة كشفية', type: 'competition', zoneId: zone.secondFloor, startTime: '16:00', endTime: '17:30', competitionId: 'comp-report-catalog-06', locationNote: 'الدور الثالث' }),
+    item({ id: 'agenda-official-27', period: 'period-4', order: 27, title: 'ريلز', type: 'competition', zoneId: zone.secondFloor, startTime: '16:00', endTime: '17:30', competitionId: 'comp-report-catalog-06', locationNote: 'الدور الثالث' }),
     item({ id: 'agenda-official-26', period: 'period-4', order: 28, title: 'من سيربح الكود', type: 'competition', zoneId: zone.secondFloor, startTime: '16:00', endTime: '17:30', competitionId: 'comp-digital-1', locationNote: 'الدور الثاني' }),
     item({ id: 'agenda-official-29-video', period: 'period-4', order: 29, title: 'الاستعداد للختام', type: 'ceremony', zoneId: zone.camp, startTime: '16:00', endTime: '17:30', locationNote: 'الاستعداد للختام' }),
     item({ id: 'agenda-official-25', period: 'period-4', order: 30, title: 'مهرجان التلاوة', type: 'competition', zoneId: zone.radio, startTime: '16:00', endTime: '17:30', competitionId: 'comp-report-catalog-15' }),

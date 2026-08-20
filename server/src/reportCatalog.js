@@ -31,7 +31,9 @@ export const OFFICIAL_REPORT_CATALOG = [
   catalogEntry('comp-report-catalog-08', 'report-poster', 'الملصق', 'المجال الفني', 'تصميم ملصق فني مرتبط بالكشافة.'),
   catalogEntry('comp-report-catalog-09', 'report-exhibition', 'المعرض', 'المجال الفني', 'مسابقة تجهيز ونصب المعرض الفني.'),
   catalogEntry('comp-report-catalog-10', 'report-art-workshop', 'الورشة الفنية', 'المجال الفني', 'تقرير ومخرجات الورشة الفنية.'),
-  catalogEntry('comp-report-catalog-11', 'report-video', 'الفيديو', 'المجال الثقافي', 'فيديو توثيقي موثق من الفريق.'),
+  // Same record as the «تصميم فيديو دقيقتين» program item, so the report and the
+  // judged competition never split into two entries.
+  catalogEntry('comp-video-1', 'video_design', 'الفيديو', 'المجال الثقافي', 'فيديو دقيقتين يوثق فكرة الفريق.'),
   catalogEntry('comp-report-catalog-16', 'report-carnival', 'الكرنفال', 'المجال الثقافي', 'تقرير مشاركة الفريق في الكرنفال.'),
   catalogEntry('comp-report-catalog-12', 'report-surah-al-kahf', 'سورة الكهف', 'المجال الديني', 'تقرير تسميع وحفظ سورة الكهف.'),
   catalogEntry('comp-report-catalog-13', 'report-hadith', 'أحاديث', 'المجال الديني', 'تقرير حفظ وتسميع الأحاديث.'),
@@ -65,6 +67,8 @@ Object.entries({
   'comp-report-21': 'comp-report-catalog-06',
   'comp-report-23': 'comp-report-catalog-15',
   'comp-report-24': 'comp-report-catalog-07',
+  'comp-report-catalog-11': 'comp-video-1',
+  'report-video': 'comp-video-1',
 }).forEach(([legacyId, canonicalId]) => OFFICIAL_REPORT_ID_BY_IDENTIFIER.set(legacyId, canonicalId));
 
 export const OFFICIAL_REPORT_IDS = OFFICIAL_REPORT_CATALOG.map(report => report.id);
@@ -103,7 +107,7 @@ export const syncOfficialReportCatalog = prisma => syncCompetitionCatalog(prisma
 export const syncOfficialJudgeCompetitionCatalog = prisma => syncCompetitionCatalog(prisma, OFFICIAL_JUDGE_COMPETITION_CATALOG);
 
 const OFFICIAL_PROGRAM_SYNC_KEY = 'official_program_version';
-export const OFFICIAL_PROGRAM_VERSION = '20260820-final-program-v2';
+export const OFFICIAL_PROGRAM_VERSION = '20260820-final-program-v3';
 const FESTIVAL_DATE = () => process.env.FESTIVAL_DATE || '2026-08-21';
 const toFestivalDateTime = time => time ? new Date(`${FESTIVAL_DATE()}T${String(time).slice(0, 5)}:00+03:00`) : null;
 const scheduleCompetitionId = item => item.competitionId || `comp-schedule-${item.id.replace(/^agenda-official-/, '')}`;
@@ -172,6 +176,13 @@ export async function syncOfficialProgramSchedule(prisma, { force = false } = {}
         },
       });
     }
+
+    // The video report now lives on comp-video-1, so retire the duplicate record
+    // without touching any competition that already collected data.
+    await tx.competition.updateMany({
+      where: { id: 'comp-report-catalog-11' },
+      data: { type: 'schedule_only', isOpen: false, passcode: null, entryCode: null, criteria: '[]' },
+    });
 
     await tx.systemSetting.upsert({
       where: { key: OFFICIAL_PROGRAM_SYNC_KEY },

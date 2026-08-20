@@ -21,7 +21,9 @@ await syncOfficialReportCatalog({
 });
 assert.equal(upserts.length, 16);
 assert.equal(upserts.every(({ create }) => create.type === 'manual_judged' && !('field' in create)), true);
-assert.equal(OFFICIAL_REPORT_CATALOG.some(report => report.id === 'comp-report-catalog-11' && report.slug === 'report-video' && report.name === 'الفيديو'), true);
+assert.equal(OFFICIAL_REPORT_CATALOG.some(report => report.id === 'comp-video-1' && report.slug === 'video_design' && report.name === 'الفيديو'), true);
+assert.equal(resolveOfficialReportId('comp-report-catalog-11'), 'comp-video-1');
+assert.equal(resolveOfficialReportId('report-video'), 'comp-video-1');
 
 const judgeUpserts = [];
 await syncOfficialJudgeCompetitionCatalog({ competition: { upsert: async args => judgeUpserts.push(args) } });
