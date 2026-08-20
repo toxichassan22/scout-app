@@ -86,7 +86,7 @@ const UploadReport = () => {
   };
 
   const MAX_FILE_SIZE_MB = 50;
-  const ALLOWED_EXTENSIONS = ['pdf', 'docx', 'doc', 'zip', 'rar', 'mp4', 'jpg', 'jpeg', 'png'];
+  const ALLOWED_EXTENSIONS = ['pdf', 'pptx', 'docx'];
 
   const pickFile = (file) => {
     if (!file) return;
@@ -412,6 +412,7 @@ const UploadReport = () => {
             <input
               type="file"
               id="file-upload"
+              accept=".pdf,.pptx,.docx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               onChange={(e) => pickFile(e.target.files?.[0])}
               className="hidden"
             />
@@ -426,7 +427,7 @@ const UploadReport = () => {
                 <>
                   <UploadCloud size={40} className="text-[#a78bfa]" />
                   <p className="text-sm font-black text-white">اسحب الملف هنا أو اضغط للتصفح</p>
-                  <p className="text-[11px] text-[#6e6889]">يدعم مستندات PDF, DOCX, وصور ومقاطع فيديو حتى 25MB</p>
+                  <p className="text-[11px] text-[#6e6889]">يدعم ملفات PDF وPPTX وDOCX حتى 50MB</p>
                 </>
               )}
             </label>

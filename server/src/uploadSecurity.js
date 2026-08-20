@@ -4,28 +4,14 @@ import crypto from 'node:crypto';
 export const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES) || 50 * 1024 * 1024;
 export const UPLOAD_TYPES = Object.freeze({
     '.pdf': ['application/pdf'],
-    '.txt': ['text/plain'],
-    '.jpg': ['image/jpeg'],
-    '.jpeg': ['image/jpeg'],
-    '.png': ['image/png'],
-    '.mp4': ['video/mp4'],
-    '.zip': ['application/zip', 'application/x-zip-compressed'],
-    '.rar': ['application/x-rar-compressed', 'application/octet-stream'],
+    '.pptx': ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip', 'application/octet-stream'],
     '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip', 'application/octet-stream'],
-    '.doc': ['application/msword', 'application/octet-stream'],
 });
 
 const MAGIC = {
     '.pdf': buffer => buffer.subarray(0, 5).toString() === '%PDF-',
-    '.png': buffer => buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
-    '.jpg': buffer => buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])),
-    '.jpeg': buffer => buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])),
-    '.zip': buffer => buffer.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])),
+    '.pptx': buffer => buffer.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])),
     '.docx': buffer => buffer.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])),
-    '.rar': buffer => buffer.subarray(0, 4).toString('ascii') === 'Rar!',
-    '.doc': () => true,
-    '.mp4': buffer => buffer.length >= 12 && buffer.toString('ascii', 4, 8) === 'ftyp',
-    '.txt': () => true,
 };
 
 function createValidationError(message) {

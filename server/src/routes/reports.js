@@ -148,11 +148,8 @@ async function finalizeReport(req, res, { title, content, competitionId, storedN
       } else {
         const ext = path.extname(storedName).toLowerCase();
         let mimeType = 'application/pdf';
-        if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
-        else if (ext === '.png') mimeType = 'image/png';
-        else if (ext === '.mp4') mimeType = 'video/mp4';
-        else if (ext === '.zip') mimeType = 'application/zip';
-        else if (ext === '.txt') mimeType = 'text/plain';
+        if (ext === '.pptx') mimeType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+        else if (ext === '.docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
         const result = await queueUploadToGoogleDrive(driveLocation.fileName, mimeType, diskPath, driveLocation.folderPath);
         req.log.info({ storedName, driveFileName: driveLocation.fileName, folderPath: driveLocation.folderPath, result: result?.result }, 'report uploaded to Google Drive');
       }
