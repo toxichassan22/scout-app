@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Printer, QrCode, RefreshCw, Save, Trash2, ShieldCheck, Compass, Info, Download, Copy, Check, Eye } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Printer, QrCode, RefreshCw, Save, Trash2, ShieldCheck, Compass, Download, Copy, Check } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import AdminBackLink from '../../components/AdminBackLink';
 import { getAdminEasterEggStages, updateAdminEasterEggStages } from '../../services/api';
+import { printQrCards } from '../../utils/printQrSheet';
 
 function createStage(index) {
   const num = String(index + 1).padStart(2, '0');
@@ -46,7 +47,6 @@ const ActivitySetup = () => {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [copiedId, setCopiedId] = useState(null);
-  const [showPrintModal, setShowPrintModal] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -129,7 +129,31 @@ const ActivitySetup = () => {
   };
 
   const handlePrint = () => {
-    window.print();
+    if (!stages || stages.length === 0) return;
+    
+    // Extract SVG HTML from rendered QR codes
+    const cards = stages.map((stage, index) => {
+      const num = String(index + 1).padStart(2, '0');
+      const isSawaed = Boolean(stage.requiresSawaed);
+      const qrVal = stage.qrCode || stage.qrValue || `SCOUT-EASTER:${stage.id || `stage-${num}`}`;
+      const svgEl = document.getElementById(`easter-qr-svg-${index}`);
+      const svgHtml = svgEl ? svgEl.outerHTML : '';
+
+      return {
+        title: stage.title || `المرحلة #${index + 1}`,
+        badge: `المرحلة ${index + 1}`,
+        typeLabel: isSawaed ? '🛡️ تسليم سواعد' : '📍 كود معلّق',
+        instruction: isSawaed ? 'المهمة: تسليم من السواعد بعد أداء التحدي' : 'طريقة الوصول: ابحثوا عن الكود في المكان المخصص',
+        qrValue: qrVal,
+        svgHtml: svgHtml,
+      };
+    });
+
+    printQrCards({
+      title: 'المخيم الكشفي الرقمي • كروت رحلة Easter Egg',
+      subtitle: 'أكواد QR الثابتة للمراحل — جاهزة للقص والتثبيت في أرض المهرجان',
+      cards,
+    });
   };
 
   const selfRunCount = stages.filter(stage => !stage.requiresSawaed).length;
@@ -374,7 +398,7 @@ const ActivitySetup = () => {
         )}
 
         {/* ═══════════════════════════════════════════════════════════════════
-            DEDICATED PRINT SHEET — يظهر فقط عند الطباعة (High-Contrast A4 Ready)
+            DEDICATED IN-PAGE PRINT SHEET (Fallback for Ctrl+P)
            ═══════════════════════════════════════════════════════════════════ */}
         <section className="hidden print:block print:w-full print:bg-white print:text-black">
           <div className="mb-6 text-center border-b-2 border-black pb-4">
@@ -382,7 +406,7 @@ const ActivitySetup = () => {
             <p className="text-xs mt-1 text-slate-600">أكواد QR الثابتة للمراحل — جاهزة للقص والتثبيت في أرض المهرجان</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          <div className="qr-printable-grid">
             {stages.map((stage, index) => {
               const isSawaed = Boolean(stage.requiresSawaed);
               const num = String(index + 1).padStart(2, '0');
@@ -391,35 +415,34 @@ const ActivitySetup = () => {
               return (
                 <div
                   key={stage.id || index}
-                  className="qr-printable-card border-2 border-dashed border-slate-800 rounded-2xl p-5 text-center flex flex-col justify-between"
-                  style={{ minHeight: '340px' }}
+                  className="qr-printable-card"
                 >
-                  <div className="w-full border-b border-slate-300 pb-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black bg-black text-white px-3 py-1 rounded-full">
+                  <div style={{ width: '100%', borderBottom: '1px solid #ccc', paddingBottom: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ background: '#000', color: '#fff', fontSize: '11px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '999px' }}>
                         المرحلة {index + 1}
                       </span>
-                      <span className="text-[11px] font-bold border border-slate-600 px-2 py-0.5 rounded">
+                      <span style={{ border: '1px solid #000', fontSize: '10px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px' }}>
                         {isSawaed ? '🛡️ تسليم سواعد' : '📍 كود معلّق'}
                       </span>
                     </div>
-                    <h2 className="text-base font-black mt-2 text-slate-900">{stage.title || `المرحلة #${index + 1}`}</h2>
+                    <h2 style={{ fontSize: '14px', fontWeight: 'bold', marginTop: '6px', color: '#000' }}>{stage.title || `المرحلة #${index + 1}`}</h2>
                   </div>
 
-                  <div className="my-3 flex justify-center">
-                    <QRCodeSVG value={qrVal} size={170} bgColor="#ffffff" fgColor="#000000" level="H" />
+                  <div style={{ margin: '10px 0', display: 'flex', justifyContent: 'center' }}>
+                    <QRCodeSVG value={qrVal} size={160} bgColor="#ffffff" fgColor="#000000" level="H" />
                   </div>
 
-                  <div className="w-full border-t border-slate-300 pt-2 text-right">
-                    <p className="text-[11px] font-bold text-slate-800">
+                  <div style={{ width: '100%', borderTop: '1px solid #ccc', paddingTop: '6px', textAlign: 'center' }}>
+                    <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#000' }}>
                       {isSawaed ? 'المهمة: تسليم من السواعد بعد أداء التحدي' : 'طريقة الوصول: ابحثوا عن الكود في المكان المخصص'}
                     </p>
-                    <p className="font-mono text-[9px] text-slate-500 mt-1 break-all text-center" dir="ltr">
+                    <div style={{ fontFamily: 'monospace', fontSize: '9px', fontWeight: 'bold', color: '#333', background: '#f1f5f9', padding: '3px 6px', borderRadius: '4px', marginTop: '4px', wordBreak: 'break-all' }} dir="ltr">
                       {qrVal}
-                    </p>
+                    </div>
                   </div>
                   
-                  <div className="mt-2 text-center text-[9px] text-slate-400 border-t border-dotted border-slate-300 pt-1">
+                  <div style={{ marginTop: '6px', fontSize: '8px', color: '#888', borderTop: '1px dotted #ccc', width: '100%', paddingTop: '3px' }}>
                     ✂️ قص من هنا
                   </div>
                 </div>

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, Clock3, MapPin, Printer, QrCode, Save, ToggleLeft, ToggleRight, Trophy, Download, Copy, Check, X, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock3, MapPin, Printer, QrCode, Save, ToggleLeft, ToggleRight, Trophy, Download, Copy, Check, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { getAdminCompetitions, getAgenda, updateCompetition } from '../../services/api';
 import AdminBackLink from '../../components/AdminBackLink';
 import { format12Hour, formatTimeRange12, parseTimeInput } from '../../utils/timeFormat';
+import { printQrCards } from '../../utils/printQrSheet';
 
 const TYPE_LABELS = {
   auto_digital: 'مسابقة رقمية',
@@ -178,12 +179,36 @@ const AdminCompetitions = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const validCompetitions = Array.isArray(competitions) ? competitions : [];
   const qrCompetitions = validCompetitions.filter(isOnlineCompetition);
+
+  const handlePrint = () => {
+    if (!qrCompetitions || qrCompetitions.length === 0) {
+      alert('لا توجد مسابقات رقمية لطباعتها');
+      return;
+    }
+
+    const cards = qrCompetitions.map(comp => {
+      const qrValue = comp.qrCode || `scout-qr-${comp.slug || comp.id}`;
+      const svgEl = document.getElementById(`comp-qr-svg-${comp.id}`) || document.getElementById(`comp-inline-svg-${comp.id}`) || document.getElementById(`comp-hidden-svg-${comp.id}`);
+      const svgHtml = svgEl ? svgEl.outerHTML : '';
+
+      return {
+        title: comp.name,
+        badge: 'مسابقة رقمية',
+        typeLabel: TYPE_LABELS[comp.type] || comp.type,
+        instruction: 'امسح الرمز عبر كاميرا التطبيق في صفحة المسابقة للبدء',
+        qrValue: qrValue,
+        svgHtml: svgHtml,
+      };
+    });
+
+    printQrCards({
+      title: 'المخيم الكشفي الرقمي • أكواد مسابقات المهرجان',
+      subtitle: 'أكواد QR الثابتة لدخول المسابقات الرقمية — جاهزة للطباعة والتعليق',
+      cards,
+    });
+  };
 
   return (
     <main className="app-shell min-h-screen p-4 text-white sm:p-6 dir-rtl">
@@ -222,6 +247,21 @@ const AdminCompetitions = () => {
         </header>
 
         {error && <div className="mb-5 rounded-2xl border border-red-500/25 bg-red-500/10 p-4 text-sm font-bold text-red-200 print:hidden">{error}</div>}
+
+        {/* Hidden QR codes for SVG DOM export */}
+        <div style={{ display: 'none' }} aria-hidden="true">
+          {qrCompetitions.map(comp => (
+            <QRCodeSVG
+              key={`hidden-${comp.id}`}
+              id={`comp-hidden-svg-${comp.id}`}
+              value={comp.qrCode || `scout-qr-${comp.slug || comp.id}`}
+              size={175}
+              bgColor="#ffffff"
+              fgColor="#000000"
+              level="H"
+            />
+          ))}
+        </div>
 
         {/* ═══════════════════════════════════════════════════════════════════
             QR EXPORT & PRINT PREVIEW MODAL
@@ -503,53 +543,6 @@ const AdminCompetitions = () => {
             })}
           </div>
         )}
-
-        {/* ═══════════════════════════════════════════════════════════════════
-            DEDICATED PRINT SHEET — يظهر فقط عند الطباعة (High-Contrast A4 Ready)
-           ═══════════════════════════════════════════════════════════════════ */}
-        <section className="hidden print:block print:w-full print:bg-white print:text-black">
-          <div className="mb-6 text-center border-b-2 border-black pb-4">
-            <h1 className="text-2xl font-black">المخيم الكشفي الرقمي • أكواد مسابقات المهرجان</h1>
-            <p className="text-xs mt-1 text-slate-600">أكواد QR الثابتة لدخول المسابقات الرقمية — جاهزة للطباعة والتعليق</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-6">
-            {qrCompetitions.map(comp => {
-              const qrValue = comp.qrCode || `scout-qr-${comp.slug || comp.id}`;
-              return (
-                <div
-                  key={comp.id}
-                  className="qr-printable-card border-2 border-dashed border-slate-800 rounded-2xl p-5 text-center flex flex-col justify-between"
-                  style={{ minHeight: '340px' }}
-                >
-                  <div className="w-full border-b border-slate-300 pb-2">
-                    <span className="text-xs font-black bg-black text-white px-3 py-1 rounded-full">
-                      مسابقة رقمية
-                    </span>
-                    <h2 className="text-lg font-black mt-2 text-slate-900">{comp.name}</h2>
-                  </div>
-
-                  <div className="my-3 flex justify-center">
-                    <QRCodeSVG value={qrValue} size={170} bgColor="#ffffff" fgColor="#000000" level="H" />
-                  </div>
-
-                  <div className="w-full border-t border-slate-300 pt-2 text-center">
-                    <p className="text-[11px] font-bold text-slate-800">
-                      امسح الرمز عبر كاميرا التطبيق في صفحة المسابقة للبدء
-                    </p>
-                    <p className="font-mono text-[10px] font-bold text-slate-600 mt-1 break-all" dir="ltr">
-                      رمز الـ QR: {qrValue}
-                    </p>
-                  </div>
-
-                  <div className="mt-2 text-center text-[9px] text-slate-400 border-t border-dotted border-slate-300 pt-1">
-                    ✂️ قص من هنا
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
 
       </div>
     </main>

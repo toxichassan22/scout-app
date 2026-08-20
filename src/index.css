@@ -515,40 +515,44 @@
 @media print {
   @page {
     size: A4 portrait;
-    margin: 10mm;
+    margin: 8mm 6mm;
   }
 
   *,
   *::before,
   *::after {
-    background-color: transparent !important;
-    text-shadow: none !important;
     box-shadow: none !important;
+    text-shadow: none !important;
   }
 
   html,
   body,
   #root,
   .app-shell,
+  .admin-shell,
   .page-shell,
   main {
     background: #ffffff !important;
     background-color: #ffffff !important;
-    color: #0f172a !important;
+    color: #000000 !important;
     min-height: auto !important;
     height: auto !important;
     overflow: visible !important;
     padding: 0 !important;
     margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    direction: rtl !important;
   }
 
-  /* Force all typography in print to dark slate / black */
+  /* Force all typography in print to dark black */
   h1, h2, h3, h4, h5, h6, p, span, div, strong, label {
-    color: #0f172a !important;
+    color: #000000 !important;
   }
 
   /* Elements to hide during print */
   nav,
+  header.print\:hidden,
   .print\:hidden,
   .print-hidden,
   button:not(.print-include),
@@ -561,37 +565,38 @@
   .print-only,
   .print\:block {
     display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
   }
 
-  .print\:flex {
-    display: flex !important;
-  }
-
-  .print\:grid {
+  .qr-printable-grid {
     display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+    width: 100% !important;
   }
 
-  /* QR printable cards formatting */
   .qr-printable-card {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     background: #ffffff !important;
-    border: 2px dashed #334155 !important;
-    border-radius: 16px !important;
-    padding: 16px !important;
-    margin-bottom: 20px !important;
+    border: 2px dashed #000000 !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    margin-bottom: 12px !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     text-align: center !important;
+    min-height: 330px !important;
   }
 
   /* Ensure QR code SVGs render cleanly with crisp black and white modules */
-  svg,
-  svg rect,
-  svg path {
+  svg {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
+    display: block !important;
+    margin: 0 auto !important;
   }
 }
