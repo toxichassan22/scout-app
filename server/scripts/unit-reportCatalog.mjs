@@ -8,7 +8,7 @@ assert.deepEqual(
   { 'المجال العلمي': 3, 'المجال الكشفي': 3, 'المجال الفني': 4, 'المجال الثقافي': 2, 'المجال الديني': 4 },
 );
 assert.equal(new Set(OFFICIAL_REPORT_CATALOG.map(report => report.slug)).size, 16);
-assert.equal(OFFICIAL_UPLOAD_COMPETITION_IDS.length, 17);
+assert.equal(OFFICIAL_UPLOAD_COMPETITION_IDS.length, 16);
 assert.equal(resolveOfficialReportId('report-ai-models'), 'comp-report-catalog-02');
 assert.equal(resolveOfficialReportId('comp-report-17'), 'comp-report-catalog-02');
 assert.equal(resolveOfficialReportId('report_model_presentation'), 'comp-report-catalog-02');

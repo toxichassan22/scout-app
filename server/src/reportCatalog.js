@@ -65,12 +65,10 @@ Object.entries({
   'comp-report-21': 'comp-report-catalog-06',
   'comp-report-23': 'comp-report-catalog-15',
   'comp-report-24': 'comp-report-catalog-07',
-  video_design: 'comp-video-1',
-  'comp-video-1': 'comp-video-1',
 }).forEach(([legacyId, canonicalId]) => OFFICIAL_REPORT_ID_BY_IDENTIFIER.set(legacyId, canonicalId));
 
 export const OFFICIAL_REPORT_IDS = OFFICIAL_REPORT_CATALOG.map(report => report.id);
-export const OFFICIAL_UPLOAD_COMPETITION_IDS = [...new Set([...OFFICIAL_REPORT_IDS, 'comp-video-1'])];
+export const OFFICIAL_UPLOAD_COMPETITION_IDS = [...OFFICIAL_REPORT_IDS];
 
 export function resolveOfficialReportId(identifier) {
   const value = String(identifier ?? '').trim();
