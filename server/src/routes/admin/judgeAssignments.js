@@ -1,14 +1,12 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
 import prisma from '../../db.js';
 import { recalculateTeamStanding } from '../../teamStanding.js';
-import { validate, zString, zId } from '../../middleware/validate.js';
+import { validate, zId } from '../../middleware/validate.js';
 import { parsePagination, paginatedResponse } from '../../pagination.js';
 import { getOfficialCriteria } from '../../officialCompetitionCriteria.js';
 import { ensureJudgeCompetitionAssignment } from '../../judgeAccess.js';
 
 const safeTeamSelect = { id: true, username: true, label: true, maxDevices: true, authVersion: true, createdAt: true };
-const safeJudgeSelect = { id: true, name: true, username: true, authVersion: true, createdAt: true };
 const safeCompetitionSelect = { id: true, name: true, slug: true, type: true, description: true, isOpen: true, passcode: true, entryCode: true, duration: true, questionCount: true, criteria: true, createdAt: true };
 
 const router = Router();
