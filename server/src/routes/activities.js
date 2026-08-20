@@ -55,7 +55,7 @@ function sessionView(session, config = {}, viewer = null) {
   const isHost = Boolean(mine && hostParticipant && mine.id === hostParticipant.id);
   const hostName = hostParticipant?.displayName || '';
   const easterStages = config.kind === 'easter'
-    ? getEasterEggStages({ ...config, stages: Array.isArray(gameState.easterStages) ? gameState.easterStages : config.stages })
+    ? getEasterEggStages(config)
     : [];
   const easterStageIndex = Number(gameState.stageIndex || 0);
   delete safeSession.gameState;
@@ -296,7 +296,7 @@ router.post('/sessions/:sessionId/easter-scan', enforceNotFrozen, validate(easte
     if (session.status !== 'active') throw Object.assign(new Error('انتهت رحلة Easter Egg'), { status: 409 });
     const state = parseJson(session.gameState, { stageIndex: 0, scannedStages: [], awaitingTask: false });
     const activityConfig = getActivityConfig(session.activity);
-    const stages = getEasterEggStages({ ...activityConfig, stages: Array.isArray(state.easterStages) ? state.easterStages : activityConfig.stages });
+    const stages = getEasterEggStages(activityConfig);
     const currentStageIndex = Number(state.stageIndex) || 0;
     const nextStageIndex = state.awaitingTask ? currentStageIndex + 1 : currentStageIndex;
     const stage = stages[nextStageIndex];
@@ -316,7 +316,7 @@ router.post('/sessions/:sessionId/easter-finish', enforceNotFrozen, validate({ p
     if (!session || !participant || session.activity.slug !== 'easter-egg') throw Object.assign(new Error('جلسة Easter Egg غير موجودة'), { status: 404 });
     const state = parseJson(session.gameState, { stageIndex: 0, scannedStages: [], awaitingTask: false });
     const activityConfig = getActivityConfig(session.activity);
-    const stages = getEasterEggStages({ ...activityConfig, stages: Array.isArray(state.easterStages) ? state.easterStages : activityConfig.stages });
+    const stages = getEasterEggStages(activityConfig);
     const finalStageIndex = stages.length - 1;
     if (!state.awaitingTask || Number(state.stageIndex) !== finalStageIndex) throw Object.assign(new Error('أكملوا كل مراحل الرحلة قبل الإنهاء'), { status: 409 });
     await tx.activityParticipant.update({ where: { id: participant.id }, data: { finishedAt: new Date() } });
