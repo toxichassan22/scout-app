@@ -26,6 +26,16 @@ const uploadsDir = path.join(__dirname, '../../uploads');
 const uploadsReady = fs.mkdir(uploadsDir, { recursive: true });
 const safeCompetitionSelect = { id: true, name: true, slug: true, type: true, description: true, isOpen: true, duration: true, createdAt: true };
 
+// Busboy decodes multipart filenames as latin1, which mangles Arabic names, so
+// re-read the raw bytes as UTF-8 whenever that produces valid text.
+export function decodeMultipartFileName(originalName) {
+  const value = String(originalName || '');
+  // Anything outside the latin1 range is already decoded text, not raw bytes.
+  if (!value || [...value].some(character => character.codePointAt(0) > 0xff)) return value;
+  const reread = Buffer.from(value, 'latin1').toString('utf8');
+  return reread.includes('\uFFFD') ? value : reread;
+}
+
 const upload = multer({
   storage: multer.diskStorage({
     destination: async (req, file, cb) => {
@@ -37,13 +47,15 @@ const upload = multer({
       }
     },
     filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname || '').toLowerCase();
+      file.originalname = decodeMultipartFileName(file.originalname);
+      const ext = path.extname(file.originalname).toLowerCase();
       cb(null, safeStoredName(file.originalname, ext));
     },
   }),
   limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 10 },
   fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname || '').toLowerCase();
+    file.originalname = decodeMultipartFileName(file.originalname);
+    const ext = path.extname(file.originalname).toLowerCase();
     if (UPLOAD_TYPES[ext]) return cb(null, true);
     cb(new Error('امتداد الملف غير مسموح'));
   },
