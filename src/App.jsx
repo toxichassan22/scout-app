@@ -66,6 +66,7 @@ const AdminStressTest = lazyWithRetry(() => import('./pages/admin/StressTest'));
 const AdminActivitySetup = lazyWithRetry(() => import('./pages/admin/ActivitySetup'));
 const AdminLeaderboard = lazyWithRetry(() => import('./pages/admin/Leaderboard'));
 const AdminAiStudio = lazyWithRetry(() => import('./pages/admin/AiStudio'));
+const AiStudio = lazyWithRetry(() => import('./pages/AiStudio'));
 
 import { TopHeader } from './components/TopHeader';
 import { ScoutMascotToy } from './components/ScoutMascotToy';
@@ -107,6 +108,8 @@ const App = memo(function App() {
           <Route path="/upload-report" element={<ProtectedRoute allowedRoles={['team']}><UploadReport /></ProtectedRoute>} />
           <Route path="/news" element={<ProtectedRoute allowedRoles={['team']}><News /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute allowedRoles={['team']}><Profile /></ProtectedRoute>} />
+          <Route path="/ai-studio" element={<ProtectedRoute allowedRoles={['team', 'admin']}><AiStudio /></ProtectedRoute>} />
+          <Route path="/activities/ai-studio" element={<ProtectedRoute allowedRoles={['team', 'admin']}><AiStudio /></ProtectedRoute>} />
 
           {/* Competition Entry and Play */}
           <Route path="/competition-entry/:slug" element={<ProtectedRoute allowedRoles={['team']}><CompetitionEntry /></ProtectedRoute>} />

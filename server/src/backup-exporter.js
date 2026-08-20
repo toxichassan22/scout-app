@@ -46,6 +46,8 @@ function driveMimeType(fileName) {
     '.mp4': 'video/mp4',
     '.zip': 'application/zip',
     '.rar': 'application/x-rar-compressed',
+    '.ppt': 'application/vnd.ms-powerpoint',
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     '.doc': 'application/msword',
     '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     '.txt': 'text/plain',

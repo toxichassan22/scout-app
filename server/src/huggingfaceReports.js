@@ -147,9 +147,13 @@ export async function syncReportToHuggingFace({ team, competitionName, report, f
     ? 'application/pdf'
     : ext === '.pptx'
       ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-      : ext === '.docx'
-        ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        : 'application/octet-stream';
+      : ext === '.ppt'
+        ? 'application/vnd.ms-powerpoint'
+        : ext === '.docx'
+          ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          : ext === '.doc'
+            ? 'application/msword'
+            : 'application/octet-stream';
   const metadata = publicMetadata({ team, competitionName, report, filePath: location.filePath, contentHash, mimeType });
 
   return withOperationLock(async () => {

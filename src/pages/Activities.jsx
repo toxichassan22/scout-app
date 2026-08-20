@@ -110,15 +110,56 @@ function ColorHuntGame() {
 
 function EntertainmentCard({ activity, onOpen }) {
   const Icon = activity.icon;
+  const isFeatured = activity.featured;
   return (
-    <motion.article whileHover={{ y: -3 }} className="flex min-h-52 flex-col justify-between rounded-3xl border border-white/10 bg-black/15 p-5 text-right transition-colors hover:border-cyan-400/30">
-      <div><div className="mb-4 flex items-start justify-between gap-3"><span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black text-cyan-200">نشاط ترفيهي</span><Icon className="text-cyan-300/80" size={24} /></div><h3 className="text-lg font-black text-white">{activity.title}</h3><p className="mt-2 text-xs leading-6 text-slate-400">{activity.description}</p></div>
-      <button type="button" onClick={() => onOpen(activity.path)} className="mt-5 flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black text-white transition hover:border-cyan-300/40 hover:bg-cyan-400/10"><Play size={15} />{activity.action}<ChevronLeft size={15} /></button>
+    <motion.article 
+      whileHover={{ y: -4 }} 
+      className={`flex min-h-52 flex-col justify-between rounded-3xl border p-5 text-right transition-all ${
+        isFeatured 
+          ? 'border-cyan-400/50 bg-gradient-to-br from-cyan-950/40 via-teal-950/20 to-black/40 shadow-[0_0_25px_rgba(6,182,212,0.15)] hover:border-cyan-300' 
+          : 'border-white/10 bg-black/15 hover:border-cyan-400/30'
+      }`}
+    >
+      <div>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <span className={`rounded-full border px-3 py-1 text-[10px] font-black ${
+            isFeatured 
+              ? 'border-cyan-400/40 bg-cyan-400/20 text-cyan-200 animate-pulse' 
+              : 'border-white/10 bg-white/5 text-cyan-200'
+          }`}>
+            {isFeatured ? '⚡ ذكاء اصطناعي GPU' : 'نشاط ترفيهي'}
+          </span>
+          <Icon className={isFeatured ? 'text-cyan-300 animate-pulse' : 'text-cyan-300/80'} size={26} />
+        </div>
+        <h3 className="text-lg font-black text-white">{activity.title}</h3>
+        <p className="mt-2 text-xs leading-6 text-slate-300">{activity.description}</p>
+      </div>
+      <button 
+        type="button" 
+        onClick={() => onOpen(activity.path)} 
+        className={`mt-5 flex min-h-11 items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-xs font-black transition ${
+          isFeatured 
+            ? 'border-cyan-400/60 bg-gradient-to-r from-cyan-500/30 to-teal-500/30 text-white hover:from-cyan-500/50 hover:to-teal-500/50 shadow-[0_0_15px_rgba(6,182,212,0.25)]' 
+            : 'border-white/10 bg-white/5 text-white hover:border-cyan-300/40 hover:bg-cyan-400/10'
+        }`}
+      >
+        <Play size={15} />
+        {activity.action}
+        <ChevronLeft size={15} />
+      </button>
     </motion.article>
   );
 }
 
 const entertainmentActivities = [
+  { 
+    title: 'استوديو الذكاء الاصطناعي 🎬✨', 
+    description: 'توليد فيديوهات سينمائية متحركة (LTX-Video) وصور كشفية فائقة الدقة 8K (FLUX.1-dev) بدعم GPU.', 
+    action: 'دخول استوديو الفيديو والصور', 
+    path: '/ai-studio', 
+    icon: Film,
+    featured: true 
+  },
   { title: 'Guess the Number', description: 'لعبة جماعية من 3 إلى 10 لاعبين، تعتمد على الأدوار وكشف الأكواد.', action: 'فتح غرفة اللعب', path: '/activities/guess-number', icon: Users },
   { title: 'Easter Egg', description: 'رحلة QR طويلة بمهام صوتية وثقافية وحركية، وتتابعها السواعد ميدانيًا.', action: 'بدء رحلة QR', path: '/activities/easter-egg', icon: QrCode },
 ];
@@ -138,3 +179,4 @@ const Activities = () => {
 };
 
 export default Activities;
+

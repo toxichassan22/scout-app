@@ -53,11 +53,14 @@ await assert.rejects(() => verifyAuthenticatedUser(boundToken));
 
 const pdf = Buffer.from('%PDF-1.7\nsafe');
 const officeZip = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('safe')]);
+const legacyOffice = Buffer.concat([Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]), Buffer.from('safe-office')]);
 const validPdf = validateBase64Upload(`data:application/pdf;base64,${pdf.toString('base64')}`, 'report.pdf');
 const validPptx = validateBase64Upload(`data:application/vnd.openxmlformats-officedocument.presentationml.presentation;base64,${officeZip.toString('base64')}`, 'presentation.pptx');
+const validPpt = validateBase64Upload(`data:application/vnd.ms-powerpoint;base64,${legacyOffice.toString('base64')}`, 'presentation.ppt');
 const validDocx = validateBase64Upload(`data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${officeZip.toString('base64')}`, 'document.docx');
 assert.equal(validPdf.mime, 'application/pdf');
 assert.equal(validPptx.mime, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+assert.equal(validPpt.mime, 'application/vnd.ms-powerpoint');
 assert.equal(validDocx.mime, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
 assert.throws(() => validateBase64Upload('%%%not-base64%%%', 'report.pdf', 'application/pdf'));
 assert.throws(() => validateBase64Upload(`data:application/pdf;base64,${pdf.toString('base64')}`, '../report.exe'));
@@ -68,6 +71,14 @@ try {
     await writeFile(pptxFixturePath, officeZip);
     const streamed = await validateFileUpload(pptxFixturePath, 'presentation.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
     assert.equal(streamed.ext, '.pptx');
+    const streamedWindowsMime = await validateFileUpload(pptxFixturePath, 'presentation.pptx', 'application/x-zip-compressed');
+    assert.equal(streamedWindowsMime.ext, '.pptx');
+    const streamedOctet = await validateFileUpload(pptxFixturePath, 'presentation.pptx', 'application/octet-stream');
+    assert.equal(streamedOctet.ext, '.pptx');
+    const pptFixturePath = path.join(uploadFixtureDir, 'presentation.ppt');
+    await writeFile(pptFixturePath, legacyOffice);
+    const streamedPpt = await validateFileUpload(pptFixturePath, 'presentation.ppt', 'application/vnd.ms-powerpoint');
+    assert.equal(streamedPpt.ext, '.ppt');
 } finally {
     await rm(uploadFixtureDir, { recursive: true, force: true });
 }

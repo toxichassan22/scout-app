@@ -57,7 +57,10 @@ const upload = multer({
     file.originalname = decodeMultipartFileName(file.originalname);
     const ext = path.extname(file.originalname).toLowerCase();
     if (UPLOAD_TYPES[ext]) return cb(null, true);
-    cb(new Error('امتداد الملف غير مسموح'));
+    const err = new Error(`امتداد الملف (${ext || 'بدون امتداد'}) غير مسموح`);
+    err.status = 400;
+    err.statusCode = 400;
+    cb(err);
   },
 });
 
@@ -161,7 +164,9 @@ async function finalizeReport(req, res, { title, content, competitionId, storedN
         const ext = path.extname(storedName).toLowerCase();
         let mimeType = 'application/pdf';
         if (ext === '.pptx') mimeType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+        else if (ext === '.ppt') mimeType = 'application/vnd.ms-powerpoint';
         else if (ext === '.docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        else if (ext === '.doc') mimeType = 'application/msword';
         const result = await queueUploadToGoogleDrive(driveLocation.fileName, mimeType, diskPath, driveLocation.folderPath);
         req.log.info({ storedName, driveFileName: driveLocation.fileName, folderPath: driveLocation.folderPath, result: result?.result }, 'report uploaded to Google Drive');
       }
@@ -187,7 +192,7 @@ function handleUploadError(err, res, req) {
     return res.status(400).json({ success: false, error: 'فشل في رفع الملف', requestId: req.requestId, timestamp: new Date().toISOString() });
   }
   const status = err.statusCode || err.status || 500;
-  const message = status < 500 ? err.message : 'فشل في رفع التقرير';
+  const message = status < 500 ? err.message : (err.message || 'فشل في رفع التقرير');
   res.status(status).json({ success: false, error: message, requestId: req.requestId, timestamp: new Date().toISOString() });
 }
 
