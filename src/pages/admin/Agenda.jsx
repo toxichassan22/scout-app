@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Calendar, Plus, Trash2, Edit3, Clock, MapPin, Sparkles, CheckCircle2, X, Play, Square } from 'lucide-react';
 import { getAgenda, addAgendaItem, deleteAgendaItem, updateAgendaItem, agendaAction, getAdminCompetitions } from '../../services/api';
-import { formatTimeRange12 } from '../../utils/timeFormat';
+import { format12Hour, formatTimeRange12, parseTimeInput } from '../../utils/timeFormat';
 import AdminBackLink from '../../components/AdminBackLink';
 
 const TYPE_OPTIONS = [
@@ -266,9 +266,9 @@ const AdminAgenda = () => {
                 <input
                   type="text"
                   required
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  placeholder="08:00"
+                  value={format12Hour(startTime)}
+                  onChange={(e) => setStartTime(parseTimeInput(e.target.value))}
+                  placeholder="08:00 AM"
                   className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none font-mono"
                 />
               </div>
@@ -278,9 +278,9 @@ const AdminAgenda = () => {
                 <input
                   type="text"
                   required
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  placeholder="09:00"
+                  value={format12Hour(endTime)}
+                  onChange={(e) => setEndTime(parseTimeInput(e.target.value))}
+                  placeholder="09:00 AM"
                   className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none font-mono"
                 />
               </div>

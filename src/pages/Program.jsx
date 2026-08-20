@@ -134,15 +134,18 @@ const Program = () => {
     'period-4': 'الفترة الرابعة',
     closing: 'الختام',
   };
-  const periodLabels = agendaItems.reduce((labels, item) => {
-    const current = labels[item.period];
-    if (!current) labels[item.period] = { start: item.startTime, end: item.endTime };
-    else {
-      labels[item.period].start = [labels[item.period].start, item.startTime].filter(Boolean).sort()[0] || labels[item.period].start;
-      labels[item.period].end = [labels[item.period].end, item.endTime].filter(Boolean).sort().at(-1) || labels[item.period].end;
-    }
-    return labels;
+  const periodItems = agendaItems.reduce((groups, item) => {
+    if (!groups[item.period]) groups[item.period] = [];
+    groups[item.period].push(item);
+    return groups;
   }, {});
+  const periodLabels = Object.fromEntries(Object.entries(periodItems).map(([period, items]) => {
+    const timedItems = items.filter(item => item.type !== 'schedule_only');
+    const rangeItems = timedItems.length > 0 ? timedItems : items;
+    const starts = rangeItems.map(item => item.startTime).filter(Boolean).sort();
+    const ends = rangeItems.map(item => item.endTime).filter(Boolean).sort();
+    return [period, { start: starts[0] || '', end: ends.at(-1) || '' }];
+  }));
   Object.keys(periodLabels).forEach(period => {
     const range = periodLabels[period];
     periodLabels[period] = {
@@ -262,7 +265,7 @@ const Program = () => {
                   <span className="text-xs font-black text-white truncate">{activeZone.name}</span>
                 </div>
                 {selectedItem?.zoneId === activeZone.id && (
-                  <span className="font-mono text-[10px] text-amber-300 shrink-0">{selectedItem.startTime}</span>
+                  <span className="font-mono text-[10px] text-amber-300 shrink-0">{format12Hour(selectedItem.startTime)}</span>
                 )}
               </div>
             ) : (

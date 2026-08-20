@@ -6,6 +6,7 @@ import {
 } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
 import AdminBackLink from '../../components/AdminBackLink';
+import { formatDateTime12 } from '../../utils/timeFormat';
 
 const dateInput = (value) => {
   if (!value) return '';
@@ -15,7 +16,7 @@ const dateInput = (value) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
-const formatDate = (value) => value ? new Date(value).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' }) : '';
+const formatDate = (value) => formatDateTime12(value);
 
 const AdminReports = () => {
   const [reports, setReports] = useState([]);

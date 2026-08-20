@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Play, RefreshCw, ShieldAlert, CheckCircle, AlertTriangle, XCircle, Terminal, AlertOctagon } from 'lucide-react';
 import { useCompetitions } from '../../context/CompetitionContext';
 import { useAuth } from '../../context/AuthContext';
+import { format12Hour } from '../../utils/timeFormat';
 
 const StressTest = () => {
   const { submissions, setSubmissions } = useCompetitions();
@@ -22,7 +23,7 @@ const StressTest = () => {
       ...prev,
       {
         id: crypto.randomUUID(),
-        timestamp: new Date().toLocaleTimeString('ar-EG'),
+        timestamp: format12Hour(`${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`),
         message,
         type
       }

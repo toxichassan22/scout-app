@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Clock3, MapPin, Printer, QrCode, Save, ToggleLe
 import { QRCodeSVG } from 'qrcode.react';
 import { getAdminCompetitions, getAgenda, updateCompetition } from '../../services/api';
 import AdminBackLink from '../../components/AdminBackLink';
+import { format12Hour, formatTimeRange12, parseTimeInput } from '../../utils/timeFormat';
 
 const TYPE_LABELS = {
   auto_digital: 'مسابقة رقمية',
@@ -86,8 +87,10 @@ const AdminCompetitions = () => {
     });
     return [...grouped.entries()]
       .map(([key, items]) => {
-        const starts = items.map(item => item?.schedule?.startTime).filter(Boolean).sort();
-        const ends = items.map(item => item?.schedule?.endTime).filter(Boolean).sort();
+        const scheduledCompetitions = items.filter(item => item.type !== 'schedule_only');
+        const rangeItems = scheduledCompetitions.length > 0 ? scheduledCompetitions : items;
+        const starts = rangeItems.map(item => item?.schedule?.startTime).filter(Boolean).sort();
+        const ends = rangeItems.map(item => item?.schedule?.endTime).filter(Boolean).sort();
         return { key, items, start: starts[0] || '', end: ends.at(-1) || '' };
       })
       .sort((a, b) => (a.start || '99:99').localeCompare(b.start || '99:99'));
@@ -204,7 +207,7 @@ const AdminCompetitions = () => {
                     <button type="button" onClick={() => togglePeriod(group.key)} aria-expanded={isOpen} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-right transition hover:bg-cyan-500/[0.06]">
                       <div>
                         <h2 className="text-base font-black text-white">{PERIOD_NAMES[group.key] || group.key}</h2>
-                        <p className="mt-1 text-xs font-mono font-bold text-cyan-300" dir="ltr">{group.start && group.end ? `${group.start} - ${group.end}` : 'بدون موعد محدد'} · {group.items.length} عنصر</p>
+                        <p className="mt-1 text-xs font-mono font-bold text-cyan-300" dir="ltr">{group.start && group.end ? formatTimeRange12(group.start, group.end) : 'بدون موعد محدد'} · {group.items.length} عنصر</p>
                       </div>
                       {isOpen ? <ChevronUp className="text-cyan-300" /> : <ChevronDown className="text-slate-400" />}
                     </button>
@@ -233,8 +236,8 @@ const AdminCompetitions = () => {
                                 <label className="block text-xs font-black text-slate-400">مكان المسابقة<select className="ai-input mt-1 w-full bg-slate-950" value={draft.zoneId || ''} onChange={event => field(competition.id, 'zoneId', event.target.value)}><option value="">غير محدد</option>{zones.map(zone => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label>
                                 <label className="block text-xs font-black text-slate-400">تفاصيل المكان<input className="ai-input mt-1 w-full" placeholder="مثال: الدور الثاني أو المكان يحدد لاحقاً" value={draft.locationNote || ''} onChange={event => field(competition.id, 'locationNote', event.target.value)} /></label>
                                 <div className="grid gap-3 sm:grid-cols-2">
-                                  <label className="block text-xs font-black text-slate-400">من<span className="relative mt-1 block"><Clock3 size={15} className="pointer-events-none absolute right-3 top-3 text-amber-300" /><input type="time" className="ai-input w-full pr-9 font-mono" value={draft.startTime || ''} onChange={event => field(competition.id, 'startTime', event.target.value)} /></span></label>
-                                  <label className="block text-xs font-black text-slate-400">إلى<span className="relative mt-1 block"><Clock3 size={15} className="pointer-events-none absolute right-3 top-3 text-amber-300" /><input type="time" className="ai-input w-full pr-9 font-mono" value={draft.endTime || ''} onChange={event => field(competition.id, 'endTime', event.target.value)} /></span></label>
+                                  <label className="block text-xs font-black text-slate-400">من<span className="relative mt-1 block"><Clock3 size={15} className="pointer-events-none absolute right-3 top-3 text-amber-300" /><input type="text" placeholder="08:00 AM" className="ai-input w-full pr-9 font-mono" value={format12Hour(draft.startTime)} onChange={event => field(competition.id, 'startTime', parseTimeInput(event.target.value))} /></span></label>
+                                  <label className="block text-xs font-black text-slate-400">إلى<span className="relative mt-1 block"><Clock3 size={15} className="pointer-events-none absolute right-3 top-3 text-amber-300" /><input type="text" placeholder="09:00 AM" className="ai-input w-full pr-9 font-mono" value={format12Hour(draft.endTime)} onChange={event => field(competition.id, 'endTime', parseTimeInput(event.target.value))} /></span></label>
                                 </div>
                                 {usesQr && (
                                   <label className="block text-xs font-black text-slate-400">كود الـ QR الخاص بالمسابقة<input className="ai-input mt-1 w-full font-mono text-sm" value={draft.qrCode || ''} placeholder={`افتراضي: scout-qr-${competition.slug}`} onChange={event => field(competition.id, 'qrCode', event.target.value)} /></label>
@@ -252,7 +255,7 @@ const AdminCompetitions = () => {
                           </article>
                         ) : (
                           <button key={competition.id} type="button" onClick={() => setExpandedId(competition.id)} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/45 p-4 text-right transition hover:border-cyan-400/40 hover:bg-cyan-500/[0.05]">
-                            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full border px-2 py-1 text-[10px] font-black ${typeClass(competition.type)}`}>{TYPE_LABELS[competition.type] || competition.type}</span><h3 className="truncate text-sm font-black text-white">{draft.name || competition.name}</h3></div><div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] font-bold text-slate-400"><span dir="ltr">{schedule.startTime && schedule.endTime ? `${schedule.startTime} - ${schedule.endTime}` : 'موعد غير محدد'}</span><span className="flex items-center gap-1 text-cyan-300"><MapPin size={12} />{draft.locationNote || schedule.locationNote || schedule.zone?.name || 'مكان غير محدد'}</span></div></div><ChevronDown size={18} className="shrink-0 text-slate-500" /></button>
+                            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full border px-2 py-1 text-[10px] font-black ${typeClass(competition.type)}`}>{TYPE_LABELS[competition.type] || competition.type}</span><h3 className="truncate text-sm font-black text-white">{draft.name || competition.name}</h3></div><div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] font-bold text-slate-400"><span dir="ltr">{schedule.startTime && schedule.endTime ? formatTimeRange12(schedule.startTime, schedule.endTime) : 'موعد غير محدد'}</span><span className="flex items-center gap-1 text-cyan-300"><MapPin size={12} />{draft.locationNote || schedule.locationNote || schedule.zone?.name || 'مكان غير محدد'}</span></div></div><ChevronDown size={18} className="shrink-0 text-slate-500" /></button>
                         );
                       })}
                     </div>}

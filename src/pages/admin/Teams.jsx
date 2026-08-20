@@ -8,6 +8,7 @@ import {
 } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
 import AdminBackLink from '../../components/AdminBackLink';
+import { formatDateTime12 } from '../../utils/timeFormat';
 
 const getDevicePlatform = (userAgent = '') => {
   const browser = /Edg\//.test(userAgent)
@@ -35,15 +36,7 @@ const getDevicePlatform = (userAgent = '') => {
   return `${browser} · ${platform}`;
 };
 
-const formatDeviceDate = value => value
-  ? new Date(value).toLocaleString('ar-EG', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-  : 'غير متوفر';
+const formatDeviceDate = value => value ? formatDateTime12(value) : 'غير متوفر';
 
 const getIdentityStatus = device => {
   if (device.displayName && device.role) return { label: 'بيانات مكتملة', className: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20', icon: CircleCheck };

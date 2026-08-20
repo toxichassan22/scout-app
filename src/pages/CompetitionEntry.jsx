@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import QRScanner from '../components/QRScanner';
 import { enterCompetition, scanCompetition } from '../services/api';
 import { useSocket } from '../context/SocketContext';
+import { formatDateTime12 } from '../utils/timeFormat';
 
 function extractQrValue(rawValue) {
   const value = String(rawValue || '').trim();
@@ -18,7 +19,7 @@ function extractQrValue(rawValue) {
 }
 
 function formatDate(value) {
-  return value ? new Date(value).toLocaleString('ar-EG') : 'يحدده الأدمن';
+  return value ? formatDateTime12(value) : 'يحدده الأدمن';
 }
 
 const CompetitionEntry = () => {

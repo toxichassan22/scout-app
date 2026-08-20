@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useCompetitions } from '../context/CompetitionContext';
 import { getMyReportPermissions, getMyReports, resubmitTeamReport, uploadTeamReport } from '../services/api';
+import { formatDateTime12 } from '../utils/timeFormat';
 
 const REPORT_FIELD_GROUPS = [
   { key: 'scientific', label: 'المجال العلمي', slugs: ['report-scientific-research', 'report-ai-models', 'report-smart-scout'] },
@@ -81,7 +82,7 @@ const UploadReport = () => {
   const getDeadlineText = () => {
     if (!activePermission?.deadline) return 'لا يوجد موعد نهائي محدد';
     if (deadlineExpired) return 'انتهى موعد التسليم';
-    return `متاح حتى ${new Date(activePermission.deadline).toLocaleString('ar-EG')}`;
+    return `متاح حتى ${formatDateTime12(activePermission.deadline)}`;
   };
 
   const MAX_FILE_SIZE_MB = 50;
@@ -483,7 +484,7 @@ const UploadReport = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-black text-white">{report.data?.title || 'تقرير كشفي'}</p>
-                    <p className="text-[11px] text-[#a9a3c2]">{report.competitionName} • {new Date(report.timestamp).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p className="text-[11px] text-[#a9a3c2]">{report.competitionName} • {formatDateTime12(report.timestamp)}</p>
                   </div>
                 </div>
 
