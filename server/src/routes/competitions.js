@@ -261,8 +261,16 @@ router.get('/:idOrSlug/play', authenticateToken, requireRole(['team']), validate
       session = await prisma.quizSession.findUnique({ where: { teamId_competitionId: { teamId: req.user.id, competitionId: competition.id } }, include: { draftAnswers: { select: { questionId: true } } } });
       if (!session) return res.status(409).json({ error: 'يجب بدء جلسة المسابقة أولاً', sessionRequired: true });
       if (session.deviceId !== req.user.deviceId) return res.status(403).json({ error: 'المسابقة مقفلة على جهاز آخر' });
-      if (session.isCompleted) return res.status(409).json({ error: 'انتهت جلسة المسابقة', completed: true });
-      expired = new Date() >= session.expiresAt;
+      if (session.isCompleted || new Date() >= session.expiresAt) {
+        const existingScore = await prisma.score.findUnique({ where: { competitionId_teamId: { competitionId: competition.id, teamId: req.user.id } } });
+        if (!existingScore) {
+          await prisma.draftAnswer.deleteMany({ where: { sessionId: session.id } });
+          await prisma.quizSession.delete({ where: { id: session.id } });
+          return res.status(409).json({ error: 'تم تصفير المحاولة السابقة؛ يرجى بدء المسابقة من جديد', sessionRequired: true });
+        }
+        return res.status(409).json({ error: 'انتهت جلسة المسابقة', completed: true });
+      }
+      expired = false;
     }
 
     const existing = await prisma.score.findUnique({

@@ -47,6 +47,13 @@ try {
   assert.equal(restarted.session, null, 'restarting after finalization should not create a session');
   assert.equal(restarted.score.total, 10, 'restarting should return the existing score');
 
+  // Test: when score is deleted, team can start a fresh session and play again
+  await prisma.score.delete({ where: { id: result.score.id } });
+  const freshStartAfterScoreDelete = await startDigitalSession({ teamId: team.id, competitionId: competition.id, deviceId, entryCode: 'UNIT-123' });
+  assert.equal(freshStartAfterScoreDelete.kind, 'session', 'after score is deleted, team should get a fresh live session');
+  assert.ok(freshStartAfterScoreDelete.session.id, 'new fresh session should exist');
+  assert.notEqual(freshStartAfterScoreDelete.session.id, session.id, 'new session ID should be different from old session');
+
   const otherTeam = await prisma.team.create({
     data: { username: `quiz-other-${suffix}`, label: 'Quiz Unit Other', passwordHash: await bcrypt.hash('test1234', 4), maxDevices: 2 },
   });

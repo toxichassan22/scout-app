@@ -52,6 +52,15 @@ router.delete('/scores/:id', validate({ params: { id: zId('النتيجة') } })
 
     await prisma.$transaction(async tx => {
       await tx.score.delete({ where: { id: existing.id } });
+      await tx.quizSession.deleteMany({
+        where: { competitionId: existing.competitionId, teamId: existing.teamId },
+      });
+      await tx.judgeTeamClaim.deleteMany({
+        where: { competitionId: existing.competitionId, teamId: existing.teamId },
+      });
+      await tx.videoAttempt.deleteMany({
+        where: { competitionId: existing.competitionId, teamId: existing.teamId },
+      });
       await recalculateTeamStanding(existing.teamId, tx);
       if (existing.competition?.type === 'manual_judged' && existing.competition.isOpen === false) {
         await tx.competition.update({ where: { id: existing.competitionId }, data: { isOpen: true } });
@@ -61,9 +70,10 @@ router.delete('/scores/:id', validate({ params: { id: zId('النتيجة') } })
     clearLeaderboardCache();
     await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
     req.io?.to('admin').emit('admin:score:deleted', { scoreId: existing.id, teamId: existing.teamId, competitionId: existing.competitionId });
+    req.io?.emit('competition:update', { competitionId: existing.competitionId, teamId: existing.teamId });
     requestDataBackup({ reason: 'admin-score-deleted' });
 
-    res.json({ success: true, message: 'تم حذف الدرجة وأصبح الفريق متاحاً للتقييم من جديد' });
+    res.json({ success: true, message: 'تم حذف الدرجة وأصبح الفريق متاحاً للتقييم والمشاركة من جديد' });
   } catch (err) {
     req.log.error({ err }, 'admin score delete failed');
     res.status(500).json({ success: false, error: 'فشل في حذف الدرجة', requestId: req.requestId, timestamp: new Date().toISOString() });

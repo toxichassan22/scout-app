@@ -230,22 +230,28 @@ export async function startDigitalSession({ teamId, competitionId, deviceId, ent
     if (competition.entryCode && competition.entryCode !== String(entryCode || '').trim()) throw Object.assign(new Error('كود الدخول غير صحيح'), { status: 403 });
 
     const score = await tx.score.findUnique({ where: { competitionId_teamId: { competitionId: competition.id, teamId } } });
-    if (score && score.completedAll) return { kind: 'finalized', session: null, score, finalized: true };
+    if (score && (score.completedAll || score.isFinal)) return { kind: 'finalized', session: null, score, finalized: true };
 
     const existing = await tx.quizSession.findUnique({ where: { teamId_competitionId: { teamId, competitionId: competition.id } }, include: { draftAnswers: true } });
     if (existing) {
-      if (existing.deviceId !== deviceId) throw Object.assign(new Error('المسابقة مقفلة على جهاز آخر'), { status: 409 });
       if (existing.isCompleted || new Date() >= existing.expiresAt) {
-        const result = await finalizeDigitalSessionTx(tx, existing.id, teamId, deviceId);
-        return { kind: 'finalized', session: null, score: result.score, finalized: true };
+        if (score) {
+          const result = await finalizeDigitalSessionTx(tx, existing.id, teamId, deviceId);
+          return { kind: 'finalized', session: null, score: result.score, finalized: true };
+        }
+        // Score was deleted by admin! Clean up stale completed/expired session and start fresh
+        await tx.draftAnswer.deleteMany({ where: { sessionId: existing.id } });
+        await tx.quizSession.delete({ where: { id: existing.id } });
+      } else {
+        if (existing.deviceId !== deviceId) throw Object.assign(new Error('المسابقة مقفلة على جهاز آخر'), { status: 409 });
+        if (parseOrder(existing.questionOrder).length === 0) {
+          const questionCount = Number.isInteger(competition.questionCount) && competition.questionCount > 0 ? competition.questionCount : 50;
+          const questionOrder = await createQuestionOrder(tx, competition.id, questionCount);
+          const repaired = await tx.quizSession.update({ where: { id: existing.id }, data: { questionOrder: JSON.stringify(questionOrder) }, include: { draftAnswers: true } });
+          return { kind: 'session', session: repaired, score: null, finalized: false };
+        }
+        return { kind: 'session', session: existing, score: null, finalized: false };
       }
-      if (parseOrder(existing.questionOrder).length === 0) {
-        const questionCount = Number.isInteger(competition.questionCount) && competition.questionCount > 0 ? competition.questionCount : 50;
-        const questionOrder = await createQuestionOrder(tx, competition.id, questionCount);
-        const repaired = await tx.quizSession.update({ where: { id: existing.id }, data: { questionOrder: JSON.stringify(questionOrder) }, include: { draftAnswers: true } });
-        return { kind: 'session', session: repaired, score: null, finalized: false };
-      }
-      return { kind: 'session', session: existing, score: null, finalized: false };
     }
 
     const seconds = Number.isInteger(competition.duration) && competition.duration > 0 ? competition.duration : 600;
