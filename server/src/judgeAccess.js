@@ -1,4 +1,4 @@
-import { getCanonicalReportId, resolveOfficialReportId } from './reportCatalog.js';
+import { getCanonicalReportId } from './reportCatalog.js';
 
 export const MAX_JUDGES_PER_COMPETITION = 2;
 
