@@ -67,6 +67,9 @@ Object.assign(OFFICIAL_CRITERIA_BY_SLUG, {
   schedule_6: OFFICIAL_CRITERIA_BY_SLUG.sports_1,
   schedule_11: OFFICIAL_CRITERIA_BY_SLUG.sports_2,
   schedule_23: OFFICIAL_CRITERIA_BY_SLUG.king_ciphers,
+  report_community_project: OFFICIAL_CRITERIA_BY_SLUG.report_community_vision,
+  report_community: OFFICIAL_CRITERIA_BY_SLUG.report_community_vision,
+  community_vision: OFFICIAL_CRITERIA_BY_SLUG.report_community_vision,
 });
 
 export function getOfficialCriteria(competition) {
@@ -96,6 +99,7 @@ export function getOfficialCriteria(competition) {
   if (name.includes('عرض') || name.includes('طائرات')) return OFFICIAL_CRITERIA_BY_SLUG.report_model_presentation;
   if (name.includes('الكاشف') || name.includes('كاشف')) return OFFICIAL_CRITERIA_BY_SLUG.report_smart_detector;
   if (name.includes('الفيديو')) return OFFICIAL_CRITERIA_BY_SLUG.report_video;
+  if (name.includes('المشروع المجتمعي') || name.includes('تصور مجتمعي') || name.includes('مجتمعي')) return OFFICIAL_CRITERIA_BY_SLUG.report_community_vision;
 
   return null;
 }

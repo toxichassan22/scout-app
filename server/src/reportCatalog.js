@@ -39,6 +39,7 @@ export const OFFICIAL_REPORT_CATALOG = [
   catalogEntry('comp-report-catalog-13', 'report-hadith', 'أحاديث', 'المجال الديني', 'تقرير حفظ وتسميع الأحاديث.'),
   catalogEntry('comp-report-catalog-14', 'report-worksheet', 'ورقة عمل', 'المجال الديني', 'ورقة عمل دينية موثقة ومنظمة.'),
   catalogEntry('comp-report-catalog-15', 'report-tilawa', 'دولة التلاوة', 'المجال الديني', 'تقرير مشاركة الفريق في دولة التلاوة.'),
+  catalogEntry('comp-report-catalog-18', 'report-community-vision', 'المشروع المجتمعي', 'مجال الخدمة العامة', 'مشروع تصور مجتمعي موثق بالصور والخطابات.'),
 ];
 
 export const OFFICIAL_JUDGE_COMPETITION_CATALOG = [
@@ -69,6 +70,13 @@ Object.entries({
   'comp-report-24': 'comp-report-catalog-07',
   'comp-report-catalog-11': 'comp-video-1',
   'report-video': 'comp-video-1',
+  'comp-report-14': 'comp-report-catalog-18',
+  'report_community_vision': 'comp-report-catalog-18',
+  'report-community-vision': 'comp-report-catalog-18',
+  'report_community_project': 'comp-report-catalog-18',
+  'report-community-project': 'comp-report-catalog-18',
+  'community_vision': 'comp-report-catalog-18',
+  'community-vision': 'comp-report-catalog-18',
 }).forEach(([legacyId, canonicalId]) => OFFICIAL_REPORT_ID_BY_IDENTIFIER.set(legacyId, canonicalId));
 
 export const OFFICIAL_REPORT_IDS = OFFICIAL_REPORT_CATALOG.map(report => report.id);
