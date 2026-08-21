@@ -188,16 +188,22 @@ router.patch('/teams/:id', validate(teamUpdateSchema), async (req, res) => {
   }
 });
 
-const teamCreateSchema = { body: { username: zString('اسم المستخدم', { min: 1, max: 80 }), label: zString('الاسم', { min: 1, max: 160 }), password: zString('كلمة السر', { min: 6, max: 256 }) } };
+const teamCreateSchema = { body: { username: zString('اسم المستخدم', { min: 1, max: 80 }), label: zString('الاسم', { min: 1, max: 160 }), password: zString('كلمة السر', { min: 6, max: 256 }), maxDevices: zNumber('حد الأجهزة', { min: 1, max: 1000, int: true, optional: true }) } };
 router.post('/teams', validate(teamCreateSchema), async (req, res) => {
   try {
-    const { username, password, label } = req.body || {};
+    const { username, password, label, maxDevices } = req.body || {};
     const cleanUsername = boundedString(username, 'username', { min: 1, max: 80 });
     const cleanLabel = boundedString(label, 'label', { min: 1, max: 160 });
     const cleanPassword = strongPassword(password);
 
     const passwordHash = await bcrypt.hash(cleanPassword, 12);
-    const team = await prisma.team.create({ data: { username: cleanUsername, passwordHash, label: cleanLabel }, select: safeTeamSelect });
+    const data = { username: cleanUsername, passwordHash, label: cleanLabel };
+    if (maxDevices !== undefined) {
+      const n = Number(maxDevices);
+      if (!Number.isInteger(n) || n < 1 || n > 1000) return res.status(400).json({ error: 'حد الأجهزة غير صالح' });
+      data.maxDevices = n;
+    }
+    const team = await prisma.team.create({ data, select: safeTeamSelect });
 
     if (req.io) {
       req.io.emit('team:created', { teamId: team.id, username: team.username });
@@ -221,7 +227,7 @@ router.post('/teams', validate(teamCreateSchema), async (req, res) => {
   }
 });
 
-const teamImportSchema = { body: { teams: z.array(z.object({ username: zString('اسم المستخدم', { min: 1, max: 80 }), label: zString('الاسم', { min: 1, max: 160 }), password: zString('كلمة السر', { min: 6, max: 256 }) })).min(1).max(500) } };
+const teamImportSchema = { body: { teams: z.array(z.object({ username: zString('اسم المستخدم', { min: 1, max: 80 }), label: zString('الاسم', { min: 1, max: 160 }), password: zString('كلمة السر', { min: 6, max: 256 }), maxDevices: zNumber('حد الأجهزة', { min: 1, max: 1000, int: true, optional: true }) })).min(1).max(500) } };
 router.post('/teams/import', validate(teamImportSchema), async (req, res) => {
   try {
     const { teams } = req.body || {}; // Array of { username, password, label }
@@ -236,7 +242,14 @@ router.post('/teams/import', validate(teamImportSchema), async (req, res) => {
         const label = boundedString(item?.label, 'label', { min: 1, max: 160 });
         const password = strongPassword(item?.password);
         const passwordHash = await bcrypt.hash(password, 12);
-        const team = await prisma.team.create({ data: { username, passwordHash, label }, select: safeTeamSelect });
+        const data = { username, passwordHash, label };
+        if (item?.maxDevices !== undefined) {
+          const n = Number(item.maxDevices);
+          if (Number.isInteger(n) && n >= 1 && n <= 1000) {
+            data.maxDevices = n;
+          }
+        }
+        const team = await prisma.team.create({ data, select: safeTeamSelect });
         created.push(team);
 
         // Google Drive: create folder for each imported team
