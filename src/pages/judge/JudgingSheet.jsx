@@ -60,8 +60,8 @@ const JudgingSheet = () => {
       const data = await getJudgeTeams(competition.id);
       setTeams(data);
       if (completedTeamId) {
-        if (!data.some(t => !t.isFinal)) navigate('/judge/passcode', { replace: true });
-        else { setSelectedTeam(null); setScores({}); }
+        setSelectedTeam(null);
+        setScores({});
       }
     } catch (err) {
       console.error('Failed to load teams:', err);
@@ -230,6 +230,11 @@ const JudgingSheet = () => {
                         📄 تقرير
                       </span>
                     )}
+                    {(t.videoAttempt || (t.videoAttempts && t.videoAttempts.length > 0)) && (
+                      <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] px-1.5 py-0.5 rounded font-mono">
+                        🎥 فيديو
+                      </span>
+                    )}
                   </div>
                 </button>
               ))}
@@ -241,15 +246,15 @@ const JudgingSheet = () => {
         <div className="md:col-span-2 card p-6 rounded-2xl border border-slate-800 bg-slate-900/60 text-right">
           {selectedTeam ? (
             <div>
-              {/* Header with Report View Button */}
+              {/* Header with Report / Video View Buttons */}
               <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-800">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
                     في انتظار التقييم
                   </span>
 
                   {/* 📄 Report View Action Button for Judge */}
-                  {selectedTeam.report ? (
+                  {selectedTeam.report && (
                     <button
                       onClick={openReport}
                       disabled={openingReport}
@@ -258,15 +263,66 @@ const JudgingSheet = () => {
                       <ExternalLink size={14} className="text-purple-400" />
                       {openingReport ? 'جاري فتح التقرير...' : '📄 فتح تقرير الفريق ↗'}
                     </button>
-                  ) : (
+                  )}
+
+                  {/* 🎥 Video View Action Button for Judge */}
+                  {selectedTeam.videoAttempt?.videoUrl && (
+                    <a
+                      href={selectedTeam.videoAttempt.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold transition shadow-sm"
+                    >
+                      <ExternalLink size={14} className="text-amber-400" />
+                      🎥 مشاهدة فيديو الفريق ↗
+                    </a>
+                  )}
+
+                  {!selectedTeam.report && !selectedTeam.videoAttempt?.videoUrl && (
                     <span className="text-[11px] text-slate-500 bg-slate-800/60 px-2.5 py-1 rounded-full border border-slate-700">
-                      لا يوجد تقرير مرفوع
+                      لا يوجد تقرير أو فيديو مرفوع
                     </span>
                   )}
                 </div>
 
                 <h2 className="text-lg font-black text-white">{selectedTeam.label}</h2>
               </div>
+
+              {/* Video Prompt & Attempts Box for Judge */}
+              {selectedTeam.videoAttempt && (
+                <div className="mb-5 p-3.5 rounded-xl border border-amber-500/20 bg-amber-500/5 text-xs text-right space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 font-mono text-[10px]">
+                      المحاولة #{selectedTeam.videoAttempt.attemptNumber}
+                    </span>
+                    <span className="text-amber-400 font-bold">بيانات الفيديو المرفوع من الفريق:</span>
+                  </div>
+                  {selectedTeam.videoAttempt.prompt && (
+                    <div className="text-slate-300 text-xs leading-relaxed font-sans bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+                      <span className="text-slate-400 font-bold block mb-1">فكرة / وصف الفيديو:</span>
+                      {selectedTeam.videoAttempt.prompt}
+                    </div>
+                  )}
+                  {selectedTeam.videoAttempts && selectedTeam.videoAttempts.length > 1 && (
+                    <div className="pt-2 border-t border-slate-800 flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] text-slate-400">جميع محاولات الفريق ({selectedTeam.videoAttempts.length}):</span>
+                      {selectedTeam.videoAttempts.map((va) => (
+                        va.videoUrl ? (
+                          <a
+                            key={va.id}
+                            href={va.videoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] bg-slate-800 hover:bg-slate-700 text-amber-300 px-2 py-1 rounded border border-slate-700 transition"
+                          >
+                            محاولة #{va.attemptNumber} ↗
+                          </a>
+                        ) : null
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-3 py-2 text-xs">
                 <button type="button" onClick={releaseSelectedTeam} className="rounded-lg bg-slate-800 px-3 py-2 font-bold text-slate-300 hover:bg-slate-700">

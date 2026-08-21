@@ -116,8 +116,9 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
         select: {
           id: true,
           label: true,
-          scores: { where: { competitionId }, select: { total: true, isFinal: true } },
-          reports: { where: { competitionId }, orderBy: { uploadedAt: 'desc' }, take: 1, select: { id: true, title: true, content: true, fileUrl: true, fileName: true, uploadedAt: true } }
+          scores: { where: { competitionId }, select: { id: true, total: true, isFinal: true } },
+          reports: { where: { competitionId }, orderBy: { uploadedAt: 'desc' }, take: 1, select: { id: true, title: true, content: true, fileUrl: true, fileName: true, uploadedAt: true } },
+          videoAttempts: { where: { competitionId }, orderBy: { attemptNumber: 'desc' }, select: { id: true, attemptNumber: true, prompt: true, videoUrl: true, videoStatus: true, createdAt: true } },
         }
       }),
       prisma.team.count({ where: teamWhere }),
@@ -125,14 +126,17 @@ router.get('/teams/:competitionId', validate(teamsSchema), async (req, res) => {
 
     const formattedTeams = teams.map(t => {
       const compReport = t.reports[0] || null;
+      const latestVideoAttempt = t.videoAttempts?.[0] || null;
       const finalized = Boolean(t.scores[0]?.isFinal);
       return {
         id: t.id,
         label: t.label,
-        hasSubmitted: t.scores.length > 0,
+        hasSubmitted: t.scores.some(s => s.isFinal) || t.reports.length > 0 || (t.videoAttempts && t.videoAttempts.length > 0),
         isFinal: finalized,
         existingScore: finalized ? null : (t.scores[0] ? t.scores[0].total : null),
-        report: !finalized && compReport ? { id: compReport.id, title: compReport.title, content: compReport.content, fileUrl: compReport.fileUrl, fileName: compReport.fileName, createdAt: compReport.uploadedAt } : null
+        report: !finalized && compReport ? { id: compReport.id, title: compReport.title, content: compReport.content, fileUrl: compReport.fileUrl, fileName: compReport.fileName, createdAt: compReport.uploadedAt } : null,
+        videoAttempt: !finalized && latestVideoAttempt ? { id: latestVideoAttempt.id, attemptNumber: latestVideoAttempt.attemptNumber, prompt: latestVideoAttempt.prompt, videoUrl: latestVideoAttempt.videoUrl, videoStatus: latestVideoAttempt.videoStatus, createdAt: latestVideoAttempt.createdAt } : null,
+        videoAttempts: !finalized && t.videoAttempts ? t.videoAttempts : [],
       };
     });
 
@@ -222,32 +226,34 @@ router.post('/scores', enforceNotFrozen, validate(scoreSchema), idempotent('judg
     const scoreRecord = await prisma.$transaction(async tx => {
       const existingScore = await tx.score.findUnique({ where: { competitionId_teamId: { competitionId, teamId } } });
       if (existingScore?.isFinal) throw Object.assign(new Error('تم اعتماد التقييم نهائياً ولا يمكن تعديله'), { status: 409 });
-      if (existingScore) throw Object.assign(new Error('لا يحق للمحكم تعديل نتيجة قائمة؛ التصحيح متاح للإدارة فقط'), { status: 409 });
       const claim = await tx.judgeTeamClaim.findUnique({ where: { competitionId_teamId: { competitionId, teamId } } });
       if (!claim || claim.judgeId !== judgeId || claim.expiresAt <= new Date()) throw Object.assign(new Error('انتهى حجز الفريق؛ افتحه مرة أخرى قبل الحفظ'), { status: 409, code: 'TEAM_CLAIM_EXPIRED' });
 
-      const score = await tx.score.create({ data: { competitionId, teamId, judgeId, values: serializedValues, total: calculated, isFinal: true } });
+      let score;
+      if (existingScore) {
+        score = await tx.score.update({
+          where: { id: existingScore.id },
+          data: { judgeId, values: serializedValues, total: calculated, isFinal: true },
+        });
+      } else {
+        score = await tx.score.create({
+          data: { competitionId, teamId, judgeId, values: serializedValues, total: calculated, isFinal: true },
+        });
+      }
       await tx.judgeTeamClaim.deleteMany({ where: { competitionId, teamId, judgeId } });
       await tx.judgeScore.create({ data: { scoreId: score.id, competitionId, teamId, judgeId, values: serializedValues, total: calculated } });
       await tx.scoreAudit.create({ data: { scoreId: score.id, competitionId, teamId, judgeId, action: 'judge_submit', newData: JSON.stringify({ values: parsedValues, total: calculated }) } });
       await recalculateTeamStanding(teamId, tx);
       
-      const [teamCount, completedCount] = await Promise.all([
-        tx.team.count(),
-        tx.score.count({ where: { competitionId, isFinal: true } }),
-      ]);
-      const competitionClosed = teamCount > 0 && completedCount >= teamCount;
-      if (competitionClosed) await tx.competition.update({ where: { id: competitionId }, data: { isOpen: false } });
-      return { score, competitionClosed };
+      return { score, competitionClosed: false };
     });
 
     clearLeaderboardCache();
     await emitLeaderboardUpdate(req.io, getAnonymousLeaderboard);
     req.io?.to('admin').emit('admin:score:new', { scoreRecord: scoreRecord.score, teamId, competitionId });
-    if (scoreRecord.competitionClosed) req.io?.to(`competition:${competitionId}`).emit('judge:session:closed', { competitionId });
     requestDataBackup({ reason: 'judge-score-finalised' });
 
-    res.json({ success: true, score: scoreRecord.score, competitionClosed: scoreRecord.competitionClosed });
+    res.json({ success: true, score: scoreRecord.score, competitionClosed: false });
   } catch (err) {
     if (err.code === 'P2002') return res.status(409).json({ success: false, error: 'تم تسجيل تقييم لهذا الفريق بالفعل', requestId: req.requestId, timestamp: new Date().toISOString() });
     req.log.error({ err }, 'judge score submission failed');

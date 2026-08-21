@@ -162,17 +162,21 @@ router.post('/agenda/:id/action', validate(agendaActionSchema), async (req, res)
     }
 
     let openedCompetition = null;
+    let compBefore = null;
     if (compId) {
-      const before = await prisma.competition.findUnique({ where: { id: compId }, select: { isOpen: true, name: true } }).catch(() => null);
-      const updated = await prisma.competition.update({
-        where: { id: compId },
-        data: {
-          isOpen: isStarting,
-          startsAt: isStarting ? now : undefined,
-          endsAt: !isStarting ? now : undefined,
-        },
-      }).catch(() => null);
-      if (updated && isStarting && !before?.isOpen) openedCompetition = updated;
+      compBefore = await prisma.competition.findUnique({ where: { id: compId }, select: { isOpen: true, name: true, type: true } }).catch(() => null);
+      const isManualJudged = compBefore?.type === 'manual_judged';
+      if (!isManualJudged) {
+        const updated = await prisma.competition.update({
+          where: { id: compId },
+          data: {
+            isOpen: isStarting,
+            startsAt: isStarting ? now : undefined,
+            endsAt: !isStarting ? now : undefined,
+          },
+        }).catch(() => null);
+        if (updated && isStarting && !compBefore?.isOpen) openedCompetition = updated;
+      }
     }
 
     clearFestivalContextCache();
@@ -180,8 +184,8 @@ router.post('/agenda/:id/action', validate(agendaActionSchema), async (req, res)
       req.io.emit('agenda:update', { action, agendaId: item.id });
       req.io.emit('competitions:update');
       if (openedCompetition) emitCompetitionStarted(req.io, openedCompetition);
-      else if (compId) req.io.emit('competition:update', { competitionId: compId, isOpen: isStarting });
-      if (compId && !isStarting) req.io.emit('judge:session:closed', { competitionId: compId });
+      else if (compId && compBefore?.type !== 'manual_judged') req.io.emit('competition:update', { competitionId: compId, isOpen: isStarting });
+      if (compId && !isStarting && compBefore?.type !== 'manual_judged') req.io.emit('judge:session:closed', { competitionId: compId });
     }
 
     res.json({ ...item, status: isStarting ? 'active' : 'closed' });

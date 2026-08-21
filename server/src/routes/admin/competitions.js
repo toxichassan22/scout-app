@@ -130,11 +130,16 @@ router.patch('/competitions/:id', validate(competitionUpdateSchema), async (req,
       ...(passcode !== undefined && { passcode: passcode ? String(passcode) : null }),
     };
     if (custom !== undefined) data.type = custom ? 'manual_judged' : data.type;
-    if (revoke === true) { data.passcode = null; data.entryCode = null; data.isOpen = false; }
+    if (revoke === true) {
+      data.passcode = null;
+      data.entryCode = null;
+      data.isOpen = false;
+    } else if (passcode && isOpen === undefined) {
+      data.isOpen = true;
+    }
     const transactionResult = await prisma.$transaction(async tx => {
       const before = await tx.competition.findUnique({ where: { id: req.params.id }, select: { isOpen: true } });
       const updated = await tx.competition.update({ where: { id: req.params.id }, data });
-      if (isOpen === true) await tx.judgeCompetition.deleteMany({ where: { competitionId: req.params.id } });
       const agendaData = {
         ...(data.name !== undefined && { title: updated.name }),
         ...(startTime !== undefined && { startTime: startTime || undefined }),
@@ -176,7 +181,7 @@ router.post('/competitions/:id/passcode', validate({ params: { id: zId('المس
     const randomCode = crypto.randomInt(100000, 1000000).toString();
     const comp = await prisma.competition.update({
       where: { id: req.params.id },
-      data: { passcode: randomCode }
+      data: { passcode: randomCode, isOpen: true }
     });
     clearFestivalContextCache();
     if (req.io) req.io.emit('competition:update', { action: 'passcode', competitionId: comp.id, name: comp.name, isOpen: comp.isOpen });
