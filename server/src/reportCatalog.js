@@ -70,6 +70,9 @@ Object.entries({
   'comp-report-24': 'comp-report-catalog-07',
   'comp-report-catalog-11': 'comp-video-1',
   'report-video': 'comp-video-1',
+  'report_video': 'comp-video-1',
+  video: 'comp-video-1',
+  'video-design': 'comp-video-1',
   'comp-report-14': 'comp-report-catalog-18',
   'report_community_vision': 'comp-report-catalog-18',
   'report-community-vision': 'comp-report-catalog-18',
@@ -77,10 +80,26 @@ Object.entries({
   'report-community-project': 'comp-report-catalog-18',
   'community_vision': 'comp-report-catalog-18',
   'community-vision': 'comp-report-catalog-18',
+  'community_project': 'comp-report-catalog-18',
+  'community-project': 'comp-report-catalog-18',
+  quran: 'comp-report-catalog-12',
+  'report-quran': 'comp-report-catalog-12',
+  'report_quran': 'comp-report-catalog-12',
+  hadith: 'comp-report-catalog-13',
+  'report-hadith': 'comp-report-catalog-13',
+  'report_hadith': 'comp-report-catalog-13',
+  tilawa: 'comp-report-catalog-15',
+  'report-tilawa': 'comp-report-catalog-15',
+  'report_tilawa': 'comp-report-catalog-15',
 }).forEach(([legacyId, canonicalId]) => OFFICIAL_REPORT_ID_BY_IDENTIFIER.set(legacyId, canonicalId));
 
 export const OFFICIAL_REPORT_IDS = OFFICIAL_REPORT_CATALOG.map(report => report.id);
 export const OFFICIAL_UPLOAD_COMPETITION_IDS = [...OFFICIAL_REPORT_IDS];
+
+export function getCanonicalReportId(identifier) {
+  const value = String(identifier ?? '').trim();
+  return OFFICIAL_REPORT_ID_BY_IDENTIFIER.get(value) || null;
+}
 
 export function resolveOfficialReportId(identifier) {
   const value = String(identifier ?? '').trim();

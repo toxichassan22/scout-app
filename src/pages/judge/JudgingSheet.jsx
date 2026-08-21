@@ -116,8 +116,14 @@ const JudgingSheet = () => {
       setSelectedTeam(team);
       setMessage('تم حجز الفريق لك مؤقتاً؛ يمكنك إلغاء الاختيار في أي وقت.');
       const initialScores = {};
+      let parsedExisting = {};
+      if (team.existingValues) {
+        try {
+          parsedExisting = typeof team.existingValues === 'string' ? JSON.parse(team.existingValues) : team.existingValues;
+        } catch {}
+      }
       (competition.criteria || []).forEach(c => {
-        initialScores[c.key] = 0;
+        initialScores[c.key] = parsedExisting[c.key] !== undefined && Number.isFinite(Number(parsedExisting[c.key])) ? Number(parsedExisting[c.key]) : 0;
       });
       setScores(initialScores);
     } catch (error) {
