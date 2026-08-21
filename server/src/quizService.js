@@ -4,6 +4,7 @@ import { getCompetitionState } from './competitionState.js';
 import { recalculateTeamStanding } from './teamStanding.js';
 import { buildGeographyQuestions } from './geographyQuestions.js';
 import { getCompetitionMaxScore } from './scoreRules.js';
+import { getGeniusQuestions, getTwoTruthsQuestions } from './canonicalDigitalQuestions.js';
 
 const MAX_ATTEMPTS = 3;
 const GEOGRAPHY_COMPETITION_ID = 'comp-digital-3';
@@ -111,36 +112,36 @@ async function ensureDigitalQuestions(tx, competitionId) {
   }
 
   const existingCount = await tx.question.count({ where: { competitionId: targetId } });
-  if (existingCount > 0) return;
+  const isGenius = comp.slug === 'genius' || targetId === 'comp-digital-1';
+  const isTwoTruths = comp.slug === 'two_truths' || targetId === 'comp-digital-2';
 
-  const GENIUS_FALLBACK = [
-    { text: 'ما هو التأسيس الرسمي للحركة الكشفية في العالم على يد بادن باول؟', options: ['1907', '1911', '1920', '1899'], correctOption: 0, points: 10 },
-    { text: 'ما اسم المكان الذي أقيم فيه أول مخيم كشفي تجريبي عام 1907؟', options: ['جزيرة براونسي', 'لندن', 'جنيف', 'أكسفورد'], correctOption: 0, points: 10 },
-    { text: 'كم عدد البنود الأساسية للقانون الكشفي العالمي؟', options: ['10 بنود', '7 بنود', '12 بنداً', '5 بنود'], correctOption: 0, points: 10 },
-    { text: 'ما رمز التحية الكشفية الأصابع الثلاثة؟', options: ['واجب نحو الله ثم الوطن ثم الآخرين والقانون', 'القوة والسرعة للشجاعة', 'البراعم والكشافة والجوالة', 'الماء والهواء والأرض'], correctOption: 0, points: 10 },
-    { text: 'ما فائدة عقدة المربع في الكشافة؟', options: ['ربط حبلين من نفس السمك', 'ربط حبلين مختلفي السمك', 'جر الأخشاب الثقيلة', 'عمل مشنقة'], correctOption: 0, points: 10 },
-  ];
+  if (!isGenius && !isTwoTruths) {
+    if (existingCount > 0) return;
+  }
 
-  const TWO_TRUTHS_FALLBACK = [
-    { text: 'حدد الكذبة بين الحقائق الكشفية التالية:', options: ['تأسست الكشافة المصرية عام 1914', 'بادن باول كان ضابطاً في الجيش البريطاني', 'الزهرة الثلاثية ترمز إلى القارات الخمس فقط'], correctOption: 2, points: 10 },
-    { text: 'حدد الكذبة بين العبارات الكشفية التالية:', options: ['الوعد الكشفي يُقال مرة واحدة في التجميع الرسمي', 'التحية الكشفية باليد اليسرى تعني السلام القريب من القلب', 'الشفرة الكشفية تُستخدم فقط في الحروب الرسمية'], correctOption: 2, points: 10 },
-    { text: 'حدد الكذبة في العقد والربطات الكشفية:', options: ['ربطة الوتد تُستخدم لبدء الدورة المربعة', 'عقدة التخليف تُستخدم لتقصير الحبل دون قطعه', 'عقدة الأفقية تستخدم لربط الأخشاب الكبيرة عمودياً'], correctOption: 2, points: 10 },
-  ];
+  const pool = isGenius ? getGeniusQuestions() : (isTwoTruths ? getTwoTruthsQuestions() : []);
+  if (pool.length === 0) return;
 
-  const pool = comp.slug === 'genius' || targetId === 'comp-digital-1' ? GENIUS_FALLBACK : (comp.slug === 'two_truths' || targetId === 'comp-digital-2' ? TWO_TRUTHS_FALLBACK : []);
+  if (existingCount >= pool.length) return;
+
+  if (existingCount > 0) {
+    await tx.draftAnswer.deleteMany({ where: { session: { competitionId: targetId } } });
+    await tx.question.deleteMany({ where: { competitionId: targetId } });
+  }
+
   for (let i = 0; i < pool.length; i++) {
     const q = pool[i];
     await tx.question.create({
       data: {
-        id: `${targetId}-q-${i + 1}`,
+        id: `${targetId}-${q.id || `q-${i + 1}`}`,
         competitionId: targetId,
         text: q.text,
-        category: 'كشفي',
+        category: q.category || 'عام',
         options: JSON.stringify(q.options),
         correctOption: q.correctOption,
-        points: q.points,
+        points: Number(q.points || 1),
         questionType: 'multiple_choice',
-        sortOrder: i + 1,
+        sortOrder: q.sortOrder || (i + 1),
       }
     });
   }

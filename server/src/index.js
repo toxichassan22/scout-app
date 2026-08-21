@@ -23,6 +23,7 @@ import prisma, { databaseReady } from './db.js';
 import { ensureTeamStandings } from './teamStanding.js';
 import { finalizeExpiredSessions } from './quizService.js';
 import { ensureActivityCatalog } from './activityService.js';
+import { syncCanonicalDigitalQuestions } from './canonicalDigitalQuestions.js';
 import { syncOfficialCompetitionAgendaLinks, syncOfficialJudgeCompetitionCatalog, syncOfficialReportCatalog } from './reportCatalog.js';
 import { startGithubBackupWorker, stopGithubBackupWorker } from './githubBackup.js';
 import { purgeIdempotencyKeys, startIdempotencyCleanup } from './middleware/idempotent.js';
@@ -204,6 +205,11 @@ export async function startServer(port = PORT) {
   await syncOfficialReportCatalog(prisma);
   await syncOfficialJudgeCompetitionCatalog(prisma);
   await syncOfficialCompetitionAgendaLinks(prisma);
+  try {
+    await syncCanonicalDigitalQuestions(prisma);
+  } catch (err) {
+    logger.warn({ err }, 'failed to sync canonical digital questions on startup');
+  }
   try {
     await ensureTeamStandings();
   } catch (err) {
